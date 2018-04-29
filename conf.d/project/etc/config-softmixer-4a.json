@@ -1,0 +1,81 @@
+{
+    "schema": "To Be Defined",
+    "metadata": {
+        "uid": "Soft Mixer",
+        "version": "1.0",
+        "api": "soft-mixer",
+        "info": "Soft Mixer emulating hardware mixer",
+        "require": ["alsa-core"]
+    },
+    "plugins": [
+        {
+            "uid": "alsa-router",
+            "info": "Map alsa-loop subdevices to 4A HAL streams"
+        }
+    ],
+
+    "sndcards": [
+        {
+            "uid": "Focusrite_Scarlett_18i8",
+            "info": "Focusrite 18i8",
+            "device": "/dev/snd/by-id/usb-Focusrite_Scarlett_18i8_USB_10004EE6-00",
+            "action": {
+                "uid": "init-snd-card",
+                "function": "lua://init-focusrite"
+            },
+            "channels": {
+                "sink": [
+                    {
+                        "type": "FrontLeftFullRange",
+                        "port": 0
+                    },
+                    {
+                        "type": "FrontRightFullRange",
+                        "port": 1
+                    },
+                    {
+                        "type": "RearLeftFullRange",
+                        "port": 2
+                    },
+                    {
+                        "type": "FrontRightFullRange",
+                        "port": 3
+                    },
+                    {
+                        "type": "Center",
+                        "port": 4
+                    },
+                    {
+                        "type": "LFE",
+                        "port": 5
+                    }
+                ],
+                "source": [
+                    {
+                        "uid": "FrontRightMic",
+                        "type": "Directional",
+                        "port": 0
+                    }
+                ]
+            }
+        }
+    ],
+
+    "streams": [{
+            "uid": "alsa-loop",
+            "dev": "/dev/snd/by-path/platform-snd_aloop.0",
+            "subdev": 0,
+            "count": 8
+        }],
+
+    "controls": [
+        {
+            "uid": "stream",
+            "function": "plugin://alsa-router/stream_ctl"
+        },
+        {
+            "uid": "zone",
+            "function": "plugin://alsa-router/zone_ctl"
+        }
+    ]
+}

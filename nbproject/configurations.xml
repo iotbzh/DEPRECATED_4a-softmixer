@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configurationDescriptor version="100">
+  <logicalFolder name="root" displayName="root" projectFiles="true" kind="ROOT">
+    <df root="." name="0">
+      <df name="app-afb-helpers-submodule">
+        <in>filescan-utils.c</in>
+        <in>wrap-json.c</in>
+      </df>
+      <df name="app-controller-submodule">
+        <df name="ctl-lib">
+          <in>ctl-action.c</in>
+          <in>ctl-config.c</in>
+          <in>ctl-control.c</in>
+          <in>ctl-event.c</in>
+          <in>ctl-lua.c</in>
+          <in>ctl-plugin.c</in>
+          <in>ctl-timer.c</in>
+        </df>
+      </df>
+      <df name="mixer-binding">
+        <in>mixer-binding.c</in>
+      </df>
+    </df>
+    <logicalFolder name="ExternalFiles"
+                   displayName="Important Files"
+                   projectFiles="false"
+                   kind="IMPORTANT_FILES_FOLDER">
+      <itemPath>build/Makefile</itemPath>
+      <itemPath>nbproject/private/launcher.properties</itemPath>
+    </logicalFolder>
+  </logicalFolder>
+  <sourceFolderFilter>^(nbproject)$</sourceFolderFilter>
+  <sourceRootList>
+    <Elem>.</Elem>
+  </sourceRootList>
+  <projectmakefile>build/Makefile</projectmakefile>
+  <confs>
+    <conf name="Default" type="0">
+      <toolsSet>
+        <compilerSet>GNU|GNU</compilerSet>
+        <dependencyChecking>false</dependencyChecking>
+        <rebuildPropChanged>false</rebuildPropChanged>
+      </toolsSet>
+      <flagsDictionary>
+        <element flagsID="0" commonFlags="-mtune=generic -march=x86-64 -g -fPIC"/>
+      </flagsDictionary>
+      <codeAssistance>
+      </codeAssistance>
+      <makefileType>
+        <makeTool>
+          <buildCommandWorkingDir>build</buildCommandWorkingDir>
+          <buildCommand>${MAKE} -f Makefile</buildCommand>
+          <cleanCommand>${MAKE} -f Makefile clean</cleanCommand>
+          <executablePath></executablePath>
+        </makeTool>
+        <preBuild>
+          <preBuildCommandWorkingDir>build</preBuildCommandWorkingDir>
+          <preBuildCommand>cmake ..</preBuildCommand>
+          <preBuildFirst>true</preBuildFirst>
+        </preBuild>
+      </makefileType>
+      <item path="app-afb-helpers-submodule/filescan-utils.c"
+            ex="false"
+            tool="0"
+            flavor2="3">
+        <cTool flags="0">
+          <incDir>
+            <pElem>../../../opt/include/afb</pElem>
+            <pElem>app-afb-helpers-submodule</pElem>
+            <pElem>../../../opt/include</pElem>
+            <pElem>build/app-afb-helpers-submodule</pElem>
+          </incDir>
+        </cTool>
+      </item>
+      <item path="app-afb-helpers-submodule/wrap-json.c"
+            ex="false"
+            tool="0"
+            flavor2="3">
+        <cTool flags="0">
+          <incDir>
+            <pElem>app-afb-helpers-submodule</pElem>
+            <pElem>build/app-afb-helpers-submodule</pElem>
+          </incDir>
+        </cTool>
+      </item>
+      <item path="app-controller-submodule/ctl-lib/ctl-action.c"
+            ex="false"
+            tool="0"
+            flavor2="3">
+        <cTool flags="0">
+        </cTool>
+      </item>
+      <item path="app-controller-submodule/ctl-lib/ctl-config.c"
+            ex="false"
+            tool="0"
+            flavor2="3">
+        <cTool flags="0">
+        </cTool>
+      </item>
+      <item path="app-controller-submodule/ctl-lib/ctl-control.c"
+            ex="false"
+            tool="0"
+            flavor2="3">
+        <cTool flags="0">
+        </cTool>
+      </item>
+      <item path="app-controller-submodule/ctl-lib/ctl-event.c"
+            ex="false"
+            tool="0"
+            flavor2="3">
+        <cTool flags="0">
+        </cTool>
+      </item>
+      <item path="app-controller-submodule/ctl-lib/ctl-lua.c"
+            ex="false"
+            tool="0"
+            flavor2="3">
+        <cTool flags="0">
+        </cTool>
+      </item>
+      <item path="app-controller-submodule/ctl-lib/ctl-plugin.c"
+            ex="false"
+            tool="0"
+            flavor2="3">
+        <cTool flags="0">
+        </cTool>
+      </item>
+      <item path="app-controller-submodule/ctl-lib/ctl-timer.c"
+            ex="false"
+            tool="0"
+            flavor2="3">
+        <cTool flags="0">
+        </cTool>
+      </item>
+      <folder path="0/app-controller-submodule">
+        <cTool>
+          <incDir>
+            <pElem>../../../opt/include/afb</pElem>
+            <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>app-afb-helpers-submodule</pElem>
+            <pElem>../../../opt/include</pElem>
+            <pElem>build/app-controller-submodule/ctl-lib</pElem>
+          </incDir>
+        </cTool>
+      </folder>
+      <folder path="0/mixer-binding">
+        <cTool>
+          <incDir>
+            <pElem>../../../opt/include/afb</pElem>
+            <pElem>mixer-binding</pElem>
+            <pElem>app-afb-helpers-submodule</pElem>
+            <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>../../../opt/include</pElem>
+            <pElem>build/mixer-binding</pElem>
+          </incDir>
+        </cTool>
+      </folder>
+      <item path="mixer-binding/mixer-binding.c" ex="false" tool="0" flavor2="3">
+        <cTool flags="0">
+        </cTool>
+      </item>
+    </conf>
+  </confs>
+</configurationDescriptor>

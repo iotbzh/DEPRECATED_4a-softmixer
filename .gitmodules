@@ -1,0 +1,9 @@
+[submodule "conf.d/app-templates"]
+	path = conf.d/app-templates
+	url = https://gerrit.automotivelinux.org/gerrit/p/apps/app-templates.git
+[submodule "app-afb-helpers-submodule"]
+	path = app-afb-helpers-submodule
+	url = https://gerrit.automotivelinux.org/gerrit/apps/app-afb-helpers-submodule
+[submodule "app-controller-submodule"]
+	path = app-controller-submodule
+	url = https://gerrit.automotivelinux.org/gerrit/apps/app-controller-submodule
