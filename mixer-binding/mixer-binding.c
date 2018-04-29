@@ -74,6 +74,8 @@ STATIC int CtrlInitOneApi (AFB_ApiT apiHandle) {
 }
 
 // next generation dynamic API-V3 mode
+#include <signal.h>
+
 
 STATIC int CtrlLoadOneApi (void *cbdata, AFB_ApiT apiHandle) {
     CtlConfigT *ctrlConfig = (CtlConfigT*) cbdata;
@@ -81,8 +83,6 @@ STATIC int CtrlLoadOneApi (void *cbdata, AFB_ApiT apiHandle) {
     // save closure as api's data context
     afb_dynapi_set_userdata(apiHandle, ctrlConfig);
     
-    AFB_ApiNotice (apiHandle, "debug1");
-
     // add static controls verbs
     int err = CtrlLoadStaticVerbs (apiHandle, CtrlApiVerbs);
     if (err) {
@@ -90,13 +90,9 @@ STATIC int CtrlLoadOneApi (void *cbdata, AFB_ApiT apiHandle) {
         goto OnErrorExit;
     }
 
-        AFB_ApiNotice (apiHandle, "debug2");
-
     // load section for corresponding API
     err= CtlLoadSections(apiHandle, ctrlConfig, ctrlSections);
 
-        AFB_ApiNotice (apiHandle, "debug3");
-        
     // declare an event event manager for this API;
     afb_dynapi_on_event(apiHandle, CtrlDispatchApiEvent);
 
@@ -119,9 +115,9 @@ PUBLIC int afbBindingVdyn(afb_dynapi *apiHandle) {
     const char *dirList= getenv("CONTROL_CONFIG_PATH");
     if (!dirList) dirList=CONTROL_CONFIG_PATH;
 
-    const char *configPath = CtlConfigSearch(apiHandle, dirList, "config-");
+    const char *configPath = CtlConfigSearch(apiHandle, dirList, "4a-");
     if (!configPath) {
-        AFB_ApiError(apiHandle, "CtlPreInit: No config-%s-* config found in %s ", GetBinderName(), dirList);
+        AFB_ApiError(apiHandle, "CtlPreInit: No 4a-%s-* config found in %s ", GetBinderName(), dirList);
         goto OnErrorExit;
     }
 

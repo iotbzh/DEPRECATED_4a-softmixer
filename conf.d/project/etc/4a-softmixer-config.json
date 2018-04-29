@@ -10,6 +10,7 @@
     "plugins": [
         {
             "uid": "alsa-router",
+            "ldpath": "package/lib/plugins",
             "info": "Map alsa-loop subdevices to 4A HAL streams"
         }
     ],
