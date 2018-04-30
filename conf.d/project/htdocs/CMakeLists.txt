@@ -17,6 +17,18 @@
 ###########################################################################
 
 
-# Include any directory not starting with _
-# -----------------------------------------------------
-PROJECT_SUBDIRS_ADD(${PROJECT_SRC_DIR_PATTERN})
+
+##################################################
+# HTML Testing Files
+##################################################
+PROJECT_TARGET_ADD(softmixer-html5)
+
+    file(GLOB SOURCE_FILES "*.html" "*.js" "*.jpg" "*.css")
+
+	add_input_files("${SOURCE_FILES}")
+
+    SET_TARGET_PROPERTIES(${TARGET_NAME} PROPERTIES
+	LABELS "HTDOCS"
+	OUTPUT_NAME ${TARGET_NAME}
+    )
+

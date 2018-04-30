@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 "IoT.bzh"
- * Author Romain Forlot <romain.forlot@iot.bzh>
+ * Copyright (C) 2017 "IoT.bzh"
+ * Author Fulup Ar Foll <fulup@iot.bzh>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,29 +18,28 @@
 
 #define _GNU_SOURCE  // needed for vasprintf
 
-#include <afb/afb-binding.h>
-#include <systemd/sd-event.h>
-#include <json-c/json_object.h>
-#include <stdbool.h>
-#include <string.h>
+#include "alsa-softmixer.h"
 
-#include "ctl-plugin.h"
-#include "wrap-json.h"
 
-CTLP_CAPI_REGISTER("alsa-mixer");
+// Force Lua2cWrapper inclusion within already existing plugin
+Lua2cWrapperT Lua2cWrap;
 
-// Call at initialisation time
-/*CTLP_ONLOAD(plugin, callbacks) {
-	AFB_NOTICE ("GPS plugin: uid='%s' 'info='%s'", plugin->uid, plugin->info);
-	return api;
-}*/
-
-CTLP_CAPI (zone_action, source, argsJ, eventJ) {
-	json_object* subscribeArgsJ = NULL, *responseJ = NULL;
+CTLP_LUA2C (AlsaDmix, source, argsJ, responseJ) {
+	json_object* subscribeArgsJ = NULL;
 
 	int err = 0;
 	wrap_json_pack(&subscribeArgsJ, "{ss}", "value", "location");
-	AFB_ApiDebug(source->api, "Calling zone_action with %s", json_object_to_json_string_ext(subscribeArgsJ, JSON_C_TO_STRING_PRETTY));
+	AFB_ApiNotice(source->api, "--lua2c-- AlsaDmix");
+
+	return err;
+}
+
+CTLP_LUA2C (AlsaRouter, source, argsJ, responseJ) {
+	json_object* subscribeArgsJ = NULL;
+
+	int err = 0;
+	wrap_json_pack(&subscribeArgsJ, "{ss}", "value", "location");
+	AFB_ApiNotice(source->api, "lua2c router with %s", json_object_to_json_string_ext(subscribeArgsJ, JSON_C_TO_STRING_PRETTY));
 
 	return err;
 }

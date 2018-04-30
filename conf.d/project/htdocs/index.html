@@ -1,0 +1,43 @@
+<html>
+<head>
+    <title>Simple COntroller Test</title>
+    <link rel="stylesheet" href="AudioBinding.css">
+    <script type="text/javascript" src="AFB-websock.js"></script>
+    <script type="text/javascript" src="AudioBinding.js"></script>
+</head>
+
+<body onload="init('hal_registry','alsacore', 'hallist')">
+
+    <h1>Simple Control Test</h1>
+    <button id="connected" onclick="init()">Binder WS Fail</button> 
+    <button id="mnitoring" onclick="window.open('/monitoring/monitor.html','_monitor_ctl')">Debug/Monitoring</a></button>
+    <br><br>
+
+    <h2>V2 API CALL</h2>
+    <ol>
+	    <li><button onclick="callbinder('pol4a','request', {'uid':'navigation-role'});">Navigation Open</button></li>
+	    <li><button onclick="callbinder('pol4a','request', {'uid':'emergency-role'});">Emergency Open</button></li>
+    <br>
+    <li><button onclick="callbinder('pol4a', 'request', {'uid':'release-current'});">Release Current Role</button></li>
+    </ol>
+
+    <h2>V3 API CALL</h2>
+    <ol>
+    <li><button onclick="callbinder('pol4a','navigation-role');">Navigation Open</button></li>
+    <li><button onclick="callbinder('pol4a','emergency-role');">Emergency Open</button></li>
+    <br>
+    <li><button onclick="callbinder('pol4a','release-current');">Release Current Role</button></li>
+    </ol>
+
+    <h2>Signal/Timeout</h2>
+    <ol>
+    <li><button onclick="callbinder('pol4a','signal-timeout', {'timeout':3, 'data':'state', 'event':'quit'});">Get Signal in 3s</button></li>
+    </ol>
+
+    <div id="main" style="visibility:hidden">
+    <ol>
+    <li>Question <pre id="question"></pre>
+    <li>Response <pre id="output"></pre>
+    <li>Events: <pre id="outevt"></pre>
+    </ol>
+    </div>

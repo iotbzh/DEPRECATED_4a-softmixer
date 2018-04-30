@@ -19,7 +19,7 @@
 ##################################################
 # Control Policy Config file
 ##################################################
-PROJECT_TARGET_ADD(soft-mixer-config)
+PROJECT_TARGET_ADD(softmixer-config)
 
 	file(GLOB CONF_FILES "*.json")
 

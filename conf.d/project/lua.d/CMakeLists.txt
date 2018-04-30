@@ -1,5 +1,5 @@
 ###########################################################################
-# Copyright 2015, 2016, 2017 IoT.bzh
+# Copyright 2017 IoT.bzh
 #
 # author: Fulup Ar Foll <fulup@iot.bzh>
 #
@@ -17,6 +17,16 @@
 ###########################################################################
 
 
-# Include any directory not starting with _
-# -----------------------------------------------------
-PROJECT_SUBDIRS_ADD(${PROJECT_SRC_DIR_PATTERN})
+##################################################
+# Soft Mixer Lua Scripts
+##################################################
+PROJECT_TARGET_ADD(softmixer-lua)
+
+    file(GLOB LUA_FILES "*.lua")
+
+	add_input_files("${LUA_FILES}")
+
+    SET_TARGET_PROPERTIES(${TARGET_NAME} PROPERTIES
+	LABELS "DATA"
+	OUTPUT_NAME ${TARGET_NAME}
+    )

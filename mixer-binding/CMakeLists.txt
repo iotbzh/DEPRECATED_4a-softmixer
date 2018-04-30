@@ -18,7 +18,7 @@
 
 
 # Add target to project dependency list
-PROJECT_TARGET_ADD(mixer-binding)
+PROJECT_TARGET_ADD(softmixer-binding)
 
     # Define project Targets
     ADD_LIBRARY(${TARGET_NAME} MODULE mixer-binding.c)
@@ -47,4 +47,4 @@ PROJECT_TARGET_ADD(mixer-binding)
     )
 
     # make sure config is copied before starting
-    add_dependencies(${TARGET_NAME} soft-mixer-config)
+    add_dependencies(${TARGET_NAME} softmixer-config softmixer-lua softmixer-html5)

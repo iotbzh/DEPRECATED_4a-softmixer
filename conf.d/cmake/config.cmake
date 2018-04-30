@@ -18,7 +18,7 @@
 
 # Project Info
 # ------------------
-set(PROJECT_NAME 4a-softmixer-afbd)
+set(PROJECT_NAME 4a-softmixer)
 set(PROJECT_PRETTY_NAME "Audio SoftMixer")
 set(PROJECT_DESCRIPTION "Soft Mixer for 4A (AGL Advanced Audio Architecture)")
 set(PROJECT_URL "https://github.com/iotbzh/4a-softmixer")
@@ -73,6 +73,7 @@ set (PKG_REQUIRED_LIST
 	afb-daemon>=4.0
 	libmicrohttpd>=0.9.55
 	uuid
+        alsa>=1.1.2
 )
 
 # Prefix path where will be installed the files
@@ -130,7 +131,7 @@ list(APPEND link_libraries afb-helpers)
 set(CONTROL_SUPPORT_LUA 1)
 add_definitions(-DCONTROL_PLUGIN_PATH="${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/lib/plugins:${CMAKE_BINARY_DIR}/package/lib/plugins")
 add_definitions(-DCONTROL_CONFIG_PATH="${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/etc:${CMAKE_BINARY_DIR}/package/etc")
-add_definitions(-DCONTROL_LUA_PATH="${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/data:${CMAKE_BINARY_DIR}/package/data")
+add_definitions(-DCONTROL_LUA_PATH="${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/data:${CMAKE_SOURCE_DIR}/conf.d/project/lua.d")
 add_definitions(-DCTL_PLUGIN_MAGIC=987456123)
 add_definitions(-DUSE_API_DYN=1 -DAFB_BINDING_VERSION=dyn)
 
@@ -197,7 +198,7 @@ set(AFB_REMPORT "1234" CACHE PATH "Default binder listening port")
 
 # Print a helper message when every thing is finished
 # ----------------------------------------------------
-set(CLOSING_MESSAGE "Typical binding launch: afb-daemon --name afbd-${PROJECT_NAME} --port=${AFB_REMPORT} --workdir=${CMAKE_BINARY_DIR}/. --ldpath=package/lib --roothttp=package  --token=\"${AFB_TOKEN}\" --tracereq=common --verbose")
+set(CLOSING_MESSAGE "Typical binding launch: afb-daemon --name ${PROJECT_NAME}-afbd --port=${AFB_REMPORT} --workdir=${CMAKE_BINARY_DIR} --binding=package/lib/softmixer-binding.so --ldpath=${CMAKE_INSTALL_PREFIX}/4a-alsa-core/lib --roothttp=package/htdocs --token=\"${AFB_TOKEN}\" --tracereq=common --verbose")
 set(PACKAGE_MESSAGE "Install widget file using in the target : afm-util install ${PROJECT_NAME}.wgt")
 
 # Optional schema validator about now only XML, LUA and JSON
