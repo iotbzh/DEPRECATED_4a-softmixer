@@ -131,7 +131,7 @@ list(APPEND link_libraries afb-helpers)
 set(CONTROL_SUPPORT_LUA 1)
 add_definitions(-DCONTROL_PLUGIN_PATH="${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/lib/plugins:${CMAKE_BINARY_DIR}/package/lib/plugins")
 add_definitions(-DCONTROL_CONFIG_PATH="${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/etc:${CMAKE_BINARY_DIR}/package/etc")
-add_definitions(-DCONTROL_LUA_PATH="${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/data:${CMAKE_SOURCE_DIR}/conf.d/project/lua.d")
+add_definitions(-DCONTROL_LUA_PATH="${CMAKE_SOURCE_DIR}/conf.d/project/lua.d:${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/data")
 add_definitions(-DCTL_PLUGIN_MAGIC=987456123)
 add_definitions(-DUSE_API_DYN=1 -DAFB_BINDING_VERSION=dyn)
 

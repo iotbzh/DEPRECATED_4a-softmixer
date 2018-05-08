@@ -4,13 +4,12 @@
         "uid": "Soft Mixer",
         "version": "1.0",
         "api": "softmixer",
-        "info": "Soft Mixer emulating hardware mixer",
-        "require": ["alsacore"]
+        "info": "Soft Mixer emulating hardware mixer"
     },
     "plugins": [
         {
             "uid": "alsa-router",
-            "ldpath": "package/lib/plugins",
+            "ldpath": "./plugins/alsa",
             "lua2c": ["AlsaDmix", "AlsaRouter"],
             "info": "Map alsa-loop subdevices to 4A HAL streams"
         }
@@ -79,6 +78,10 @@
         }],
 
     "controls": [
+        {
+            "uid": "mixer-config",
+            "lua": "_mixer_config_"
+        },
         {
             "uid": "stream",
             "callback": {

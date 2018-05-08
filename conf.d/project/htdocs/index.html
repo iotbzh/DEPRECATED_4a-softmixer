@@ -13,25 +13,9 @@
     <button id="mnitoring" onclick="window.open('/monitoring/monitor.html','_monitor_ctl')">Debug/Monitoring</a></button>
     <br><br>
 
-    <h2>V2 API CALL</h2>
-    <ol>
-	    <li><button onclick="callbinder('pol4a','request', {'uid':'navigation-role'});">Navigation Open</button></li>
-	    <li><button onclick="callbinder('pol4a','request', {'uid':'emergency-role'});">Emergency Open</button></li>
-    <br>
-    <li><button onclick="callbinder('pol4a', 'request', {'uid':'release-current'});">Release Current Role</button></li>
-    </ol>
-
     <h2>V3 API CALL</h2>
     <ol>
-    <li><button onclick="callbinder('pol4a','navigation-role');">Navigation Open</button></li>
-    <li><button onclick="callbinder('pol4a','emergency-role');">Emergency Open</button></li>
-    <br>
-    <li><button onclick="callbinder('pol4a','release-current');">Release Current Role</button></li>
-    </ol>
-
-    <h2>Signal/Timeout</h2>
-    <ol>
-    <li><button onclick="callbinder('pol4a','signal-timeout', {'timeout':3, 'data':'state', 'event':'quit'});">Get Signal in 3s</button></li>
+    <li><button onclick="callbinder('softmixer','mixer-config');">Mixer Config</button></li>
     </ol>
 
     <div id="main" style="visibility:hidden">

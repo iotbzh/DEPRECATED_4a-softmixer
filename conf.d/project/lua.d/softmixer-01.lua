@@ -28,19 +28,42 @@ function _AlsaPingCB_ (source, result, context)
 
 end
 
+
+-- Display receive arguments and echo them to caller
+function _mixer_config_ (source, args)
+
+    local devin = {
+        ["path"]= "/dev/snd/by-path/platform-snd_aloop.0",
+        ["dev"]= 1,
+        ["sub"]= 0,
+        ["numid"]= 51,
+    }
+
+    local devout = {
+        ["path"]= "/dev/snd/by-id/usb-YAMAHA_Corporation_YAMAHA_AP-U70_USB_Audio_00-00",
+        ["dev"]= 0,
+        ["sub"]= 0,
+    }
+
+    local params = {
+        ["rate"]= 44100,
+        ["channels"]= 2,
+    }
+
+    -- Call AlsaSoftRouter
+    L2C:alsarouter(source, {["devin"]= devin, ["devout"]= devout, ["params"]= params})
+
+    AFB:notice (source, "--InLua-- _mixer_config_ done")
+
+    return 0 -- happy end
+end
+
 -- Display receive arguments and echo them to caller
 function _init_softmixer_ (source, args)
 
     -- create event to push change audio roles to potential listeners
     _EventHandle=AFB:evtmake(source, "control")
 
-    -- get list of supported HAL devices
-    AFB:service(source, "alsacore","ping", {}, "_AlsaPingCB_", {})
+    _mixer_config_ (source, args)
 
-    -- test Lua2C plugin
-    L2C:alsadmix(source, {})
-
-    AFB:notice (source, "--InLua-- _init_softmixer_ done")
-
-    return 0 -- happy end
 end

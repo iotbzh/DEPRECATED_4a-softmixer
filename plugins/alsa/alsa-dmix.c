@@ -23,12 +23,13 @@
 static int uniqueIpcIndex = 1024;
 
 
-PUBLIC int AlsaCreateDmix(CtlSourceT *source) {
+PUBLIC snd_pcm_t* AlsaCreateDmix(CtlSourceT *source, const char *dmixName, const char *slaveName) {
 
     AFB_ApiNotice(source->api, "AlsaCreateDmix: start ");
     
-    int cardid= AlsaCardInfoByPath ("/dev/snd/by-id/usb-Focusrite_Scarlett_18i8_USB_10004EE6-00");
-    AFB_ApiNotice(source->api, "AlsaCreateDmix: cardid=%d ", cardid);
+    int cardIndex= snd_ctl_card_info_get_card(AlsaByPathInfo (source, "/dev/snd/by-id/usb-Focusrite_Scarlett_18i8_USB_10004EE6-00"));
+
+    AFB_ApiNotice(source->api, "AlsaCreateDmix: card index=%d ", cardIndex);
 
     snd_pcm_t *dmixPcm;
     snd_config_t *dmixConfig, *slaveConfig, *elemConfig;
@@ -42,7 +43,7 @@ PUBLIC int AlsaCreateDmix(CtlSourceT *source) {
     if (error) goto OnErrorExit;
 
     error += snd_config_make_compound(&slaveConfig, "slave", 0);
-    error += snd_config_imake_string(&elemConfig, "pcm", "hw:6");
+    error += snd_config_imake_string(&elemConfig, "pcm", slaveName);
     error += snd_config_add(slaveConfig, elemConfig);
     if (error) goto OnErrorExit;
 
@@ -51,17 +52,23 @@ PUBLIC int AlsaCreateDmix(CtlSourceT *source) {
     if (error) goto OnErrorExit;
     
     snd_config_update();
-    AlsaDumpConfig (source, snd_config, 1);
-    AlsaDumpConfig (source, dmixConfig, 1);
+    //AlsaDumpConfig (source, snd_config, 1);
+    AlsaDumpCtlConfig (source, dmixConfig, 1);
+    
+    
+    error = _snd_pcm_dmix_open(&dmixPcm, dmixName, snd_config, dmixConfig, streamPcm , streamMode); 
+    if (error) {
+        AFB_ApiError(source->api, "AlsaCreateDmix: fail to create DMIX=%s SLAVE=%s", dmixName, slaveName);
+        goto OnErrorExit;
+    }
 
-
-   int status = _snd_pcm_dmix_open(&dmixPcm, "MyDMix", snd_config, dmixConfig, streamPcm , streamMode); 
+    AlsaDumpPcmInfo(source, dmixPcm, "DmixPCM");
 
     AFB_ApiNotice(source->api, "AlsaCreateDmix: done");
 
-    return status;
+    return dmixPcm;
 
 OnErrorExit:
     AFB_ApiNotice(source->api, "AlsaCreateDmix: OnErrorExit");
-    return 1;
+    return NULL;
 }
