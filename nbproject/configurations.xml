@@ -24,9 +24,9 @@
       <df name="plugins">
         <df name="alsa">
           <in>alsa-capture.c</in>
-          <in>alsa-ctl.c</in>
-          <in>alsa-dmix.c</in>
-          <in>alsa-pcm.c</in>
+          <in>alsa-core-ctl.c</in>
+          <in>alsa-core-pcm.c</in>
+          <in>alsa-plug-vol.c</in>
           <in>alsa-softmixer.c</in>
           <in>alsa-utils-bypath.c</in>
           <in>alsa-utils-dump.c</in>
@@ -169,6 +169,7 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>mixer-binding</pElem>
+            <pElem>../../../opt/include/alsa</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>app-controller-submodule/ctl-lib</pElem>
             <pElem>../../../opt/include</pElem>
@@ -209,15 +210,15 @@
         <cTool flags="0">
         </cTool>
       </item>
-      <item path="plugins/alsa/alsa-ctl.c" ex="false" tool="0" flavor2="2">
+      <item path="plugins/alsa/alsa-core-ctl.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
         </cTool>
       </item>
-      <item path="plugins/alsa/alsa-dmix.c" ex="false" tool="0" flavor2="2">
+      <item path="plugins/alsa/alsa-core-pcm.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
         </cTool>
       </item>
-      <item path="plugins/alsa/alsa-pcm.c" ex="false" tool="0" flavor2="2">
+      <item path="plugins/alsa/alsa-plug-vol.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
         </cTool>
       </item>

@@ -41,12 +41,14 @@ function _mixer_config_ (source, args)
 
     local devout = {
         ["path"]= "/dev/snd/by-id/usb-YAMAHA_Corporation_YAMAHA_AP-U70_USB_Audio_00-00",
+        -- ["path"]= "/dev/snd/by-id/usb-0b0e_Jabra_SOLEMATE_v1.34.0-00",
         ["dev"]= 0,
         ["sub"]= 0,
     }
 
     local params = {
-        ["rate"]= 44100,
+        ["rate"]= 48000,
+        --["rate"]= 44100,
         ["channels"]= 2,
     }
 

@@ -67,7 +67,7 @@ PUBLIC void AlsaDumpFormats(CtlSourceT *source, snd_pcm_t *pcmHandle) {
     snd_pcm_hw_params_alloca(&pxmHwParams);
     snd_pcm_hw_params_any(pcmHandle, pxmHwParams);
 
-    AFB_ApiNotice(source->api, "Available formats: PCM=%s", AlsaPcmUID(pcmHandle, string));
+    AFB_ApiNotice(source->api, "Available formats: PCM=%s", ALSA_PCM_UID(pcmHandle, string));
     for (format = 0; format <= SND_PCM_FORMAT_LAST; format++) {
         if (snd_pcm_hw_params_test_format(pcmHandle, pxmHwParams, format) == 0) {
             AFB_ApiNotice(source->api, "- %s", snd_pcm_format_name(format));

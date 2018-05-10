@@ -39,36 +39,67 @@ typedef struct {
 } SubscribeHandleT;
 
 typedef struct {
-    snd_pcm_t *pcm[MAX_AUDIO_STREAMS+1];
-    int numid[MAX_AUDIO_STREAMS+1];
+    AlsaPcmInfoT *pcm;
+    int numid;
+} SubStreamT;
+
+typedef struct {
+    SubStreamT stream[MAX_AUDIO_STREAMS + 1];
     int count;
 } AudioStreamHandleT;
 
 static AudioStreamHandleT AudioStreamHandle;
 
-// Clone of AlsaLib snd_card_load2 static function
-
-snd_ctl_card_info_t *AlsaCtlGetInfo(CtlSourceT *source, const char *devid) {
+STATIC snd_ctl_elem_id_t *AlsaCtlGetElemId(CtlSourceT *source, snd_ctl_t* ctlDev, int numid) {
+    char string[32];
     int error;
-    snd_ctl_t *ctlDev;
+    int index;
+    snd_ctl_elem_list_t *ctlList = NULL;
+    snd_ctl_elem_id_t *elemId;
 
-    if (devid) goto OnErrorExit;
+    snd_ctl_elem_list_alloca(&ctlList);
 
-    if ((error = snd_ctl_open(&ctlDev, devid, SND_CTL_READONLY)) < 0) {
-        devid = "Not Defined";
+    if ((error = snd_ctl_elem_list(ctlDev, ctlList)) < 0) {
+        AFB_ApiError(source->api, "AlsaCtlElemIdGetInt [%s] fail retrieve controls", ALSA_CTL_UID(ctlDev, string));
         goto OnErrorExit;
     }
 
-    snd_ctl_card_info_t *cardInfo = malloc(snd_ctl_card_info_sizeof());
-    if ((error = snd_ctl_card_info(ctlDev, cardInfo)) < 0) {
+    if ((error = snd_ctl_elem_list_alloc_space(ctlList, snd_ctl_elem_list_get_count(ctlList))) < 0) {
+        AFB_ApiError(source->api, "AlsaCtlElemIdGetInt [%s] fail retrieve count", ALSA_CTL_UID(ctlDev, string));
         goto OnErrorExit;
     }
-    return cardInfo;
+
+    // Fulup: do not understand why snd_ctl_elem_list should be call twice to get a valid ctlCount
+    if ((error = snd_ctl_elem_list(ctlDev, ctlList)) < 0) {
+        AFB_ApiError(source->api, "AlsaCtlElemIdGetInt [%s] fail retrieve controls", ALSA_CTL_UID(ctlDev, string));
+        goto OnErrorExit;
+    }
+
+    // loop on control to find the right one
+    int ctlCount = snd_ctl_elem_list_get_used(ctlList);
+    for (index = 0; index < ctlCount; index++) {
+
+        if (numid == snd_ctl_elem_list_get_numid(ctlList, index)) {
+            snd_ctl_elem_id_malloc(&elemId);
+            snd_ctl_elem_list_get_id(ctlList, index, elemId);
+            break;
+        }
+    }
+
+    if (index == ctlCount) {
+        AFB_ApiError(source->api, "AlsaCtlRegister [%s] fail get numid=%i count", ALSA_CTL_UID(ctlDev, string), numid);
+        goto OnErrorExit;
+    }
+
+    // clear ctl list and return elemid
+    snd_ctl_elem_list_clear(ctlList);
+    return elemId;
 
 OnErrorExit:
-    AFB_ApiError(source->api, "AlsaCtlGetInfo: fail to find sndcard by id= %s", devid);
+    if (ctlList) snd_ctl_elem_list_clear(ctlList);
     return NULL;
 }
+
 
 PUBLIC snd_ctl_t *AlsaCtlOpenCtl(CtlSourceT *source, const char *devid) {
     int error;
@@ -88,7 +119,23 @@ OnErrorExit:
     return NULL;
 }
 
-STATIC int CtlElemIdGetInt (AFB_ApiT api, snd_ctl_t *ctlDev, snd_ctl_elem_id_t *elemId, long *value) {
+STATIC int CtlElemIdGetNumid(AFB_ApiT api, snd_ctl_t *ctlDev, snd_ctl_elem_id_t *elemId, int *numid) {
+    snd_ctl_elem_info_t *elemInfo;
+
+    snd_ctl_elem_info_alloca(&elemInfo);
+    snd_ctl_elem_info_set_id(elemInfo, elemId);
+    if (snd_ctl_elem_info(ctlDev, elemInfo) < 0) goto OnErrorExit;
+    if (!snd_ctl_elem_info_is_readable(elemInfo)) goto OnErrorExit;
+
+    *numid = snd_ctl_elem_info_get_numid(elemInfo);
+
+    return 0;
+
+OnErrorExit:
+    return -1;
+}
+
+STATIC int CtlElemIdGetInt(AFB_ApiT api, snd_ctl_t *ctlDev, snd_ctl_elem_id_t *elemId, long *value) {
     int error;
     snd_ctl_elem_value_t *elemData;
     snd_ctl_elem_info_t *elemInfo;
@@ -115,7 +162,7 @@ OnSuccessExit:
     return 0;
 
 OnErrorExit:
-    
+
     AFB_ApiWarning(api, "CtlSubscribeEventCB: ignored unsupported event Numid=%i", snd_ctl_elem_info_get_numid(elemInfo));
     for (int idx = 0; idx < count; idx++) {
         long valueL;
@@ -123,23 +170,23 @@ OnErrorExit:
         switch (elemType) {
             case SND_CTL_ELEM_TYPE_BOOLEAN:
                 valueL = snd_ctl_elem_value_get_boolean(elemData, idx);
-                AFB_ApiNotice(api, "CtlElemIdGetBool: value=%ld",  valueL);
+                AFB_ApiNotice(api, "CtlElemIdGetBool: value=%ld", valueL);
                 break;
             case SND_CTL_ELEM_TYPE_INTEGER:
                 valueL = snd_ctl_elem_value_get_integer(elemData, idx);
-                AFB_ApiNotice(api, "CtlElemIdGetInt: value=%ld",  valueL);
+                AFB_ApiNotice(api, "CtlElemIdGetInt: value=%ld", valueL);
                 break;
             case SND_CTL_ELEM_TYPE_INTEGER64:
                 valueL = snd_ctl_elem_value_get_integer64(elemData, idx);
-                AFB_ApiNotice(api, "CtlElemIdGetInt64: value=%ld",  valueL);
+                AFB_ApiNotice(api, "CtlElemIdGetInt64: value=%ld", valueL);
                 break;
             case SND_CTL_ELEM_TYPE_ENUMERATED:
                 valueL = snd_ctl_elem_value_get_enumerated(elemData, idx);
-                AFB_ApiNotice(api, "CtlElemIdGetEnum: value=%ld",  valueL);
+                AFB_ApiNotice(api, "CtlElemIdGetEnum: value=%ld", valueL);
                 break;
             case SND_CTL_ELEM_TYPE_BYTES:
                 valueL = snd_ctl_elem_value_get_byte(elemData, idx);
-                AFB_ApiNotice(api, "CtlElemIdGetByte: value=%ld",  valueL);
+                AFB_ApiNotice(api, "CtlElemIdGetByte: value=%ld", valueL);
                 break;
             case SND_CTL_ELEM_TYPE_IEC958:
             default:
@@ -150,12 +197,53 @@ OnErrorExit:
     return -1;
 }
 
-STATIC int CtlSubscribeEventCB(sd_event_source* src, int fd, uint32_t revents, void* userData) {
+// Clone of AlsaLib snd_card_load2 static function
+PUBLIC snd_ctl_card_info_t *AlsaCtlGetInfo(CtlSourceT *source, const char *devid) {
     int error;
+    snd_ctl_t *ctlDev;
+
+    if (devid) goto OnErrorExit;
+
+    if ((error = snd_ctl_open(&ctlDev, devid, SND_CTL_READONLY)) < 0) {
+        devid = "Not Defined";
+        goto OnErrorExit;
+    }
+
+    snd_ctl_card_info_t *cardInfo = malloc(snd_ctl_card_info_sizeof());
+    if ((error = snd_ctl_card_info(ctlDev, cardInfo)) < 0) {
+        goto OnErrorExit;
+    }
+    return cardInfo;
+
+OnErrorExit:
+    AFB_ApiError(source->api, "AlsaCtlGetInfo: fail to find sndcard by id= %s", devid);
+    return NULL;
+}
+
+PUBLIC int AlsaCtlGetNumidValueI(CtlSourceT *source, snd_ctl_t* ctlDev, int numid, long* value) {
+     
+    snd_ctl_elem_id_t *elemId = AlsaCtlGetElemId(source, ctlDev, numid);
+    if (!elemId) {
+        AFB_ApiError(source->api, "AlsaCtlGetNumValueI [sndcard=%s] fail to find numid=%d", snd_ctl_name(ctlDev), numid);
+        goto OnErrorExit;
+    }
+
+    int error = CtlElemIdGetInt(source->api, ctlDev, elemId, value);
+    if (error) {
+        AFB_ApiError(source->api, "AlsaCtlGetNumValueI [sndcard=%s] fail to get numid=%d value", snd_ctl_name(ctlDev), numid);
+        goto OnErrorExit;
+    }
+
+    return 0;
+OnErrorExit:
+    return -1;
+}
+
+STATIC int CtlSubscribeEventCB(sd_event_source* src, int fd, uint32_t revents, void* userData) {
+    int error, numid;
     SubscribeHandleT *subscribeHandle = (SubscribeHandleT*) userData;
     snd_ctl_event_t *eventId;
     snd_ctl_elem_id_t *elemId;
-    snd_ctl_elem_info_t *elemInfo;
     long value;
 
     if ((revents & EPOLLHUP) != 0) {
@@ -181,21 +269,17 @@ STATIC int CtlSubscribeEventCB(sd_event_source* src, int fd, uint32_t revents, v
 
     // extract element from event and get value    
     snd_ctl_event_elem_get_id(eventId, elemId);
-    error= CtlElemIdGetInt (subscribeHandle->api, subscribeHandle->ctlDev, elemId, &value);
+    error = CtlElemIdGetInt(subscribeHandle->api, subscribeHandle->ctlDev, elemId, &value);
     if (error) goto OnErrorExit;
-    
-    // Fulup we have to reload info as elemId from event does not hold numid
-    snd_ctl_elem_info_alloca(&elemInfo);
-    snd_ctl_elem_info_set_id(elemInfo, elemId);
-    if (snd_ctl_elem_info(subscribeHandle->ctlDev, elemInfo) < 0) goto OnErrorExit;
-    int numid= snd_ctl_elem_info_get_numid(elemInfo);
 
-    
-    for (int idx=0; idx < AudioStreamHandle.count; idx++) {
-        if (AudioStreamHandle.numid[idx] == numid) {
-            const char *pcmName = snd_pcm_name(AudioStreamHandle.pcm[idx]);
+    error = CtlElemIdGetNumid(subscribeHandle->api, subscribeHandle->ctlDev, elemId, &numid);
+    if (error) goto OnErrorExit;
+
+    for (int idx = 0; idx < AudioStreamHandle.count; idx++) {
+        if (AudioStreamHandle.stream[idx].numid == numid) {
+            const char *pcmName = AudioStreamHandle.stream[idx].pcm->devid;
+            snd_pcm_pause(AudioStreamHandle.stream[idx].pcm->handle, !value);
             AFB_ApiNotice(subscribeHandle->api, "CtlSubscribeEventCB:%s/%d pcm=%s pause=%d numid=%d", subscribeHandle->info, subscribeHandle->tid, pcmName, !value, numid);
-            snd_pcm_pause(AudioStreamHandle.pcm[idx], !value);
             break;
         }
     }
@@ -220,7 +304,7 @@ static void *LoopInThread(void *handle) {
     for (;;) {
         int res = sd_event_run(subscribeHandle->sdLoop, watchdog);
         if (res == 0) {
-            AFB_ApiNotice(subscribeHandle->api, "LoopInThread:%s/%d Idle count=%d", subscribeHandle->info, subscribeHandle->tid, count++);
+            AFB_ApiInfo(subscribeHandle->api, "LoopInThread:%s/%d Idle count=%d", subscribeHandle->info, subscribeHandle->tid, count++);
             continue;
         }
         if (res < 0) {
@@ -241,62 +325,12 @@ PUBLIC snd_ctl_t* AlsaCrlFromPcm(CtlSourceT *source, snd_pcm_t *pcm) {
     if ((error = snd_pcm_info(pcm, pcmInfo)) < 0) goto OnErrorExit;
 
     int pcmCard = snd_pcm_info_get_card(pcmInfo);
-    snprintf(buffer, sizeof(buffer), "hw:%i", pcmCard);
+    snprintf(buffer, sizeof (buffer), "hw:%i", pcmCard);
     if ((error = snd_ctl_open(&ctlDev, buffer, SND_CTL_READONLY)) < 0) goto OnErrorExit;
 
     return ctlDev;
 
 OnErrorExit:
-    return NULL;
-}
-
-PUBLIC snd_ctl_elem_id_t * AlsaCtlGetElemId(CtlSourceT *source, snd_ctl_t* ctlDev, int numid) {
-    char string[32];
-    int error;
-    int index;
-    snd_ctl_elem_list_t *ctlList = NULL;
-    snd_ctl_elem_id_t *elemId;
-
-    snd_ctl_elem_list_alloca(&ctlList);
-
-    if ((error = snd_ctl_elem_list(ctlDev, ctlList)) < 0) {
-        AFB_ApiError(source->api, "AlsaCtlElemIdGetInt [%s] fail retrieve controls", AlsaCtlUID (ctlDev, string));
-        goto OnErrorExit;
-    }
-
-    if ((error = snd_ctl_elem_list_alloc_space(ctlList, snd_ctl_elem_list_get_count(ctlList))) < 0) {
-        AFB_ApiError(source->api, "AlsaCtlElemIdGetInt [%s] fail retrieve count", AlsaCtlUID (ctlDev, string));
-        goto OnErrorExit;
-    }
-    
-    // Fulup: do not understand why snd_ctl_elem_list should be call twice to get a valid ctlCount
-    if ((error = snd_ctl_elem_list(ctlDev, ctlList)) < 0) {
-        AFB_ApiError(source->api, "AlsaCtlElemIdGetInt [%s] fail retrieve controls", AlsaCtlUID (ctlDev, string));
-        goto OnErrorExit;
-    }
-
-    // loop on control to find the right one
-    int ctlCount = snd_ctl_elem_list_get_used(ctlList);
-    for (index = 0; index < ctlCount; index++) {
-
-        if (numid == snd_ctl_elem_list_get_numid(ctlList, index)) {           
-            snd_ctl_elem_id_malloc(&elemId);
-            snd_ctl_elem_list_get_id(ctlList, index, elemId);
-            break;
-        }
-    }
-
-    if (index == ctlCount) {
-        AFB_ApiError(source->api, "AlsaCtlRegister [%s] fail get numid=%i count", AlsaCtlUID (ctlDev, string), numid);
-        goto OnErrorExit;
-    }
-    
-    // clear ctl list and return elemid
-    snd_ctl_elem_list_clear(ctlList);
-    return elemId;
-
-OnErrorExit:
-    if (ctlList) snd_ctl_elem_list_clear(ctlList);
     return NULL;
 }
 
@@ -313,32 +347,32 @@ PUBLIC int AlsaCtlSubscribe(CtlSourceT *source, snd_ctl_t * ctlDev) {
 
     // subscribe for sndctl events attached to devid
     if ((error = snd_ctl_subscribe_events(ctlDev, 1)) < 0) {
-        AFB_ApiError(source->api, "AlsaCtlSubscribe: fail sndcard=%s to subscribe events", AlsaCtlUID(ctlDev, string));
+        AFB_ApiError(source->api, "AlsaCtlSubscribe: fail sndcard=%s to subscribe events", ALSA_CTL_UID(ctlDev, string));
         goto OnErrorExit;
     }
 
     // get pollfd attach to this sound board
     int count = snd_ctl_poll_descriptors(ctlDev, &pfds, 1);
     if (count != 1) {
-        AFB_ApiError(source->api, "AlsaCtlSubscribe: fail sndcard=%s get poll descriptors", AlsaCtlUID(ctlDev, string));
+        AFB_ApiError(source->api, "AlsaCtlSubscribe: fail sndcard=%s get poll descriptors", ALSA_CTL_UID(ctlDev, string));
         goto OnErrorExit;
     }
 
     // add poll descriptor to AGL systemd mainloop 
     if ((error = sd_event_new(&subscribeHandle->sdLoop)) < 0) {
-        fprintf(stderr, "AlsaCtlSubscribe: fail  sndcard=%s creating a new loop", AlsaCtlUID(ctlDev, string));
+        fprintf(stderr, "AlsaCtlSubscribe: fail  sndcard=%s creating a new loop", ALSA_CTL_UID(ctlDev, string));
         goto OnErrorExit;
     }
 
     // register sound event to binder main loop
     if ((error = sd_event_add_io(subscribeHandle->sdLoop, &subscribeHandle->evtsrc, pfds.fd, EPOLLIN, CtlSubscribeEventCB, subscribeHandle)) < 0) {
-        AFB_ApiError(source->api, "AlsaCtlSubscribe: Fail sndcard=%s adding mainloop", AlsaCtlUID(ctlDev, string));
+        AFB_ApiError(source->api, "AlsaCtlSubscribe: Fail sndcard=%s adding mainloop", ALSA_CTL_UID(ctlDev, string));
         goto OnErrorExit;
     }
 
     // start a thread with a mainloop to monitor Audio-Agent
     if ((error = pthread_create(&subscribeHandle->thread, NULL, &LoopInThread, subscribeHandle)) < 0) {
-        AFB_ApiError(source->api, "AlsaCtlSubscribe: Fail  sndcard=%s create waiting thread err=%d", AlsaCtlUID(ctlDev, string), error);
+        AFB_ApiError(source->api, "AlsaCtlSubscribe: Fail  sndcard=%s create waiting thread err=%d", ALSA_CTL_UID(ctlDev, string), error);
         goto OnErrorExit;
     }
 
@@ -348,49 +382,41 @@ OnErrorExit:
     return -1;
 }
 
-PUBLIC int AlsaCtlRegister(CtlSourceT *source, snd_pcm_t *pcm, int numid) {
+PUBLIC int AlsaCtlRegister(CtlSourceT *source, AlsaPcmInfoT *pcm, int numid) {
     long value;
     int error;
-    
+
     // NumID are attached to sndcard retrieve ctldev from PCM
-    snd_ctl_t* ctlDev = AlsaCrlFromPcm(source, pcm);
+    snd_ctl_t* ctlDev = AlsaCrlFromPcm(source, pcm->handle);
     if (!ctlDev) {
-        AFB_ApiError(source->api, "AlsaCtlRegister [pcm=%s] fail attache sndcard", snd_pcm_name(pcm));
+        AFB_ApiError(source->api, "AlsaCtlRegister [pcm=%s] fail attache sndcard", pcm->devid);
         goto OnErrorExit;
     }
-    
+
     // This is the first registration let's subscrive to event
     if (AudioStreamHandle.count == 0) {
-        AlsaCtlSubscribe (source, ctlDev);
-    }
-    
-    snd_ctl_elem_id_t *elemId= AlsaCtlGetElemId(source, ctlDev, numid);
-    if (!elemId) {
-        AFB_ApiError(source->api, "AlsaCtlRegister [pcm=%s] fail to find numid=%d", snd_pcm_name(pcm), numid);
-        goto OnErrorExit;        
+        AlsaCtlSubscribe(source, ctlDev);
     }
 
-    if ((error = CtlElemIdGetInt (source->api, ctlDev, elemId, &value)) != 0) {
-        AFB_ApiError(source->api, "AlsaCtlRegister [pcm=%s] fail to get numid=%d value", snd_pcm_name(pcm), numid);
-        goto OnErrorExit;
-    }
-    
-    AFB_ApiNotice(source->api, "AlsaCtlRegister [pcm=%s] numid=%d value=%ld", snd_pcm_name(pcm), numid, value);
+    error = AlsaCtlGetNumidValueI(source, ctlDev, numid, &value);
+    if (error) goto OnErrorExit;
+
+    AFB_ApiNotice(source->api, "AlsaCtlRegister [pcm=%s] numid=%d value=%ld", pcm->devid, numid, value);
 
     // store PCM in order to pause/resume depending on event
-    AudioStreamHandle.pcm[AudioStreamHandle.count] = pcm;
-    AudioStreamHandle.numid[AudioStreamHandle.count] = numid;
-    AudioStreamHandle.count++;
-        
+    int count=AudioStreamHandle.count;
+    AudioStreamHandle.stream[count].pcm = pcm;
+    AudioStreamHandle.stream[count].numid = numid;
+
     // we only need to keep ctldev open for initial registration 
-    if (AudioStreamHandle.count >1) snd_ctl_close(ctlDev);    
-    
+    if (AudioStreamHandle.count++ > 0) snd_ctl_close(ctlDev);
+
     // toggle pause/resume (should be done after pcm_start)
-    if ((error = snd_pcm_pause(pcm, !value)) < 0) {
-        AFB_ApiError(source->api, "AlsaCtlRegister [pcm=%s] fail to pause", snd_pcm_name(pcm));
-        goto OnErrorExit;        
+    if ((error = snd_pcm_pause(pcm->handle, !value)) < 0) {
+        AFB_ApiError(source->api, "AlsaCtlRegister [pcm=%s] fail to pause", pcm->devid);
+        goto OnErrorExit;
     }
-    
+
     return 0;
 
 OnErrorExit:
