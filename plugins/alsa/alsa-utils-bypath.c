@@ -62,25 +62,39 @@ PUBLIC int AlsaByPathDevid(CtlSourceT *source, AlsaPcmInfoT *dev) {
 
     // get card info from /dev/snd/xxx if not use hw:x,x,x
     snd_ctl_card_info_t *cardInfo = NULL;
-    if (dev->devpath) cardInfo = AlsaByPathInfo(source, dev->devpath);
-    else if (dev->devid) cardInfo = AlsaCtlGetInfo(source, dev->devid);
+    if (dev->devpath) {
+        cardInfo = AlsaByPathInfo(source, dev->devpath);
+        dev->cardid=NULL;
+    }
+    else if (dev->cardid) {
+        dev->cardid= strdup(dev->cardid);
+        cardInfo = AlsaCtlGetInfo(source, dev->cardid);
+    }
+    else {
+        dev->cardid=malloc(ALSA_CARDID_MAX_LEN);
+        snprintf((char*)dev->cardid, ALSA_CARDID_MAX_LEN, "hw:%i", dev->cardidx);
+        cardInfo = AlsaCtlGetInfo(source, dev->cardid);
+        cardInfo = AlsaCtlGetInfo(source, dev->cardid);
+    }
 
     if (!cardInfo) {
-        AFB_ApiWarning(source->api, "AlsaByPathOpenPcm: fail to find sndcard by path=%s id=%s", dev->devpath, dev->devid);
+        AFB_ApiWarning(source->api, "AlsaByPathOpenPcm: fail to find sndcard by path=%s id=%s", dev->devpath, dev->cardid);
         goto OnErrorExit;
     }
 
     // extract useful info from cardInfo handle
-    dev->cardid = snd_ctl_card_info_get_card(cardInfo);
+    dev->cardidx = snd_ctl_card_info_get_card(cardInfo);
 
-    // if not provided build a valid PCM devid 
-    if (!dev->devid) {
-        #define DEVID_MAX_LEN 32
-        dev->devid=malloc(DEVID_MAX_LEN);  
-        if (dev->subdev) snprintf((char*)dev->devid, DEVID_MAX_LEN, "hw:%i,%i,%i", dev->cardid, dev->device, dev->subdev);
-        else if (dev->device) snprintf((char*)dev->devid, DEVID_MAX_LEN, "hw:%i,%i", dev->cardid, dev->device);
-        else snprintf((char*)dev->devid, DEVID_MAX_LEN, "hw:%i", dev->cardid);
+    // if not provided build a valid PCM cardid 
+    if (!dev->cardid) {
+        dev->cardid=malloc(ALSA_CARDID_MAX_LEN);  
+        if (dev->subdev) snprintf((char*)dev->cardid, ALSA_CARDID_MAX_LEN, "hw:%i,%i,%i", dev->cardidx, dev->device, dev->subdev);
+        else if (dev->device) snprintf((char*)dev->cardid, ALSA_CARDID_MAX_LEN, "hw:%i,%i", dev->cardidx, dev->device);
+        else snprintf((char*)dev->cardid, ALSA_CARDID_MAX_LEN, "hw:%i", dev->cardidx);
     }
+    
+    // make sure UID will cannot be removed
+    dev->uid= strdup(dev->uid);
     return 0;
 
 OnErrorExit:
@@ -89,18 +103,23 @@ OnErrorExit:
 
 PUBLIC AlsaPcmInfoT* AlsaByPathOpenPcm(CtlSourceT *source, AlsaPcmInfoT *dev, snd_pcm_stream_t direction) {
     int error;
-
-    error = AlsaByPathDevid(source, dev);
+    
+    // duplicate dev structure to allow caller to free dev
+    AlsaPcmInfoT* pcm=malloc(sizeof(AlsaPcmInfoT));
+    memcpy (pcm, dev, sizeof(AlsaPcmInfoT));
+    
+    
+    error = AlsaByPathDevid(source, pcm);
     if (error) goto OnErrorExit;
 
-    error = snd_pcm_open(&dev->handle, dev->devid, direction, SND_PCM_NONBLOCK);
+    error = snd_pcm_open(&pcm->handle, pcm->cardid, direction, SND_PCM_NONBLOCK);
     if (error) {
-        AFB_ApiError(source->api, "AlsaByPathOpenPcm: fail openpcm (devid=%s idxdev=%i subdev=%d): %s"
-                , dev->devid, dev->device, dev->subdev, snd_strerror(error));
+        AFB_ApiError(source->api, "AlsaByPathOpenPcm: fail openpcm (cardid=%s idxdev=%i subdev=%d): %s"
+                , pcm->cardid, pcm->device, pcm->subdev, snd_strerror(error));
         goto OnErrorExit;
     }
 
-    return (dev);
+    return (pcm);
 
 OnErrorExit:
     return NULL;
@@ -108,16 +127,16 @@ OnErrorExit:
 
 PUBLIC snd_ctl_t *AlsaByPathOpenCtl(CtlSourceT *source, AlsaPcmInfoT *dev) {
     int err;
-    char devid[32];
+    char cardid[32];
     snd_ctl_t *handle;
 
     // get card info from /dev/snd/xxx if not use hw:x,x,x
     snd_ctl_card_info_t *cardInfo = NULL;
     if (dev->devpath) cardInfo = AlsaByPathInfo(source, dev->devpath);
-    else if (dev->devid) cardInfo = AlsaCtlGetInfo(source, dev->devid);
+    else if (dev->cardid) cardInfo = AlsaCtlGetInfo(source, dev->cardid);
 
     if (!cardInfo) {
-        AFB_ApiError(source->api, "AlsaByPathOpenCtl: fail to find sndcard by path=%s id=%s", dev->devpath, dev->devid);
+        AFB_ApiError(source->api, "AlsaByPathOpenCtl: fail to find sndcard by path=%s id=%s", dev->devpath, dev->cardid);
         goto OnErrorExit;
     }
 
@@ -127,8 +146,8 @@ PUBLIC snd_ctl_t *AlsaByPathOpenCtl(CtlSourceT *source, AlsaPcmInfoT *dev) {
     const char *cardName = snd_ctl_card_info_get_name(cardInfo);
 
     // build a valid name and open sndcard
-    snprintf(devid, sizeof (devid), "hw:%i", cardIndex);
-    if ((err = snd_ctl_open(&handle, devid, 0)) < 0) {
+    snprintf(cardid, sizeof (cardid), "hw:%i", cardIndex);
+    if ((err = snd_ctl_open(&handle, cardid, 0)) < 0) {
         AFB_ApiError(source->api, "control open (hw:%d -> %s): %s", cardIndex, cardName, snd_strerror(err));
         goto OnErrorExit;
     }

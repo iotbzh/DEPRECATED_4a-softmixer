@@ -101,21 +101,21 @@ OnErrorExit:
 }
 
 
-PUBLIC snd_ctl_t *AlsaCtlOpenCtl(CtlSourceT *source, const char *devid) {
+PUBLIC snd_ctl_t *AlsaCtlOpenCtl(CtlSourceT *source, const char *cardid) {
     int error;
     snd_ctl_t *ctlDev;
 
-    if (devid) goto OnErrorExit;
+    if (cardid) goto OnErrorExit;
 
-    if ((error = snd_ctl_open(&ctlDev, devid, SND_CTL_READONLY)) < 0) {
-        devid = "Not Defined";
+    if ((error = snd_ctl_open(&ctlDev, cardid, SND_CTL_READONLY)) < 0) {
+        cardid = "Not Defined";
         goto OnErrorExit;
     }
 
     return ctlDev;
 
 OnErrorExit:
-    AFB_ApiError(source->api, "AlsaCtlOpenCtl: fail to find sndcard by id= %s", devid);
+    AFB_ApiError(source->api, "AlsaCtlOpenCtl: fail to find sndcard by id= %s", cardid);
     return NULL;
 }
 
@@ -198,14 +198,14 @@ OnErrorExit:
 }
 
 // Clone of AlsaLib snd_card_load2 static function
-PUBLIC snd_ctl_card_info_t *AlsaCtlGetInfo(CtlSourceT *source, const char *devid) {
+PUBLIC snd_ctl_card_info_t *AlsaCtlGetInfo(CtlSourceT *source, const char *cardid) {
     int error;
     snd_ctl_t *ctlDev;
 
-    if (devid) goto OnErrorExit;
+    if (cardid) goto OnErrorExit;
 
-    if ((error = snd_ctl_open(&ctlDev, devid, SND_CTL_READONLY)) < 0) {
-        devid = "Not Defined";
+    if ((error = snd_ctl_open(&ctlDev, cardid, SND_CTL_READONLY)) < 0) {
+        cardid = "Not Defined";
         goto OnErrorExit;
     }
 
@@ -216,7 +216,7 @@ PUBLIC snd_ctl_card_info_t *AlsaCtlGetInfo(CtlSourceT *source, const char *devid
     return cardInfo;
 
 OnErrorExit:
-    AFB_ApiError(source->api, "AlsaCtlGetInfo: fail to find sndcard by id= %s", devid);
+    AFB_ApiError(source->api, "AlsaCtlGetInfo: fail to find sndcard by id= %s", cardid);
     return NULL;
 }
 
@@ -245,6 +245,7 @@ STATIC int CtlSubscribeEventCB(sd_event_source* src, int fd, uint32_t revents, v
     snd_ctl_event_t *eventId;
     snd_ctl_elem_id_t *elemId;
     long value;
+    int idx;
 
     if ((revents & EPOLLHUP) != 0) {
         AFB_ApiNotice(subscribeHandle->api, "CtlSubscribeEventCB hanghup [card:%s disconnected]", subscribeHandle->info);
@@ -275,15 +276,20 @@ STATIC int CtlSubscribeEventCB(sd_event_source* src, int fd, uint32_t revents, v
     error = CtlElemIdGetNumid(subscribeHandle->api, subscribeHandle->ctlDev, elemId, &numid);
     if (error) goto OnErrorExit;
 
-    for (int idx = 0; idx < AudioStreamHandle.count; idx++) {
+    for (idx = 0; idx < AudioStreamHandle.count; idx++) {
         if (AudioStreamHandle.stream[idx].numid == numid) {
-            const char *pcmName = AudioStreamHandle.stream[idx].pcm->devid;
+            const char *pcmName = AudioStreamHandle.stream[idx].pcm->cardid;
             snd_pcm_pause(AudioStreamHandle.stream[idx].pcm->handle, !value);
             AFB_ApiNotice(subscribeHandle->api, "CtlSubscribeEventCB:%s/%d pcm=%s pause=%d numid=%d", subscribeHandle->info, subscribeHandle->tid, pcmName, !value, numid);
             break;
         }
     }
-
+    if (idx == AudioStreamHandle.count) {
+        char cardName[32];
+        ALSA_CTL_UID(subscribeHandle->ctlDev,cardName);
+        AFB_ApiWarning(subscribeHandle->api, "CtlSubscribeEventCB:%s/%d card=%s numid=%d (ignored)", subscribeHandle->info, subscribeHandle->tid, cardName, numid);        
+    }
+    
 OnSuccessExit:
     return 0;
 
@@ -345,7 +351,7 @@ PUBLIC int AlsaCtlSubscribe(CtlSourceT *source, snd_ctl_t * ctlDev) {
     subscribeHandle->ctlDev = ctlDev;
     subscribeHandle->info = "ctlEvt";
 
-    // subscribe for sndctl events attached to devid
+    // subscribe for sndctl events attached to cardid
     if ((error = snd_ctl_subscribe_events(ctlDev, 1)) < 0) {
         AFB_ApiError(source->api, "AlsaCtlSubscribe: fail sndcard=%s to subscribe events", ALSA_CTL_UID(ctlDev, string));
         goto OnErrorExit;
@@ -389,7 +395,7 @@ PUBLIC int AlsaCtlRegister(CtlSourceT *source, AlsaPcmInfoT *pcm, int numid) {
     // NumID are attached to sndcard retrieve ctldev from PCM
     snd_ctl_t* ctlDev = AlsaCrlFromPcm(source, pcm->handle);
     if (!ctlDev) {
-        AFB_ApiError(source->api, "AlsaCtlRegister [pcm=%s] fail attache sndcard", pcm->devid);
+        AFB_ApiError(source->api, "AlsaCtlRegister [pcm=%s] fail attache sndcard", pcm->cardid);
         goto OnErrorExit;
     }
 
@@ -401,7 +407,7 @@ PUBLIC int AlsaCtlRegister(CtlSourceT *source, AlsaPcmInfoT *pcm, int numid) {
     error = AlsaCtlGetNumidValueI(source, ctlDev, numid, &value);
     if (error) goto OnErrorExit;
 
-    AFB_ApiNotice(source->api, "AlsaCtlRegister [pcm=%s] numid=%d value=%ld", pcm->devid, numid, value);
+    AFB_ApiNotice(source->api, "AlsaCtlRegister [pcm=%s] numid=%d value=%ld", pcm->cardid, numid, value);
 
     // store PCM in order to pause/resume depending on event
     int count=AudioStreamHandle.count;
@@ -413,7 +419,7 @@ PUBLIC int AlsaCtlRegister(CtlSourceT *source, AlsaPcmInfoT *pcm, int numid) {
 
     // toggle pause/resume (should be done after pcm_start)
     if ((error = snd_pcm_pause(pcm->handle, !value)) < 0) {
-        AFB_ApiError(source->api, "AlsaCtlRegister [pcm=%s] fail to pause", pcm->devid);
+        AFB_ApiError(source->api, "AlsaCtlRegister [pcm=%s] fail to pause", pcm->cardid);
         goto OnErrorExit;
     }
 

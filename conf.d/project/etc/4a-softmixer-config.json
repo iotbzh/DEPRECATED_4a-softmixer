@@ -10,7 +10,7 @@
         {
             "uid": "alsa-router",
             "ldpath": "./plugins/alsa",
-            "lua2c": ["AlsaDmix", "AlsaRouter"],
+            "lua2c": ["snd_cards", "snd_zones", "snd_loops", "snd_streams"],
             "info": "Map alsa-loop subdevices to 4A HAL streams"
         }
     ],
@@ -83,17 +83,17 @@
             "lua": "_mixer_config_"
         },
         {
-            "uid": "stream",
+            "uid": "snd-cards",
             "callback": {
                 "plugin": "alsa-router",
-                "function": "stream_ctl"
+                "function": "snd_cards"
             }
         },
         {
-            "uid": "zone",
+            "uid": "snd-zone",
             "callback": {
                 "plugin": "alsa-router",
-                "function": "zone_ctl"
+                "function": "snd_zones"
             }
         }
     ]

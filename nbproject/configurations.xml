@@ -26,7 +26,7 @@
           <in>alsa-capture.c</in>
           <in>alsa-core-ctl.c</in>
           <in>alsa-core-pcm.c</in>
-          <in>alsa-plug-vol.c</in>
+          <in>alsa-plug-stream.c</in>
           <in>alsa-softmixer.c</in>
           <in>alsa-utils-bypath.c</in>
           <in>alsa-utils-dump.c</in>
@@ -59,6 +59,9 @@
       </flagsDictionary>
       <codeAssistance>
         <includeAdditional>true</includeAdditional>
+        <transientMacros>
+          <Elem>size_t=unsigned long</Elem>
+        </transientMacros>
       </codeAssistance>
       <makefileType>
         <makeTool>
@@ -81,6 +84,7 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-afb-helpers-submodule</pElem>
           </incDir>
@@ -93,6 +97,7 @@
         <cTool flags="1">
           <incDir>
             <pElem>app-afb-helpers-submodule</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
             <pElem>build/app-afb-helpers-submodule</pElem>
           </incDir>
         </cTool>
@@ -158,7 +163,9 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
           </incDir>
@@ -169,6 +176,7 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>mixer-binding</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
             <pElem>../../../opt/include/alsa</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>app-controller-submodule/ctl-lib</pElem>
@@ -180,7 +188,9 @@
       <folder path="0/plugins">
         <cTool>
           <incDir>
+            <pElem>/usr/include</pElem>
             <pElem>/usr/include/json-c</pElem>
+            <pElem>/usr/include/alsa</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>/usr/include/p11-kit-1</pElem>
             <pElem>/usr/include/uuid</pElem>
@@ -218,7 +228,7 @@
         <cTool flags="0">
         </cTool>
       </item>
-      <item path="plugins/alsa/alsa-plug-vol.c" ex="false" tool="0" flavor2="2">
+      <item path="plugins/alsa/alsa-plug-stream.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
         </cTool>
       </item>

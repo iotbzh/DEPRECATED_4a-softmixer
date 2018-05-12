@@ -91,13 +91,13 @@ PUBLIC int AlsaPcmConf(CtlSourceT *source, AlsaPcmInfoT *pcm, AlsaPcmHwInfoT *op
     if (!opts->access) opts->access = SND_PCM_ACCESS_RW_INTERLEAVED;
     error = snd_pcm_hw_params_set_access(pcm->handle, pxmHwParams, opts->access);
     if (error) {
-        AFB_ApiError(source->api, "AlsaPcmConf: Fail PCM=%s Set_Interleave=%d mode error=%s", ALSA_PCM_UID(pcm->handle, string), opts->access, snd_strerror(error));
+        AFB_ApiError(source->api, "AlsaPcmConf:%s Fail PCM=%s Set_Interleave=%d mode error=%s", pcm->uid, ALSA_PCM_UID(pcm->handle, string), opts->access, snd_strerror(error));
         goto OnErrorExit;
     };
 
     if (opts->format != SND_PCM_FORMAT_UNKNOWN) {
         if ((error = snd_pcm_hw_params_set_format(pcm->handle, pxmHwParams, opts->format)) < 0) {
-            AFB_ApiError(source->api, "AlsaPcmConf: Fail PCM=%s Set_Format=%d error=%s", ALSA_PCM_UID(pcm->handle, string), opts->format, snd_strerror(error));
+            AFB_ApiError(source->api, "AlsaPcmConf:%s Fail PCM=%s Set_Format=%d error=%s", pcm->uid, ALSA_PCM_UID(pcm->handle, string), opts->format, snd_strerror(error));
             AlsaDumpFormats(source, pcm->handle);
             goto OnErrorExit;
         }
@@ -106,27 +106,27 @@ PUBLIC int AlsaPcmConf(CtlSourceT *source, AlsaPcmInfoT *pcm, AlsaPcmHwInfoT *op
     if (opts->rate > 0) {
         unsigned int pcmRate = opts->rate;
         if ((error = snd_pcm_hw_params_set_rate_near(pcm->handle, pxmHwParams, &opts->rate, 0)) < 0) {
-            AFB_ApiError(source->api, "AlsaPcmConf: Fail PCM=%s Set_Rate=%d error=%s", ALSA_PCM_UID(pcm->handle, string), opts->rate, snd_strerror(error));
+            AFB_ApiError(source->api, "AlsaPcmConf:%s Fail PCM=%s Set_Rate=%d error=%s", pcm->uid, ALSA_PCM_UID(pcm->handle, string), opts->rate, snd_strerror(error));
             goto OnErrorExit;
         }
 
         // check we got requested rate
         if (opts->rate != pcmRate) {
-            AFB_ApiError(source->api, "AlsaPcmConf: Fail PCM=%s Set_Rate ask=%dHz get=%dHz", ALSA_PCM_UID(pcm->handle, string), pcmRate, opts->rate);
+            AFB_ApiError(source->api, "AlsaPcmConf:%s Fail PCM=%s Set_Rate ask=%dHz get=%dHz", pcm->uid, ALSA_PCM_UID(pcm->handle, string), pcmRate, opts->rate);
             goto OnErrorExit;
         }
     }
 
     if (opts->channels) {
         if ((error = snd_pcm_hw_params_set_channels(pcm->handle, pxmHwParams, opts->channels)) < 0) {
-            AFB_ApiError(source->api, "AlsaPcmConf: Fail PCM=%s Set_Channels=%d error=%s", ALSA_PCM_UID(pcm->handle, string), opts->channels, snd_strerror(error));
+            AFB_ApiError(source->api, "AlsaPcmConf:%s Fail PCM=%s Set_Channels=%d error=%s", pcm->uid, ALSA_PCM_UID(pcm->handle, string), opts->channels, snd_strerror(error));
             goto OnErrorExit;
         };
     }
 
     // store selected values
     if ((error = snd_pcm_hw_params(pcm->handle, pxmHwParams)) < 0) {
-        AFB_ApiError(source->api, "AlsaPcmConf: Fail PCM=%s apply hwparams error=%s", ALSA_PCM_UID(pcm->handle, string), snd_strerror(error));
+        AFB_ApiError(source->api, "AlsaPcmConf:%s Fail PCM=%s apply hwparams error=%s", pcm->uid, ALSA_PCM_UID(pcm->handle, string), snd_strerror(error));
         goto OnErrorExit;
     }
 
@@ -136,7 +136,7 @@ PUBLIC int AlsaPcmConf(CtlSourceT *source, AlsaPcmInfoT *pcm, AlsaPcmHwInfoT *op
     snd_pcm_hw_params_get_rate(pxmHwParams, &opts->rate, 0);
     opts->sampleSize = AlsaPeriodSize(opts->format);
     if (opts->sampleSize == 0) {
-        AFB_ApiError(source->api, "AlsaPcmConf: Fail PCM=%s unsupported format format=%d", ALSA_PCM_UID(pcm->handle, string), opts->format);
+        AFB_ApiError(source->api, "AlsaPcmConf:%s Fail PCM=%s unsupported format format=%d", pcm->uid, ALSA_PCM_UID(pcm->handle, string), opts->format);
         goto OnErrorExit;
     }
 
@@ -145,17 +145,17 @@ PUBLIC int AlsaPcmConf(CtlSourceT *source, AlsaPcmInfoT *pcm, AlsaPcmHwInfoT *op
     snd_pcm_sw_params_current(pcm->handle, pxmSwParams);
 
     if ((error = snd_pcm_sw_params_set_avail_min(pcm->handle, pxmSwParams, 16)) < 0) {
-        AFB_ApiError(source->api, "AlsaPcmConf: Fail to PCM=%s set_buffersize error=%s", ALSA_PCM_UID(pcm->handle, string), snd_strerror(error));
+        AFB_ApiError(source->api, "AlsaPcmConf:%s Fail to PCM=%s set_buffersize error=%s", pcm->uid, ALSA_PCM_UID(pcm->handle, string), snd_strerror(error));
         goto OnErrorExit;
     };
 
     // push software params into PCM
     if ((error = snd_pcm_sw_params(pcm->handle, pxmSwParams)) < 0) {
-        AFB_ApiError(source->api, "AlsaPcmConf: Fail to push software=%s params error=%s", ALSA_PCM_UID(pcm->handle, string), snd_strerror(error));
+        AFB_ApiError(source->api, "AlsaPcmConf:%s Fail to push software=%s params error=%s", pcm->uid, ALSA_PCM_UID(pcm->handle, string), snd_strerror(error));
         goto OnErrorExit;
     };
 
-    AFB_ApiNotice(source->api, "AlsaPcmConf: PCM=%s channels=%d rate=%d format=%d access=%d done", ALSA_PCM_UID(pcm->handle,string), opts->channels, opts->rate, opts->format, opts->access);
+    AFB_ApiNotice(source->api, "AlsaPcmConf:%s PCM=%s channels=%d rate=%d format=%d access=%d done", pcm->uid, ALSA_PCM_UID(pcm->handle,string), opts->channels, opts->rate, opts->format, opts->access);
     return 0;
 
 OnErrorExit:

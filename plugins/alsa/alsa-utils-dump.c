@@ -21,7 +21,6 @@
 
 #include "alsa-softmixer.h"
 
-
 PUBLIC char *AlsaDumpPcmUid(snd_pcm_t *pcmHandle, char *buffer, size_t len) {
     snd_pcm_info_t *pcmInfo;
     snd_pcm_info_alloca(&pcmInfo);
@@ -47,8 +46,8 @@ PUBLIC char *AlsaDumpCtlUid(snd_ctl_t *ctlHandle, char *buffer, size_t len) {
     // retrieve PCM name for error/debug
     int error = snd_ctl_card_info(ctlHandle, ctlInfo);
     if (error) goto OnErrorExit;
-    
-    const char *ctlId   = snd_ctl_card_info_get_id(ctlInfo);
+
+    const char *ctlId = snd_ctl_card_info_get_id(ctlInfo);
     const char *ctlName = snd_ctl_card_info_get_name(ctlInfo);
     snprintf(buffer, len, "hw:%s [%s]", ctlId, ctlName);
     return buffer;
@@ -56,7 +55,6 @@ PUBLIC char *AlsaDumpCtlUid(snd_ctl_t *ctlHandle, char *buffer, size_t len) {
 OnErrorExit:
     return NULL;
 }
-
 
 PUBLIC void AlsaDumpFormats(CtlSourceT *source, snd_pcm_t *pcmHandle) {
     char string[32];
@@ -75,21 +73,20 @@ PUBLIC void AlsaDumpFormats(CtlSourceT *source, snd_pcm_t *pcmHandle) {
     }
 }
 
-
-PUBLIC void AlsaDumpCtlSubdev(CtlSourceT *source, snd_ctl_t *handle) { 
+PUBLIC void AlsaDumpCtlSubdev(CtlSourceT *source, snd_ctl_t *handle) {
     snd_ctl_card_info_t *cardInfo;
     int err;
-    int dev= -1;
+    int dev = -1;
     snd_pcm_info_t *pcminfo;
     snd_pcm_info_alloca(&pcminfo);
     unsigned int subdevCount, subdevAvail;
-       
+
     snd_ctl_card_info_alloca(&cardInfo);
     snd_ctl_card_info(handle, cardInfo);
     int cardIndex = snd_ctl_card_info_get_card(cardInfo);
     const char *cardId = snd_ctl_card_info_get_id(cardInfo);
     const char *cardName = snd_ctl_card_info_get_name(cardInfo);
-    
+
     // loop on every sndcard devices
     while (1) {
 
@@ -108,7 +105,7 @@ PUBLIC void AlsaDumpCtlSubdev(CtlSourceT *source, snd_ctl_t *handle) {
             continue;
         }
 
-        AFB_ApiNotice(source->api,"AlsaDumpCard card %d: %s [%s], device %d: %s [%s]",
+        AFB_ApiNotice(source->api, "AlsaDumpCard card %d: %s [%s], device %d: %s [%s]",
                 cardIndex, cardId, cardName, dev, snd_pcm_info_get_id(pcminfo), snd_pcm_info_get_name(pcminfo));
 
         // loop on subdevices
@@ -128,9 +125,8 @@ PUBLIC void AlsaDumpCtlSubdev(CtlSourceT *source, snd_ctl_t *handle) {
     return;
 
 OnErrorExit:
-    return;          
+    return;
 }
-
 
 PUBLIC void AlsaDumpPcmParams(CtlSourceT *source, snd_pcm_hw_params_t *pcmHwParams) {
     snd_output_t *output;
@@ -143,8 +139,7 @@ PUBLIC void AlsaDumpPcmParams(CtlSourceT *source, snd_pcm_hw_params_t *pcmHwPara
     snd_output_close(output);
 }
 
-
-PUBLIC void AlsaDumpPcmInfo(CtlSourceT *source, snd_pcm_t *pcm, const char* info) {
+PUBLIC void AlsaDumpPcmInfo(CtlSourceT *source, const char* info, snd_pcm_t *pcm) {
     snd_output_t *out;
     char *buffer;
 
@@ -159,46 +154,59 @@ PUBLIC void AlsaDumpPcmInfo(CtlSourceT *source, snd_pcm_t *pcm, const char* info
     snd_output_close(out);
 }
 
-PUBLIC void AlsaDumpCtlConfig(CtlSourceT *source, snd_config_t *config, int indent) {
+PUBLIC void AlsaDumpElemConfig(CtlSourceT *source, const char* info, const char* elem) {
+        snd_config_update();
+        snd_config_t *pcmConfig;
+        snd_config_search(snd_config, elem, &pcmConfig); 
+        AlsaDumpCtlConfig(source, info, pcmConfig,1);
+}
+
+PUBLIC void AlsaDumpCtlConfig(CtlSourceT *source, const char* info, snd_config_t *config, int indent) {
     snd_config_iterator_t it, next;
 
-            // hugly hack to get minimalist indentation
-            char *pretty = alloca(indent + 1);
+    // hugly hack to get minimalist indentation
+    char *pretty = alloca(indent + 1);
 
     for (int idx = 0; idx < indent; idx++) pretty[idx] = '-';
-            pretty[indent] = '\0';
+    pretty[indent] = '\0';
 
-            snd_config_for_each(it, next, config) {
-            snd_config_t *node = snd_config_iterator_entry(it);
-                    const char *key;
+    snd_config_for_each(it, next, config) {
+        snd_config_t *node = snd_config_iterator_entry(it);
+        const char *key;
 
-                    // ignore comment en empty lines
-            if (snd_config_get_id(node, &key) < 0) continue;
+        // ignore comment en empty lines
+        if (snd_config_get_id(node, &key) < 0) continue;
 
-                switch (snd_config_get_type(node)) {
-                        long valueI;
-                                const char *valueS;
+        switch (snd_config_get_type(node)) {
+                long valueI;
+                double valueD;
+                const char *valueS;
 
-                    case SND_CONFIG_TYPE_INTEGER:
-                        snd_config_get_integer(node, &valueI);
-                                AFB_ApiNotice(source->api, "DumpAlsaConfig: %s %s: %d (int)", pretty, key, (int) valueI);
-                        break;
+            case SND_CONFIG_TYPE_INTEGER:
+                snd_config_get_integer(node, &valueI);
+                AFB_ApiNotice(source->api, "%s: %s %s: %d (int)", info, pretty, key, (int) valueI);
+                break;
 
-                    case SND_CONFIG_TYPE_STRING:
-                        snd_config_get_string(node, &valueS);
-                                AFB_ApiNotice(source->api, "DumpAlsaConfig: %s %s: %s (str)", pretty, key, valueS);
-                        break;
+            case SND_CONFIG_TYPE_REAL:
+                snd_config_get_real(node, &valueD);
+                AFB_ApiNotice(source->api, "%s: %s %s: %.2f (float)", info, pretty, key, valueD);
+                break;
 
-                    case SND_CONFIG_TYPE_COMPOUND:
-                        AFB_ApiNotice(source->api, "DumpAlsaConfig: %s %s { ", pretty, key);
-                                AlsaDumpCtlConfig(source, node, indent + 2);
-                                AFB_ApiNotice(source->api, "DumpAlsaConfig: %s } ", pretty);
-                        break;
+            case SND_CONFIG_TYPE_STRING:
+                snd_config_get_string(node, &valueS);
+                AFB_ApiNotice(source->api, "%s: %s %s: %s (str)", info, pretty, key, valueS);
+                break;
 
-                    default:
-                        snd_config_get_string(node, &valueS);
-                                AFB_ApiNotice(source->api, "DumpAlsaConfig: %s: key=%s unknown=%s", pretty, key, valueS);
-                        break;
-                }
+            case SND_CONFIG_TYPE_COMPOUND:
+                AFB_ApiNotice(source->api, "%s: %s %s { ", info, pretty, key);
+                AlsaDumpCtlConfig(source, info, node, indent + 2);
+                AFB_ApiNotice(source->api, "%s: %s } ", info, pretty);
+                break;
+
+            default:
+                snd_config_get_string(node, &valueS);
+                AFB_ApiNotice(source->api, "%s: %s: key=%s unknown=%s", info, pretty, key, valueS);
+                break;
         }
+    }
 }

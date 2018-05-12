@@ -39,8 +39,8 @@
     }
 
     // default soundcard is "PCH"
-    var devid=getParameterByName("devid");
-    if (!devid) devid="hw:1";
+    var cardid=getParameterByName("cardid");
+    if (!cardid) cardid="hw:1";
 
     var haldev=getParameterByName("haldev");
     if (!haldev) haldev="scarlett-usb";
@@ -115,7 +115,7 @@
 
                 // Alsa LowLevel selection mode
                 if (response[idx].name)  opt.text   = response[idx].name;
-                if (response[idx].devid) opt.value  = response[idx].devid;
+                if (response[idx].cardid) opt.value  = response[idx].cardid;
 
                 // HAL selection mode
                 if (response[idx].shortname) opt.text  = response[idx].shortname;
