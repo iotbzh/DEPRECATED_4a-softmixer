@@ -109,8 +109,7 @@ PUBLIC AlsaPcmInfoT* AlsaCreateStream(CtlSourceT *source, AlsaSndStreamT *stream
     }
     
     // Debug config & pcm
-    AlsaDumpCtlConfig (source, "plug-stream", streamConfig, 1);
-    //AlsaDumpPcmInfo(source, pcmPlug->handle, "pcmPlug->handle");
+    //AlsaDumpCtlConfig (source, "plug-stream", streamConfig, 1);
     AFB_ApiNotice(source->api, "AlsaCreateStream:%s(stream) done\n", stream->uid);
     return pcmPlug;
 

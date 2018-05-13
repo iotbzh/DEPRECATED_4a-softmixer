@@ -109,10 +109,13 @@ CTLP_LUA2C(snd_streams, source, argsJ, responseJ) {
             goto OnErrorExit;
     }
 
-    // instantiate stream as a softvol
 
+    // return stream data to application as a json array
+    *responseJ = json_object_new_array();    
+    
     for (int idx = 0; sndStream[idx].uid != NULL; idx++) {
-
+        json_object *streamJ;
+        
         // Search for a free loop capture device
         AFB_ApiNotice(source->api, "L2C:sndstreams stream=%s Start", (char*)sndStream[idx].uid);
         ctlLoop->scount--;
@@ -122,34 +125,42 @@ CTLP_LUA2C(snd_streams, source, argsJ, responseJ) {
         }
 
         // Retrieve subdev loop device and open corresponding pcm
-        AlsaPcmInfoT *devLoop = &ctlLoop->subdevs[ctlLoop->scount];
-        AlsaPcmInfoT *pcmLoop = AlsaByPathOpenPcm(source, devLoop, SND_PCM_STREAM_CAPTURE);
-        if (!pcmLoop) goto OnErrorExit;
+        AlsaPcmInfoT *playbackDev = &ctlLoop->subdevs[ctlLoop->scount];
         
-        AlsaPcmInfoT *streamPcm = AlsaCreateStream(source, &sndStream[idx], pcmLoop);
+        // capture use the same card/subdev as playback with a different device
+        playbackDev->device= ctlLoop->capture;
+        AlsaPcmInfoT *captureDev  = AlsaByPathOpenPcm(source, playbackDev, SND_PCM_STREAM_CAPTURE);
+        if (!captureDev) goto OnErrorExit;
+        
+        AlsaPcmInfoT *streamPcm = AlsaCreateStream(source, &sndStream[idx], captureDev);
         if (!streamPcm) {
             AFB_ApiError(source->api, "L2C:sndstreams fail to create stream=%s", (char*) sndStream[idx].uid);
             goto OnErrorExit;
         }
         
         // capture stream inherit channel from targeted zone
-        pcmLoop->ccount = streamPcm->ccount;
+        captureDev->ccount = streamPcm->ccount;
         sndStream[idx].params.channels=streamPcm->ccount;
         
         // start stream pcm copy 
-        error = AlsaPcmCopy(source, pcmLoop, streamPcm, &sndStream[idx].params);
+        error = AlsaPcmCopy(source, captureDev, streamPcm, &sndStream[idx].params);
         if (error) goto OnErrorExit;
 
         // Registration to event should be done after pcm_start
-        if (pcmLoop->numid) {
-            error = AlsaCtlRegister(source, pcmLoop, pcmLoop->numid);
+        if (captureDev->numid) {
+            error = AlsaCtlRegister(source, captureDev, captureDev->numid);
             if (error) goto OnErrorExit;
         }
         
+        // prepare response for application
+        playbackDev->device= ctlLoop->playback;
+        error = AlsaByPathDevid(source, playbackDev);
+        wrap_json_pack(&streamJ, "{ss ss si}", "uid", sndStream[idx].uid, "alsa", playbackDev->cardid, "numid", captureDev->numid);
+        json_object_array_add(*responseJ,streamJ);
         
         // Debug Alsa Config 
         //AlsaDumpElemConfig (source, "\n\nAlsa_Config\n------------\n", "pcm");
-        AlsaDumpPcmInfo(source, "\n\nPcm_config\n-----------\n", streamPcm->handle);
+        //AlsaDumpPcmInfo(source, "\n\nPcm_config\n-----------\n", streamPcm->handle);
 
         AFB_ApiNotice(source->api, "L2C:sndstreams stream=%s OK\n", (char*) sndStream[idx].uid);
     }

@@ -129,7 +129,7 @@ PUBLIC AlsaPcmInfoT* AlsaCreateRoute(CtlSourceT *source, AlsaSndZoneT *zone) {
     }
 
     // Debug config & pcm
-    AlsaDumpCtlConfig(source, "plug-route", routeConfig, 1);
+    //AlsaDumpCtlConfig(source, "plug-route", routeConfig, 1);
     AFB_ApiNotice(source->api, "AlsaCreateRoute:zone(%s) done\n", zone->uid);
     return pcmPlug;
 

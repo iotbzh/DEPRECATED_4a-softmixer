@@ -33,6 +33,7 @@ end
 function _mixer_config_ (source, args)
     do
     local error
+    local response
 
     -- ============================= Sound Cards ===================  
 
@@ -77,7 +78,7 @@ function _mixer_config_ (source, args)
         sndcard_2,
     }
 
-    error= L2C:snd_cards (source, sndcards)
+    error,response= L2C:snd_cards (source, sndcards)
     if (error ~= 0) then 
         AFB:error (source, "--InLua-- L2C:snd_cards fail to attach sndcards=%s", Dump_Table(sndcards))
         goto OnErrorExit
@@ -122,7 +123,7 @@ function _mixer_config_ (source, args)
         zone_back,
     }
 
-    error= L2C:snd_zones (source, multi_zones)
+    error,response= L2C:snd_zones (source, multi_zones)
     if (error ~= 0) then 
         AFB:error (source, "--InLua-- L2C:snd_zones fail to attach sndcards=%s", Dump_Table(multi_zones))
         goto OnErrorExit
@@ -148,7 +149,7 @@ function _mixer_config_ (source, args)
         }
     }
 
-    error= L2C:snd_loops (source, snd_aloop)
+    error,response= L2C:snd_loops (source, snd_aloop)
     if (error ~= 0) then 
         AFB:error (source, "--InLua-- L2C:snd_loops fail to attach sndcards=%s", Dump_Table(aloop))
         goto OnErrorExit
@@ -186,7 +187,7 @@ function _mixer_config_ (source, args)
         stream_children,
     }
 
-    error= L2C:snd_streams (source, snd_streams)
+    error,response= L2C:snd_streams (source, snd_streams)
     if (error ~= 0) then 
         AFB:error (source, "--InLua-- L2C:snd_streams fail to attach sndcards=%s", Dump_Table(aloop))
         goto OnErrorExit

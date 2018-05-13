@@ -71,8 +71,7 @@ PUBLIC AlsaPcmInfoT* AlsaCreateDmix(CtlSourceT *source, const char* pcmName, Als
     }
     
     // Debug config & pcm
-    AlsaDumpCtlConfig (source, "plug-dmix", dmixConfig, 1);
-    //AlsaDumpPcmInfo(source, pcmPlug->handle, pcmPlug->cardid);
+    //AlsaDumpCtlConfig (source, "plug-dmix", dmixConfig, 1);
     AFB_ApiNotice(source->api, "AlsaCreateDmix: %s done\n", pcmPlug->cardid);
     return pcmPlug;
 

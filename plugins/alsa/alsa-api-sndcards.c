@@ -75,7 +75,9 @@ STATIC int ProcessOneSndCard(CtlSourceT *source, json_object *sndcardJ, AlsaPcmI
     }
     
     // protect each sndcard with a dmix plugin to enable audio-stream mixing
-    AlsaPcmInfoT *dmixPcm= AlsaCreateDmix(source, snd->uid, snd);
+    char dmixUid[100];
+    snprintf(dmixUid, sizeof(dmixUid),"Dmix-%s", snd->uid);
+    AlsaPcmInfoT *dmixPcm= AlsaCreateDmix(source, dmixUid, snd);
     if (!dmixPcm) {
         AFB_ApiError(source->api, "ProcessOneSndCard: sndcard=%s fail to attach dmix plugin", snd->uid);
         goto OnErrorExit;        

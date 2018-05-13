@@ -57,7 +57,7 @@ PUBLIC AlsaPcmInfoT* AlsaCreateMulti(CtlSourceT *source, const char *pcmUid) {
             snprintf (idxS, sizeof(idxS), "%d", pcmPlug->ccount++);
             // multi does not support to name channels        
             error += snd_config_make_compound(&bindingConfig,idxS, 0);
-            error += snd_config_imake_string(&elemConfig, "slave", sndcard->cardid);
+            error += snd_config_imake_string(&elemConfig, "slave", sndcard->uid);
             error += snd_config_add(bindingConfig, elemConfig);
             error += snd_config_imake_integer(&elemConfig,"channel", channelIdx);
             error += snd_config_add(bindingConfig, elemConfig);
@@ -94,7 +94,6 @@ PUBLIC AlsaPcmInfoT* AlsaCreateMulti(CtlSourceT *source, const char *pcmUid) {
 
     // Debug config & pcm
     //AlsaDumpCtlConfig(source, "plug-multi", multiConfig, 1);
-    //AlsaDumpPcmInfo(source, pcmPlug->handle, "pcmPlug->handle");
     AFB_ApiNotice(source->api, "AlsaCreateMulti: %s done\n", pcmPlug->cardid);
     return pcmPlug;
 
