@@ -24,23 +24,34 @@
 // Fulup need to be cleanup with new controller version
 extern Lua2cWrapperT Lua2cWrap;
 
-STATIC int ProcessOneSubdev(CtlSourceT *source, AlsaSndLoopT *loop, json_object *subdevJ, AlsaPcmInfoT *subdev) {
-
-    int error = wrap_json_unpack(subdevJ, "{si,si !}", "subdev", &subdev->subdev, "numid", &subdev->numid);
+STATIC int ProcessOneSubdev(CtlSourceT *source, AlsaSndLoopT *loop,  json_object *subdevJ, AlsaPcmHwInfoT *loopDefParams,AlsaPcmInfoT *subdev) {
+    json_object *paramsJ = NULL;
+    
+    int error = wrap_json_unpack(subdevJ, "{si,si,s?o !}", "subdev", &subdev->subdev, "numid", &subdev->numid, "params", &paramsJ);
     if (error) {
         AFB_ApiError(source->api, "ProcessOneSubdev: loop=%s missing (uid|subdev|numid) json=%s", loop->uid, json_object_get_string(subdevJ));
         goto OnErrorExit;
     }
 
+    if (paramsJ) {
+        error = ProcessSndParams(source, loop->uid, paramsJ, loopDefParams);
+        if (error) {
+            AFB_ApiError(source->api, "ProcessOneLoop: sndcard=%s invalid params=%s", loop->uid, json_object_get_string(paramsJ));
+            goto OnErrorExit;
+        }
+    } else {
+        // use global loop params definition as default
+        memcpy (&subdev->params, loopDefParams, sizeof(AlsaPcmHwInfoT));
+    }
     // create a fake uid and complete subdev info from loop handle
     char subuid[30];
-    snprintf(subuid,sizeof(subuid),"loop:/%i/%i", subdev->subdev,subdev->numid);
+    snprintf(subuid, sizeof (subuid), "loop:/%i/%i", subdev->subdev, subdev->numid);
     subdev->uid = strdup(subuid);
-    subdev->device  = loop->capture; // Fulup: with alsaloop softmixer only use capture device (playback is used by applications)
+    subdev->device = loop->capture; // Fulup: with alsaloop softmixer only use capture device (playback is used by applications)
     subdev->devpath = loop->devpath;
-    subdev->cardid  = NULL;  // force AlsaByPathDevId to rebuild a new one for each subdev
+    subdev->cardid = NULL; // force AlsaByPathDevId to rebuild a new one for each subdev
     subdev->cardidx = loop->cardidx;
-    
+
     // check if card exist
     error = AlsaByPathDevid(source, subdev);
     if (error) {
@@ -55,27 +66,43 @@ OnErrorExit:
 }
 
 STATIC int ProcessOneLoop(CtlSourceT *source, json_object *loopJ, AlsaSndLoopT *loop) {
-    json_object *subdevsJ=NULL, *devicesJ=NULL;
+    json_object *subdevsJ = NULL, *devicesJ = NULL, *paramsJ = NULL;
     int error;
 
-    error = wrap_json_unpack(loopJ, "{ss,s?s,s?s,s?i,s?o,so}", "uid",&loop->uid, "devpath",&loop->devpath, "cardid",&loop->cardid
-              , "cardidx",&loop->cardidx, "devices",&devicesJ, "subdevs",&subdevsJ);
+    error = wrap_json_unpack(loopJ, "{ss,s?s,s?s,s?i,s?o,so,s?o !}", "uid", &loop->uid, "devpath", &loop->devpath, "cardid", &loop->cardid
+            , "cardidx", &loop->cardidx, "devices", &devicesJ, "subdevs", &subdevsJ, "params", &paramsJ);
     if (error || !loop->uid || !subdevsJ || (!loop->devpath && !loop->cardid && loop->cardidx)) {
         AFB_ApiNotice(source->api, "ProcessOneLoop missing 'uid|devpath|cardid|cardidx|devices|subdevs' loop=%s", json_object_get_string(loopJ));
         goto OnErrorExit;
     }
-    
+
+    AlsaPcmHwInfoT *loopDefParams =alloca(sizeof(AlsaPcmHwInfoT));
+    if (paramsJ) {
+        error = ProcessSndParams(source, loop->uid, paramsJ, loopDefParams);
+        if (error) {
+            AFB_ApiError(source->api, "ProcessOneLoop: sndcard=%s invalid params=%s", loop->uid, json_object_get_string(paramsJ));
+            goto OnErrorExit;
+        }
+    } else {
+        loopDefParams->rate = ALSA_DEFAULT_PCM_RATE;
+        loopDefParams->rate= ALSA_DEFAULT_PCM_RATE;
+        loopDefParams->access=SND_PCM_ACCESS_RW_INTERLEAVED;
+        loopDefParams->format=SND_PCM_FORMAT_S16_LE;
+        loopDefParams->channels=2; 
+        loopDefParams->sampleSize=0;
+    }
+
     // make sure useful information will not be removed
-    loop->uid=strdup(loop->uid);
-    if (loop->cardid) loop->cardid=strdup(loop->cardid);
-    if (loop->devpath) loop->cardid=strdup(loop->devpath);
-    
+    loop->uid = strdup(loop->uid);
+    if (loop->cardid) loop->cardid = strdup(loop->cardid);
+    if (loop->devpath) loop->cardid = strdup(loop->devpath);
+
     // Default devices is payback=0 capture=1
     if (!devicesJ) {
-        loop->playback=0;
-        loop->capture=1;       
+        loop->playback = 0;
+        loop->capture = 1;
     } else {
-        error = wrap_json_unpack(devicesJ, "{si,si}", "capture",&loop->capture, "playback", &loop->playback);
+        error = wrap_json_unpack(devicesJ, "{si,si !}", "capture", &loop->capture, "playback", &loop->playback);
         if (error) {
             AFB_ApiNotice(source->api, "ProcessOneLoop=%s missing 'capture|playback' devices=%s", loop->uid, json_object_get_string(devicesJ));
             goto OnErrorExit;
@@ -85,24 +112,24 @@ STATIC int ProcessOneLoop(CtlSourceT *source, json_object *loopJ, AlsaSndLoopT *
     switch (json_object_get_type(subdevsJ)) {
         case json_type_object:
             loop->scount = 1;
-            loop->subdevs = calloc(loop->scount+1, sizeof (AlsaPcmInfoT));
-            error = ProcessOneSubdev(source, loop, subdevsJ, &loop->subdevs[0]);
+            loop->subdevs = calloc(loop->scount + 1, sizeof (AlsaPcmInfoT));
+            error = ProcessOneSubdev(source, loop, subdevsJ, loopDefParams, &loop->subdevs[0]);
             if (error) goto OnErrorExit;
             break;
         case json_type_array:
-            loop->scount = (int)json_object_array_length(subdevsJ);
-            loop->subdevs = calloc(loop->scount+1, sizeof (AlsaPcmInfoT));
+            loop->scount = (int) json_object_array_length(subdevsJ);
+            loop->subdevs = calloc(loop->scount + 1, sizeof (AlsaPcmInfoT));
             for (int idx = 0; idx < loop->scount; idx++) {
                 json_object *subdevJ = json_object_array_get_idx(subdevsJ, idx);
-                error = ProcessOneSubdev(source, loop, subdevJ, &loop->subdevs[idx]);
+                error = ProcessOneSubdev(source, loop, subdevJ, loopDefParams, &loop->subdevs[idx]);
                 if (error) goto OnErrorExit;
             }
             break;
         default:
-            AFB_ApiError(source->api, "L2C:ProcessOneLoop=%s invalid subdevs= %s",  loop->uid, json_object_get_string(subdevsJ));
+            AFB_ApiError(source->api, "L2C:ProcessOneLoop=%s invalid subdevs= %s", loop->uid, json_object_get_string(subdevsJ));
             goto OnErrorExit;
     }
-      
+
     return 0;
 
 OnErrorExit:
@@ -111,7 +138,7 @@ OnErrorExit:
 
 CTLP_LUA2C(snd_loops, source, argsJ, responseJ) {
     int error;
-    AlsaSndLoopT *sndLoop = calloc (1, sizeof(AlsaSndLoopT));
+    AlsaSndLoopT *sndLoop = calloc(1, sizeof (AlsaSndLoopT));
 
     if (json_object_get_type(argsJ) != json_type_object) {
         AFB_ApiError(source->api, "L2C:sndloops: invalid object type= %s", json_object_get_string(argsJ));
@@ -126,7 +153,6 @@ CTLP_LUA2C(snd_loops, source, argsJ, responseJ) {
 
     // register routed into global softmixer handle
     Softmixer->loopCtl = sndLoop;
-
 
     return 0;
 

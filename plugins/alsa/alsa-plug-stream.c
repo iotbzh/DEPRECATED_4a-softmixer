@@ -36,11 +36,11 @@ STATIC AlsaPcmInfoT* SlaveZoneByUid(CtlSourceT *source,  AlsaPcmInfoT **pcmZones
     return NULL;
 }
 
-PUBLIC AlsaPcmInfoT* AlsaCreateStream(CtlSourceT *source, AlsaSndStreamT *stream, AlsaPcmInfoT *ctlControl) {
+PUBLIC AlsaPcmInfoT* AlsaCreateStream(CtlSourceT *source, AlsaSndStreamT *stream, AlsaPcmInfoT *ctlControl, const char* ctlName, int open) {
 
     snd_config_t *streamConfig, *elemConfig, *slaveConfig, *controlConfig,*pcmConfig;
     int error = 0;
-    AlsaPcmInfoT *pcmPlug= malloc(sizeof(AlsaPcmInfoT));
+    AlsaPcmInfoT *pcmPlug= calloc(1,sizeof(AlsaPcmInfoT));
 
     // assert static/global softmixer handle get requited info
     AlsaSndLoopT *ctlLoop = Softmixer->loopCtl;
@@ -57,22 +57,27 @@ PUBLIC AlsaPcmInfoT* AlsaCreateStream(CtlSourceT *source, AlsaSndStreamT *stream
     }
     
     // search for target zone uid
-    pcmPlug->uid= stream->uid;
-    pcmPlug->cardid= stream->uid;
     AlsaPcmInfoT *pcmSlave= SlaveZoneByUid (source, pcmZones, stream->zone);
     if (!pcmSlave || !pcmSlave->uid) {
-        AFB_ApiError(source->api, "AlsaCreateStream:%s(stream) fail to find Zone=%s", pcmPlug->uid, stream->zone);
+        AFB_ApiError(source->api, "AlsaCreateStream:%s(stream) fail to find Zone=%s", stream->uid, stream->zone);
         goto OnErrorExit;  
     }
     
     // stream inherit from zone channel count
+    pcmPlug->uid= strdup(stream->uid);
+    pcmPlug->cardid= pcmPlug->uid;
+    pcmPlug->devpath=NULL;
     pcmPlug->ccount= pcmSlave->ccount;
+    memcpy (&pcmPlug->params, &stream->params, sizeof(AlsaPcmHwInfoT));
+    pcmPlug->params.channels= pcmSlave->ccount;
        
     // refresh global alsalib config and create PCM top config
     snd_config_update();
     error += snd_config_top(&streamConfig);
     error += snd_config_set_id (streamConfig, pcmPlug->cardid);
     error += snd_config_imake_string(&elemConfig, "type", "softvol");
+    error += snd_config_add(streamConfig, elemConfig);
+    error += snd_config_imake_integer(&elemConfig, "resolution", 99); // use 0-100%
     error += snd_config_add(streamConfig, elemConfig);
     if (error) goto OnErrorExit;
     
@@ -85,7 +90,7 @@ PUBLIC AlsaPcmInfoT* AlsaCreateStream(CtlSourceT *source, AlsaSndStreamT *stream
     
     // add control leaf
     error += snd_config_make_compound(&controlConfig, "control", 0);
-    error += snd_config_imake_string(&elemConfig, "name", stream->uid);
+    error += snd_config_imake_string(&elemConfig, "name", ctlName);
     error += snd_config_add(controlConfig, elemConfig);
     error += snd_config_imake_integer(&elemConfig, "card", ctlControl->cardidx);
     error += snd_config_add(controlConfig, elemConfig);
@@ -95,7 +100,7 @@ PUBLIC AlsaPcmInfoT* AlsaCreateStream(CtlSourceT *source, AlsaSndStreamT *stream
     // update top config to access previous plugin PCM
     snd_config_update();
     
-    error = _snd_pcm_softvol_open(&pcmPlug->handle, stream->uid, snd_config, streamConfig, SND_PCM_STREAM_PLAYBACK , SND_PCM_NONBLOCK); 
+    if (open) error = _snd_pcm_softvol_open(&pcmPlug->handle, stream->uid, snd_config, streamConfig, SND_PCM_STREAM_PLAYBACK , SND_PCM_NONBLOCK); 
     if (error) {
         AFB_ApiError(source->api, "AlsaCreateStream:%s(stream) fail to create Plug=%s Slave=%s error=%s", stream->uid, pcmPlug->cardid, pcmSlave->cardid, snd_strerror(error));
         goto OnErrorExit;

@@ -25,77 +25,121 @@ extern Lua2cWrapperT Lua2cWrap;
 
 STATIC int ProcessOneChannel(CtlSourceT *source, const char* uid, json_object *channelJ, AlsaPcmChannels *channel) {
     const char*channelUid;
-    
+
     int error = wrap_json_unpack(channelJ, "{ss,si !}", "uid", &channelUid, "port", &channel->port);
     if (error) goto OnErrorExit;
 
-    channel->uid=strdup(channelUid);
+    channel->uid = strdup(channelUid);
     return 0;
 
 OnErrorExit:
-    AFB_ApiError(source->api, "ProcessOneChannel: sndcard=%s channel: missing (uid||port) json=%s", uid, json_object_get_string(channelJ));    
+    AFB_ApiError(source->api, "ProcessOneChannel: sndcard=%s channel: missing (uid||port) json=%s", uid, json_object_get_string(channelJ));
     return -1;
 }
 
-STATIC int ProcessSndParams(CtlSourceT *source, const char* uid, json_object *paramsJ, AlsaPcmHwInfoT *params) {
-    
-    int error = wrap_json_unpack(paramsJ, "{s?i,s?i !}", "rate", &params->rate, "channels", &params->channels);
+PUBLIC int ProcessSndParams(CtlSourceT *source, const char* uid, json_object *paramsJ, AlsaPcmHwInfoT *params) {
+    const char *format=NULL, *access=NULL;
+
+    // some default values
+    params->rate= ALSA_DEFAULT_PCM_RATE;
+    params->channels= 2;
+    params->sampleSize=0;
+
+    int error = wrap_json_unpack(paramsJ, "{s?i,s?i, s?s, s?s !}", "rate",&params->rate,"channels", &params->channels, "format",&format, "access",&access);
     if (error) goto OnErrorExit;
+    
+    if (!format) params->format = SND_PCM_FORMAT_S16_LE;
+    else if (!strcasecmp(format, "S16_LE")) params->format = SND_PCM_FORMAT_S16_LE;
+    else if (!strcasecmp(format, "S16_BE")) params->format = SND_PCM_FORMAT_S16_BE;
+    else if (!strcasecmp(format, "U16_LE")) params->format = SND_PCM_FORMAT_U16_LE;
+    else if (!strcasecmp(format, "U16_BE")) params->format = SND_PCM_FORMAT_U16_BE;
+    else if (!strcasecmp(format, "S32_LE")) params->format = SND_PCM_FORMAT_S32_LE;
+    else if (!strcasecmp(format, "S32_BE")) params->format = SND_PCM_FORMAT_S32_BE;
+    else if (!strcasecmp(format, "U32_LE")) params->format = SND_PCM_FORMAT_U32_LE;
+    else if (!strcasecmp(format, "U32_BE")) params->format = SND_PCM_FORMAT_U32_BE;
+    else if (!strcasecmp(format, "S24_LE")) params->format = SND_PCM_FORMAT_S24_LE;
+    else if (!strcasecmp(format, "S24_BE")) params->format = SND_PCM_FORMAT_S24_BE;
+    else if (!strcasecmp(format, "U24_LE")) params->format = SND_PCM_FORMAT_U24_LE;
+    else if (!strcasecmp(format, "U24_BE")) params->format = SND_PCM_FORMAT_U24_BE;
+    else if (!strcasecmp(format, "S8")) params->format = SND_PCM_FORMAT_S8;
+    else if (!strcasecmp(format, "U8")) params->format = SND_PCM_FORMAT_U8;
+    else if (!strcasecmp(format, "FLOAT_LE")) params->format = SND_PCM_FORMAT_FLOAT_LE;
+    else if (!strcasecmp(format, "FLOAT_BE")) params->format = SND_PCM_FORMAT_FLOAT_LE;
+    else {
+        AFB_ApiNotice(source->api, "ProcessSndParams:%s(params) unsupported format 'S16_LE|S32_L|...' format=%s", uid, format);
+        goto OnErrorExit;
+    }
+    
+    if (!access) params->access =  SND_PCM_ACCESS_RW_INTERLEAVED;
+    else if (!strcasecmp(access, "MMAP_INTERLEAVED")) params->access = SND_PCM_ACCESS_MMAP_INTERLEAVED;
+    else if (!strcasecmp(access, "MMAP_NONINTERLEAVED")) params->access = SND_PCM_ACCESS_MMAP_NONINTERLEAVED;
+    else if (!strcasecmp(access, "MMAP_COMPLEX")) params->access = SND_PCM_ACCESS_MMAP_COMPLEX;
+    else if (!strcasecmp(access, "RW_INTERLEAVED")) params->access = SND_PCM_ACCESS_RW_INTERLEAVED;
+    else if (!strcasecmp(access, "RW_NONINTERLEAVED")) params->access = SND_PCM_ACCESS_RW_NONINTERLEAVED;
+
+    else {
+        AFB_ApiNotice(source->api, "ProcessSndParams:%s(params) unsupported access 'RW_INTERLEAVED|MMAP_INTERLEAVED|MMAP_COMPLEX' access=%s",uid,  access);
+        goto OnErrorExit;
+    }
 
     return 0;
 
 OnErrorExit:
-    AFB_ApiError(source->api, "ProcessSndParams: sndcard=%s params: missing (rate|channel) params=%s", uid, json_object_get_string(paramsJ));    
     return -1;
 }
 
 STATIC int ProcessOneSndCard(CtlSourceT *source, json_object *sndcardJ, AlsaPcmInfoT *snd) {
-    json_object *sinkJ, *paramsJ=NULL;
+    json_object *sinkJ=NULL, *paramsJ = NULL;
     int error;
 
-    error = wrap_json_unpack(sndcardJ, "{ss,s?s,s?s,s?i,s?i,s?i,so,s?o !}", "uid",&snd->uid, "devpath",&snd->devpath, "cardid",&snd->cardid
-              , "cardidx",&snd->cardidx, "device",&snd->device, "subdev",&snd->subdev, "sink",&sinkJ, "params",&paramsJ);
+    error = wrap_json_unpack(sndcardJ, "{ss,s?s,s?s,s?i,s?i,s?i,so,s?o !}", "uid", &snd->uid, "devpath", &snd->devpath, "cardid", &snd->cardid
+            , "cardidx", &snd->cardidx, "device", &snd->device, "subdev", &snd->subdev, "sink", &sinkJ, "params", &paramsJ);
     if (error || !snd->uid || !sinkJ || (!snd->devpath && !snd->cardid && snd->cardidx)) {
         AFB_ApiNotice(source->api, "ProcessOneSndCard missing 'uid|path|cardid|cardidx|channels|device|subdev|numid|params' devin=%s", json_object_get_string(sndcardJ));
         goto OnErrorExit;
     }
-    
-    if (paramsJ) error= ProcessSndParams(source, snd->uid, paramsJ, &snd->params);
-    if (error) {
-        AFB_ApiError(source->api, "ProcessOneSndCard: sndcard=%s invalid params=%s", snd->uid, json_object_get_string(paramsJ));
-        goto OnErrorExit;
+
+    if (paramsJ) {
+        error = ProcessSndParams(source, snd->uid, paramsJ, &snd->params);
+        if (error) {
+            AFB_ApiError(source->api, "ProcessOneSndCard: sndcard=%s invalid params=%s", snd->uid, json_object_get_string(paramsJ));
+            goto OnErrorExit;
+        }
+    } else {
+        snd->params.rate= ALSA_DEFAULT_PCM_RATE;
+        snd->params.access= SND_PCM_ACCESS_RW_INTERLEAVED;
+        snd->params.format=SND_PCM_FORMAT_S16_LE;
+        snd->params.channels=2;
     }
-        
-    
+
     // check snd card is accessible
     error = AlsaByPathDevid(source, snd);
     if (error) {
         AFB_ApiError(source->api, "ProcessOneSndCard: sndcard=%s not found config=%s", snd->uid, json_object_get_string(sndcardJ));
         goto OnErrorExit;
     }
-    
+
     // protect each sndcard with a dmix plugin to enable audio-stream mixing
     char dmixUid[100];
-    snprintf(dmixUid, sizeof(dmixUid),"Dmix-%s", snd->uid);
-    AlsaPcmInfoT *dmixPcm= AlsaCreateDmix(source, dmixUid, snd);
+    snprintf(dmixUid, sizeof (dmixUid), "Dmix-%s", snd->uid);
+    AlsaPcmInfoT *dmixPcm = AlsaCreateDmix(source, dmixUid, snd, 0);
     if (!dmixPcm) {
         AFB_ApiError(source->api, "ProcessOneSndCard: sndcard=%s fail to attach dmix plugin", snd->uid);
-        goto OnErrorExit;        
+        goto OnErrorExit;
     } else {
-        snd_pcm_close(dmixPcm->handle);
-        snd->cardid=dmixPcm->cardid;
+        snd->cardid = dmixPcm->cardid;
     }
 
     switch (json_object_get_type(sinkJ)) {
         case json_type_object:
-            snd->ccount=1;
-            snd->channels = calloc(snd->ccount+1, sizeof (AlsaPcmChannels));
+            snd->ccount = 1;
+            snd->channels = calloc(snd->ccount + 1, sizeof (AlsaPcmChannels));
             error = ProcessOneChannel(source, snd->uid, sndcardJ, &snd->channels[0]);
             if (error) goto OnErrorExit;
             break;
         case json_type_array:
-            snd->ccount = (int)json_object_array_length(sinkJ);
-            snd->channels = calloc(snd->ccount+1, sizeof (AlsaPcmChannels));
+            snd->ccount = (int) json_object_array_length(sinkJ);
+            snd->channels = calloc(snd->ccount + 1, sizeof (AlsaPcmChannels));
             for (int idx = 0; idx < snd->ccount; idx++) {
                 json_object *channelJ = json_object_array_get_idx(sinkJ, idx);
                 error = ProcessOneChannel(source, snd->uid, channelJ, &snd->channels[idx]);
@@ -115,13 +159,13 @@ OnErrorExit:
 
 CTLP_LUA2C(snd_cards, source, argsJ, responseJ) {
     AlsaPcmInfoT *sndcards;
- 
+
     int error;
     size_t count;
 
     switch (json_object_get_type(argsJ)) {
         case json_type_object:
-            count= 1;
+            count = 1;
             sndcards = calloc(count + 1, sizeof (AlsaPcmInfoT));
             error = ProcessOneSndCard(source, argsJ, &sndcards[0]);
             if (error) goto OnErrorExit;
@@ -141,23 +185,21 @@ CTLP_LUA2C(snd_cards, source, argsJ, responseJ) {
     }
 
     // register Sound card and multi when needed
-    Softmixer->sndcardCtl= sndcards;
-    
+    Softmixer->sndcardCtl = sndcards;
+
     if (count == 1) {
-        
+
         // only one sound card we multi would be useless
         Softmixer->multiPcm = &sndcards[0];
-        
+
     } else {
         AlsaPcmInfoT *pcmMulti;
-        
+
         // instantiate an alsa multi plugin
-        pcmMulti = AlsaCreateMulti(source, "PcmMulti");
+        pcmMulti = AlsaCreateMulti(source, "PcmMulti", 0);
         if (!pcmMulti) goto OnErrorExit;
 
-        // Close Multi and save into globak handle for further use
-        snd_pcm_close(pcmMulti->handle); 
-        Softmixer->multiPcm= pcmMulti;
+        Softmixer->multiPcm = pcmMulti;
     }
 
     return 0;

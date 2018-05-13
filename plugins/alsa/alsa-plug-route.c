@@ -47,7 +47,7 @@ OnErrorExit:
     return -1;
 }
 
-PUBLIC AlsaPcmInfoT* AlsaCreateRoute(CtlSourceT *source, AlsaSndZoneT *zone) {
+PUBLIC AlsaPcmInfoT* AlsaCreateRoute(CtlSourceT *source, AlsaSndZoneT *zone, int open) {
 
     snd_config_t *routeConfig, *elemConfig, *slaveConfig, *tableConfig, *pcmConfig;
     int error = 0;
@@ -115,7 +115,7 @@ PUBLIC AlsaPcmInfoT* AlsaCreateRoute(CtlSourceT *source, AlsaSndZoneT *zone) {
     // update top config to access previous plugin PCM
     snd_config_update();
 
-    error = _snd_pcm_route_open(&pcmPlug->handle, zone->uid, snd_config, routeConfig, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
+    if (open) error = _snd_pcm_route_open(&pcmPlug->handle, zone->uid, snd_config, routeConfig, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
     if (error) {
         AFB_ApiError(source->api, "AlsaCreateRoute:zone(%s) fail to create Plug=%s error=%s", zone->uid, pcmPlug->cardid, snd_strerror(error));
         goto OnErrorExit;

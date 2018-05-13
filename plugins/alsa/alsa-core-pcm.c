@@ -29,9 +29,6 @@ for the specific language governing permissions and
 #include <sys/syscall.h>
 
 
-
-#define BUFFER_FRAME_COUNT 1024
-
 typedef struct {
     snd_pcm_t *pcmIn;
     snd_pcm_t *pcmOut;
@@ -238,7 +235,7 @@ STATIC int AlsaPcmReadCB(sd_event_source* src, int fd, uint32_t revents, void* u
     // In/Out frames transfer through buffer copy
     framesOut = snd_pcm_writei(pcmCopyHandle->pcmOut, pcmCopyHandle->buffer, framesIn);
     if (framesOut < 0 || framesOut != framesIn) {
-        AFB_ApiNotice(pcmCopyHandle->api, "AlsaPcmReadCB PcmOut=%s UNDERUN/SUSPEND frameOut=%ld", ALSA_PCM_UID(pcmCopyHandle->pcmOut, string), framesOut);
+        AFB_ApiNotice(pcmCopyHandle->api, "AlsaPcmReadCB PcmOut=%s UNDERUN frame=%ld", ALSA_PCM_UID(pcmCopyHandle->pcmOut, string), (framesIn - framesOut));
         goto ExitOnSuccess;
     }
 
@@ -283,6 +280,16 @@ PUBLIC int AlsaPcmCopy(CtlSourceT *source, AlsaPcmInfoT *pcmIn, AlsaPcmInfoT *pc
     struct pollfd *pcmInFds; 
     int error;
 
+    // input and output should match
+    error = AlsaPcmConf(source, pcmOut, opts);
+    if (error) goto OnErrorExit;
+
+    // Prepare PCM for usage
+    if ((error = snd_pcm_prepare(pcmOut->handle)) < 0) {
+        AFB_ApiError(source->api, "AlsaPcmCopy: Fail to prepare PCM=%s error=%s", ALSA_PCM_UID(pcmOut->handle, string), snd_strerror(error));
+        goto OnErrorExit;
+    };
+
     // prepare PCM for capture and replay
     error = AlsaPcmConf(source, pcmIn, opts);
     if (error) goto OnErrorExit;
@@ -292,19 +299,7 @@ PUBLIC int AlsaPcmCopy(CtlSourceT *source, AlsaPcmInfoT *pcmIn, AlsaPcmInfoT *pc
         AFB_ApiError(source->api, "AlsaPcmCopy: Fail to prepare PCM=%s error=%s", ALSA_PCM_UID(pcmIn->handle, string), snd_strerror(error));
         goto OnErrorExit;
     };
-
     
-    error = AlsaPcmConf(source, pcmOut, opts);
-    if (error) goto OnErrorExit;
-
-    // Prepare PCM for usage
-    if ((error = snd_pcm_prepare(pcmOut->handle)) < 0) {
-        AFB_ApiError(source->api, "AlsaPcmCopy: Fail to start PCM=%s error=%s", ALSA_PCM_UID(pcmOut->handle, string), snd_strerror(error));
-        goto OnErrorExit;
-    };
-    
-
-
     AlsaPcmCopyHandleT *pcmCopyHandle = malloc(sizeof (AlsaPcmCopyHandleT));
     pcmCopyHandle->info = "pcmCpy";
     pcmCopyHandle->pcmIn = pcmIn->handle;
@@ -312,7 +307,7 @@ PUBLIC int AlsaPcmCopy(CtlSourceT *source, AlsaPcmInfoT *pcmIn, AlsaPcmInfoT *pc
     pcmCopyHandle->api = source->api;
     pcmCopyHandle->channels = opts->channels;
     pcmCopyHandle->frameSize = opts->channels * opts->sampleSize;
-    pcmCopyHandle->frameCount = BUFFER_FRAME_COUNT;
+    pcmCopyHandle->frameCount = ALSA_BUFFER_FRAMES_COUNT;
     pcmCopyHandle->buffer = malloc(pcmCopyHandle->frameCount * pcmCopyHandle->frameSize);
 
     // get FD poll descriptor for capture PCM
@@ -350,8 +345,8 @@ PUBLIC int AlsaPcmCopy(CtlSourceT *source, AlsaPcmInfoT *pcmIn, AlsaPcmInfoT *pc
     return 0;
 
 OnErrorExit:
-    AFB_ApiError(source->api, "AlsaPcmCopy: Fail \n - pcmIn=%s \n - pcmOut=%s", ALSA_PCM_UID(pcmIn->handle, string), ALSA_PCM_UID(pcmOut->handle, string));
-
+    AFB_ApiError(source->api, "AlsaPcmCopy: - pcmIn=%s" , ALSA_PCM_UID(pcmIn->handle, string));
+    AFB_ApiError(source->api, "AlsaPcmCopy: - pcmOut=%s", ALSA_PCM_UID(pcmOut->handle, string));
     return -1;
 }
 

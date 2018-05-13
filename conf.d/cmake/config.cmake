@@ -198,7 +198,7 @@ set(AFB_REMPORT "1234" CACHE PATH "Default binder listening port")
 
 # Print a helper message when every thing is finished
 # ----------------------------------------------------
-set(CLOSING_MESSAGE "Typical binding launch: afb-daemon --name ${PROJECT_NAME}-afbd --port=${AFB_REMPORT} --workdir=${CMAKE_BINARY_DIR} --binding=package/lib/softmixer-binding.so --ldpath=${CMAKE_INSTALL_PREFIX}/4a-alsa-core/lib --roothttp=package/htdocs --token=\"${AFB_TOKEN}\" --tracereq=common --verbose")
+set(CLOSING_MESSAGE "Typical binding launch: afb-daemon --name ${PROJECT_NAME}-afbd --port=${AFB_REMPORT} --workdir=${CMAKE_BINARY_DIR} --binding=package/lib/softmixer-binding.so --roothttp=package/htdocs --token=\"${AFB_TOKEN}\" --tracereq=common --verbose")
 set(PACKAGE_MESSAGE "Install widget file using in the target : afm-util install ${PROJECT_NAME}.wgt")
 
 # Optional schema validator about now only XML, LUA and JSON

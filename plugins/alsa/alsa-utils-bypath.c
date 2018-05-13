@@ -74,7 +74,6 @@ PUBLIC int AlsaByPathDevid(CtlSourceT *source, AlsaPcmInfoT *dev) {
         dev->cardid=malloc(ALSA_CARDID_MAX_LEN);
         snprintf((char*)dev->cardid, ALSA_CARDID_MAX_LEN, "hw:%i", dev->cardidx);
         cardInfo = AlsaCtlGetInfo(source, dev->cardid);
-        cardInfo = AlsaCtlGetInfo(source, dev->cardid);
     }
 
     if (!cardInfo) {

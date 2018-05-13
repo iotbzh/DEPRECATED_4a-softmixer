@@ -25,7 +25,7 @@ static int uniqueIpcIndex = 1024;
 ALSA_PLUG_PROTO(dmix);
 
 
-PUBLIC AlsaPcmInfoT* AlsaCreateDmix(CtlSourceT *source, const char* pcmName, AlsaPcmInfoT *pcmSlave) {
+PUBLIC AlsaPcmInfoT* AlsaCreateDmix(CtlSourceT *source, const char* pcmName, AlsaPcmInfoT *pcmSlave, int open) {
    
     snd_config_t *dmixConfig, *slaveConfig, *elemConfig, *pcmConfig;
     AlsaPcmInfoT *pcmPlug= calloc(1,sizeof(AlsaPcmInfoT));
@@ -57,7 +57,7 @@ PUBLIC AlsaPcmInfoT* AlsaCreateDmix(CtlSourceT *source, const char* pcmName, Als
     error += snd_config_add(dmixConfig, slaveConfig);
     if (error) goto OnErrorExit;
        
-    error = _snd_pcm_dmix_open(&pcmPlug->handle, pcmPlug->cardid, snd_config, dmixConfig, SND_PCM_STREAM_PLAYBACK , SND_PCM_NONBLOCK); 
+    if (open) error = _snd_pcm_dmix_open(&pcmPlug->handle, pcmPlug->cardid, snd_config, dmixConfig, SND_PCM_STREAM_PLAYBACK , SND_PCM_NONBLOCK); 
     if (error) {
         AFB_ApiError(source->api, "AlsaCreateDmix: fail to create Dmix=%s Slave=%s Error=%s", pcmPlug->cardid, pcmSlave->cardid, snd_strerror(error));
         goto OnErrorExit;

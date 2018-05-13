@@ -22,7 +22,7 @@
 
 ALSA_PLUG_PROTO(multi);
 
-PUBLIC AlsaPcmInfoT* AlsaCreateMulti(CtlSourceT *source, const char *pcmUid) {
+PUBLIC AlsaPcmInfoT* AlsaCreateMulti(CtlSourceT *source, const char *pcmUid, int open) {
 
     snd_config_t *multiConfig, *elemConfig, *slavesConfig, *slaveConfig, *bindingsConfig, *bindingConfig, *pcmConfig;
     int error = 0, channelIdx=0;
@@ -79,7 +79,7 @@ PUBLIC AlsaPcmInfoT* AlsaCreateMulti(CtlSourceT *source, const char *pcmUid) {
     // update top config to access previous plugin PCM
     snd_config_update();
 
-    error = _snd_pcm_multi_open(&pcmPlug->handle, pcmUid, snd_config, multiConfig, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
+    if (open) error = _snd_pcm_multi_open(&pcmPlug->handle, pcmUid, snd_config, multiConfig, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
     if (error) {
         AFB_ApiError(source->api, "AlsaCreateMulti: fail to create Plug=%s Error=%s", pcmPlug->cardid, snd_strerror(error));
         goto OnErrorExit;

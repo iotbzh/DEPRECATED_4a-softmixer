@@ -128,12 +128,11 @@ CTLP_LUA2C(snd_zones, source, argsJ, responseJ) {
 
     // instantiate one route PCM per zone with multi plugin as slave
     for (int idx = 0; sndZone[idx].uid != NULL; idx++) {
-        Softmixer->zonePcms[idx] = AlsaCreateRoute(source, &sndZone[idx]);
+        Softmixer->zonePcms[idx] = AlsaCreateRoute(source, &sndZone[idx], 0);
         if (!Softmixer->zonePcms[idx]) {
             AFB_ApiNotice(source->api, "L2C:sndzones fail to create route zone=%s", sndZone[idx].uid);
             goto OnErrorExit;
         }
-        snd_pcm_close(Softmixer->zonePcms[idx]->handle);
     }
     
     // do not need this handle anymore
