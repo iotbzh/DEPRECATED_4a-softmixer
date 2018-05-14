@@ -84,7 +84,6 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-afb-helpers-submodule</pElem>
           </incDir>
@@ -97,7 +96,6 @@
         <cTool flags="1">
           <incDir>
             <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
             <pElem>build/app-afb-helpers-submodule</pElem>
           </incDir>
         </cTool>
@@ -163,9 +161,7 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>/usr/include/lua5.3</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
           </incDir>
@@ -176,7 +172,6 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>mixer-binding</pElem>
-            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
             <pElem>../../../opt/include/alsa</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>app-controller-submodule/ctl-lib</pElem>
