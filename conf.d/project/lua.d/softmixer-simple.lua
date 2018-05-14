@@ -60,12 +60,12 @@ function _mixer_config_ (source, args)
         }
     }
 
-    error,response= L2C:snd_loops (source, snd_aloop)
+    error,response= smix:snd_loops (source, snd_aloop)
     if (error ~= 0) then 
-        AFB:error (source, "--InLua-- L2C:snd_loops fail to attach sndcards=%s", Dump_Table(aloop))
+        AFB:error (source, "--InLua-- smix:snd_loops fail to attach sndcards=%s", Dump_Table(aloop))
         goto OnErrorExit
     else
-        AFB:notice (source, "--InLua-- L2C:snd_loops done response=%s\n", Dump_Table(response))
+        AFB:notice (source, "--InLua-- smix:snd_loops done response=%s\n", Dump_Table(response))
     end
     
 
@@ -81,17 +81,27 @@ function _mixer_config_ (source, args)
         }
     }
 
-     -- group sound card as one multi channels card
-    local sndcards= {
-        sndcard_0,
+    local sndcard_1 = {
+        ["uid"]= "Jabra-Solemate",
+        ["devpath"]= "/dev/snd/by-id/usb-0b0e_Jabra_SOLEMATE_v1.34.0-00",
+        ["params"] = snd_params,
+        ["sink"] = {
+            [0]= {["uid"]= "front-right", ["port"]= 0},
+            [1]= {["uid"]= "front-left", ["port"]= 1},
+        }
     }
 
-    error,response= L2C:snd_cards (source, sndcards)
+     -- group sound card as one multi channels card
+    local sndcards= {
+        sndcard_1,
+    }
+
+    error,response= smix:snd_cards (source, sndcards)
     if (error ~= 0) then 
-        AFB:error (source, "--InLua-- L2C:snd_cards fail to attach sndcards=%s", Dump_Table(sndcards))
+        AFB:error (source, "--InLua-- smix:snd_cards fail to attach sndcards=%s", Dump_Table(sndcards))
         goto OnErrorExit
     else
-        AFB:notice (source, "--InLua-- L2C:snd_cards done response=%s\n", Dump_Table(response))
+        AFB:notice (source, "--InLua-- smix:snd_cards done response=%s\n", Dump_Table(response))
     end
  
     -- ============================= Zones ===================    
@@ -109,12 +119,12 @@ function _mixer_config_ (source, args)
         zone_front,
     }
 
-    error,response= L2C:snd_zones (source, multi_zones)
+    error,response= smix:snd_zones (source, multi_zones)
     if (error ~= 0) then 
-        AFB:error (source, "--InLua-- L2C:snd_zones fail to attach sndcards=%s", Dump_Table(multi_zones))
+        AFB:error (source, "--InLua-- smix:snd_zones fail to attach sndcards=%s", Dump_Table(multi_zones))
         goto OnErrorExit
     else
-        AFB:notice (source, "--InLua-- L2C:snd_zones done response=%s\n", Dump_Table(response))
+        AFB:notice (source, "--InLua-- smix:snd_zones done response=%s\n", Dump_Table(response))
     end
 
     -- =================== Audio Stream ============================
@@ -138,12 +148,12 @@ function _mixer_config_ (source, args)
         stream_navigation,
     }
 
-    error,response= L2C:snd_streams (source, snd_streams)
+    error,response= smix:snd_streams (source, snd_streams)
     if (error ~= 0) then 
-        AFB:error (source, "--InLua-- L2C:snd_streams fail to attach sndcards=%s", Dump_Table(aloop))
+        AFB:error (source, "--InLua-- smix:snd_streams fail to attach sndcards=%s", Dump_Table(aloop))
         goto OnErrorExit
     else
-        AFB:notice (source, "--InLua-- L2C:streams_loops done response=%s\n", Dump_Table(response))
+        AFB:notice (source, "--InLua-- smix:streams_loops done response=%s\n", Dump_Table(response))
     end
 
 
@@ -159,10 +169,13 @@ end
 
 -- Display receive arguments and echo them to caller
 function _init_softmixer_ (source, args)
-
+    
+    printf ("*********** in print ")
     -- create event to push change audio roles to potential listeners
     _EventHandle=AFB:evtmake(source, "control")
 
     _mixer_config_ (source, args)
 
 end
+
+printf ("*********** load done ")

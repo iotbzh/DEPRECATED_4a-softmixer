@@ -27,4 +27,11 @@
 
 #include <ctl-config.h>
 
+#ifndef PUBLIC
+#define PUBLIC
+#endif
+#ifndef STATIC
+#define STATIC static
+#endif
+
 #endif /* _CTL_BINDING_INCLUDE_ */

@@ -1,5 +1,5 @@
 {
-    "schema": "To Be Defined",
+    "schema": "http://iot.bzh/download/public/schema/json/ctl-schema.json",
     "metadata": {
         "uid": "Soft Mixer",
         "version": "1.0",
@@ -8,10 +8,12 @@
     },
     "plugins": [
         {
-            "uid": "alsa-router",
-            "ldpath": "./plugins/alsa",
-            "lua2c": ["snd_cards", "snd_zones", "snd_loops", "snd_streams"],
-            "info": "Map alsa-loop subdevices to 4A HAL streams"
+            "uid": "alsa-softmixer",
+            "info": "Map alsa-loop subdevices to 4A HAL streams",
+            "spath":"./plugins/alsa:../conf.d/project/lua.d",
+            "file": ["alsa-router.ctlso", "softmixer-simple.lua"],
+            "lua2c_prefix": "smix",
+            "lua2c": ["snd_cards", "snd_zones", "snd_loops", "snd_streams"]
         }
     ],
 
@@ -19,82 +21,26 @@
         {
             "uid": "init-soft-mixer",
             "info": "Initialise Audio Router",
-            "lua": "_init_softmixer_"
+            "uri": "lua://alsa-softmixer",
+            "function": "_init_softmixer_"
         }
     ],
-
-    "sndcards": [
-        {
-            "uid": "Focusrite_Scarlett_18i8",
-            "info": "Focusrite 18i8",
-            "device": "/dev/snd/by-id/usb-Focusrite_Scarlett_18i8_USB_10004EE6-00",
-            "action": {
-                "uid": "init-snd-card",
-                "function": "lua://init-focusrite"
-            },
-            "channels": {
-                "sink": [
-                    {
-                        "type": "FrontLeftFullRange",
-                        "port": 0
-                    },
-                    {
-                        "type": "FrontRightFullRange",
-                        "port": 1
-                    },
-                    {
-                        "type": "RearLeftFullRange",
-                        "port": 2
-                    },
-                    {
-                        "type": "FrontRightFullRange",
-                        "port": 3
-                    },
-                    {
-                        "type": "Center",
-                        "port": 4
-                    },
-                    {
-                        "type": "LFE",
-                        "port": 5
-                    }
-                ],
-                "source": [
-                    {
-                        "uid": "FrontRightMic",
-                        "type": "Directional",
-                        "port": 0
-                    }
-                ]
-            }
-        }
-    ],
-
-    "streams": [{
-            "uid": "alsa-loop",
-            "dev": "/dev/snd/by-path/platform-snd_aloop.0",
-            "subdev": 0,
-            "count": 8
-        }],
 
     "controls": [
         {
             "uid": "mixer-config",
-            "lua": "_mixer_config_"
+            "uri": "lua://alsa-softmixer",
+            "function": "_mixer_config_"
         },
         {
             "uid": "snd-cards",
-            "callback": {
-                "plugin": "alsa-router",
-                "function": "snd_cards"
-            }
+            "uri": "plugin://alsa-softmixer",
+            "function": "snd_cards"
         },
         {
             "uid": "snd-zone",
-            "callback": {
-                "plugin": "alsa-router",
-                "function": "snd_zones"
-            }
+            "uri": "plugin://alsa-softmixer",
+             "function": "snd_zones"
         }
     ]
 }

@@ -139,6 +139,7 @@ OnErrorExit:
 CTLP_LUA2C(snd_loops, source, argsJ, responseJ) {
     int error;
     AlsaSndLoopT *sndLoop = calloc(1, sizeof (AlsaSndLoopT));
+    
 
     if (json_object_get_type(argsJ) != json_type_object) {
         AFB_ApiError(source->api, "L2C:sndloops: invalid object type= %s", json_object_get_string(argsJ));

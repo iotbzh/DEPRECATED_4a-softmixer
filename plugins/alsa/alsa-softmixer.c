@@ -22,7 +22,7 @@
 
 // Force Lua2cWrapper inclusion within already existing plugin
 
-CTLP_LUA_REGISTER("alsa-mixer")
+CTLP_LUA_REGISTER("alsa-softmixer")
 
 SoftMixerHandleT *Softmixer;
 

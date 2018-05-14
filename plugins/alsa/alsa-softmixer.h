@@ -32,6 +32,13 @@
 
 #include <alsa/asoundlib.h>
 
+#ifndef PUBLIC
+#define PUBLIC
+#endif
+#ifndef STATIC
+#define STATIC static
+#endif
+
 #define MAINLOOP_WATCHDOG 30000
 #define MAX_AUDIO_STREAMS 8*2
 #define ALSA_DEFAULT_PCM_RATE 48000
@@ -43,7 +50,12 @@
 #define ALSA_PLUG_PROTO(plugin) \
     int _snd_pcm_ ## plugin ## _open(snd_pcm_t **pcmp, const char *name, snd_config_t *root, snd_config_t *conf, snd_pcm_stream_t stream, int mode)
 
-
+#ifndef PUBLIC
+#define PUBLIC
+#endif
+#ifndef STATIC
+#define STATIC static
+#endif
 
 // alsa-utils-bypath.c
 

@@ -3,6 +3,8 @@
   <logicalFolder name="root" displayName="root" projectFiles="true" kind="ROOT">
     <df root="." name="0">
       <df name="app-afb-helpers-submodule">
+        <in>curl-wrap.c</in>
+        <in>escape.c</in>
         <in>filescan-utils.c</in>
         <in>wrap-json.c</in>
       </df>
@@ -23,9 +25,17 @@
       </df>
       <df name="plugins">
         <df name="alsa">
+          <in>alsa-api-sndcards.c</in>
+          <in>alsa-api-sndloops.c</in>
+          <in>alsa-api-sndstreams.c</in>
+          <in>alsa-api-sndzones.c</in>
           <in>alsa-capture.c</in>
           <in>alsa-core-ctl.c</in>
           <in>alsa-core-pcm.c</in>
+          <in>alsa-plug-dmix.c</in>
+          <in>alsa-plug-multi.c</in>
+          <in>alsa-plug-rate.c</in>
+          <in>alsa-plug-route.c</in>
           <in>alsa-plug-stream.c</in>
           <in>alsa-softmixer.c</in>
           <in>alsa-utils-bypath.c</in>
@@ -76,6 +86,53 @@
           <preBuildFirst>true</preBuildFirst>
         </preBuild>
       </makefileType>
+      <item path="app-afb-helpers-submodule/curl-wrap.c"
+            ex="false"
+            tool="0"
+            flavor2="2">
+        <cTool flags="0">
+          <incDir>
+            <pElem>/usr/include/json-c</pElem>
+            <pElem>../../../opt/include</pElem>
+            <pElem>/usr/include/p11-kit-1</pElem>
+            <pElem>/usr/include/uuid</pElem>
+            <pElem>../../../opt/include/alsa</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
+            <pElem>app-afb-helpers-submodule</pElem>
+            <pElem>build/app-afb-helpers-submodule</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>AFB_BINDING_VERSION=dyn</Elem>
+            <Elem>CONTROL_CONFIG_PATH="/home/fulup/opt/4a-softmixer/etc:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/etc"</Elem>
+            <Elem>CONTROL_LUA_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/lua.d:/home/fulup/opt/4a-softmixer/data"</Elem>
+            <Elem>CONTROL_PLUGIN_PATH="/home/fulup/opt/4a-softmixer/lib/plugins:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/lib/plugins"</Elem>
+            <Elem>CTL_PLUGIN_MAGIC=987456123</Elem>
+            <Elem>USE_API_DYN=1</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="app-afb-helpers-submodule/escape.c" ex="false" tool="0" flavor2="2">
+        <cTool flags="0">
+          <incDir>
+            <pElem>/usr/include/json-c</pElem>
+            <pElem>../../../opt/include</pElem>
+            <pElem>/usr/include/p11-kit-1</pElem>
+            <pElem>/usr/include/uuid</pElem>
+            <pElem>../../../opt/include/alsa</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
+            <pElem>app-afb-helpers-submodule</pElem>
+            <pElem>build/app-afb-helpers-submodule</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>AFB_BINDING_VERSION=dyn</Elem>
+            <Elem>CONTROL_CONFIG_PATH="/home/fulup/opt/4a-softmixer/etc:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/etc"</Elem>
+            <Elem>CONTROL_LUA_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/lua.d:/home/fulup/opt/4a-softmixer/data"</Elem>
+            <Elem>CONTROL_PLUGIN_PATH="/home/fulup/opt/4a-softmixer/lib/plugins:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/lib/plugins"</Elem>
+            <Elem>CTL_PLUGIN_MAGIC=987456123</Elem>
+            <Elem>USE_API_DYN=1</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
       <item path="app-afb-helpers-submodule/filescan-utils.c"
             ex="false"
             tool="0"
@@ -128,6 +185,17 @@
         <cTool flags="1">
         </cTool>
       </item>
+      <item path="app-controller-submodule/ctl-lib/ctl-lua-utils.c"
+            ex="false"
+            tool="0"
+            flavor2="3">
+        <cTool flags="1">
+          <incDir>
+            <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>build/app-controller-submodule/ctl-lib</pElem>
+          </incDir>
+        </cTool>
+      </item>
       <item path="app-controller-submodule/ctl-lib/ctl-lua.c"
             ex="false"
             tool="0"
@@ -165,6 +233,15 @@
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
           </incDir>
+          <preprocessorList>
+            <Elem>AFB_BINDING_VERSION=dyn</Elem>
+            <Elem>CONTROL_CONFIG_PATH="/home/fulup/opt/4a-softmixer/etc:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/etc"</Elem>
+            <Elem>CONTROL_LUA_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/lua.d:/home/fulup/opt/4a-softmixer/data"</Elem>
+            <Elem>CONTROL_PLUGIN_PATH="/home/fulup/opt/4a-softmixer/lib/plugins:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/lib/plugins"</Elem>
+            <Elem>CONTROL_SUPPORT_LUA</Elem>
+            <Elem>CTL_PLUGIN_MAGIC=987456123</Elem>
+            <Elem>USE_API_DYN=1</Elem>
+          </preprocessorList>
         </cTool>
       </folder>
       <folder path="0/mixer-binding">
@@ -198,10 +275,9 @@
           <preprocessorList>
             <Elem>AFB_BINDING_VERSION=dyn</Elem>
             <Elem>CONTROL_CONFIG_PATH="/home/fulup/opt/4a-softmixer/etc:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/etc"</Elem>
-            <Elem>CONTROL_LUA_PATH="/home/fulup/opt/4a-softmixer/data:/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/lua.d"</Elem>
+            <Elem>CONTROL_LUA_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/lua.d:/home/fulup/opt/4a-softmixer/data"</Elem>
             <Elem>CONTROL_PLUGIN_PATH="/home/fulup/opt/4a-softmixer/lib/plugins:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/lib/plugins"</Elem>
             <Elem>CTL_PLUGIN_MAGIC=987456123</Elem>
-            <Elem>NATIVE_LINUX</Elem>
             <Elem>USE_API_DYN=1</Elem>
             <Elem>alsa_router_EXPORTS</Elem>
           </preprocessorList>
@@ -211,32 +287,110 @@
         <cTool flags="1">
         </cTool>
       </item>
+      <item path="plugins/alsa/alsa-api-sndcards.c" ex="false" tool="0" flavor2="2">
+        <cTool flags="0">
+          <incDir>
+            <pElem>/usr/include/lua5.3</pElem>
+          </incDir>
+        </cTool>
+      </item>
+      <item path="plugins/alsa/alsa-api-sndloops.c" ex="false" tool="0" flavor2="2">
+        <cTool flags="0">
+          <incDir>
+            <pElem>/usr/include/lua5.3</pElem>
+          </incDir>
+        </cTool>
+      </item>
+      <item path="plugins/alsa/alsa-api-sndstreams.c" ex="false" tool="0" flavor2="2">
+        <cTool flags="0">
+          <incDir>
+            <pElem>/usr/include/lua5.3</pElem>
+          </incDir>
+        </cTool>
+      </item>
+      <item path="plugins/alsa/alsa-api-sndzones.c" ex="false" tool="0" flavor2="2">
+        <cTool flags="0">
+          <incDir>
+            <pElem>/usr/include/lua5.3</pElem>
+          </incDir>
+        </cTool>
+      </item>
       <item path="plugins/alsa/alsa-capture.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
+          <preprocessorList>
+            <Elem>CONTROL_LUA_PATH="/home/fulup/opt/4a-softmixer/data:/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/lua.d"</Elem>
+            <Elem>NATIVE_LINUX</Elem>
+          </preprocessorList>
         </cTool>
       </item>
       <item path="plugins/alsa/alsa-core-ctl.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
+          <incDir>
+            <pElem>/usr/include/lua5.3</pElem>
+          </incDir>
         </cTool>
       </item>
       <item path="plugins/alsa/alsa-core-pcm.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
+          <incDir>
+            <pElem>/usr/include/lua5.3</pElem>
+          </incDir>
+        </cTool>
+      </item>
+      <item path="plugins/alsa/alsa-plug-dmix.c" ex="false" tool="0" flavor2="2">
+        <cTool flags="0">
+          <incDir>
+            <pElem>/usr/include/lua5.3</pElem>
+          </incDir>
+        </cTool>
+      </item>
+      <item path="plugins/alsa/alsa-plug-multi.c" ex="false" tool="0" flavor2="2">
+        <cTool flags="0">
+          <incDir>
+            <pElem>/usr/include/lua5.3</pElem>
+          </incDir>
+        </cTool>
+      </item>
+      <item path="plugins/alsa/alsa-plug-rate.c" ex="false" tool="0" flavor2="2">
+        <cTool flags="0">
+          <incDir>
+            <pElem>/usr/include/lua5.3</pElem>
+          </incDir>
+        </cTool>
+      </item>
+      <item path="plugins/alsa/alsa-plug-route.c" ex="false" tool="0" flavor2="2">
+        <cTool flags="0">
+          <incDir>
+            <pElem>/usr/include/lua5.3</pElem>
+          </incDir>
         </cTool>
       </item>
       <item path="plugins/alsa/alsa-plug-stream.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
+          <incDir>
+            <pElem>/usr/include/lua5.3</pElem>
+          </incDir>
         </cTool>
       </item>
       <item path="plugins/alsa/alsa-softmixer.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
+          <incDir>
+            <pElem>/usr/include/lua5.3</pElem>
+          </incDir>
         </cTool>
       </item>
       <item path="plugins/alsa/alsa-utils-bypath.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
+          <incDir>
+            <pElem>/usr/include/lua5.3</pElem>
+          </incDir>
         </cTool>
       </item>
       <item path="plugins/alsa/alsa-utils-dump.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
+          <incDir>
+            <pElem>/usr/include/lua5.3</pElem>
+          </incDir>
         </cTool>
       </item>
     </conf>

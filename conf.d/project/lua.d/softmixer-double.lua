@@ -54,12 +54,12 @@ function _mixer_config_ (source, args)
         }
     }
 
-    error,response= L2C:snd_loops (source, snd_aloop)
+    error,response= smix:snd_loops (source, snd_aloop)
     if (error ~= 0) then 
-        AFB:error (source, "--InLua-- L2C:snd_loops fail to attach sndcards=%s", Dump_Table(aloop))
+        AFB:error (source, "--InLua-- smix:snd_loops fail to attach sndcards=%s", Dump_Table(aloop))
         goto OnErrorExit
     else
-        AFB:notice (source, "--InLua-- L2C:snd_loops done response=%s\n", Dump_Table(response))
+        AFB:notice (source, "--InLua-- smix:snd_loops done response=%s\n", Dump_Table(response))
     end
     
 
@@ -106,12 +106,12 @@ function _mixer_config_ (source, args)
         sndcard_2,
     }
 
-    error,response= L2C:snd_cards (source, sndcards)
+    error,response= smix:snd_cards (source, sndcards)
     if (error ~= 0) then 
-        AFB:error (source, "--InLua-- L2C:snd_cards fail to attach sndcards=%s", Dump_Table(sndcards))
+        AFB:error (source, "--InLua-- smix:snd_cards fail to attach sndcards=%s", Dump_Table(sndcards))
         goto OnErrorExit
     else
-        AFB:notice (source, "--InLua-- L2C:snd_cards done response=%s\n", Dump_Table(response))
+        AFB:notice (source, "--InLua-- smix:snd_cards done response=%s\n", Dump_Table(response))
     end
  
     -- ============================= Zones ===================    
@@ -151,12 +151,12 @@ function _mixer_config_ (source, args)
         zone_back,
     }
 
-    error,response= L2C:snd_zones (source, multi_zones)
+    error,response= smix:snd_zones (source, multi_zones)
     if (error ~= 0) then 
-        AFB:error (source, "--InLua-- L2C:snd_zones fail to attach sndcards=%s", Dump_Table(multi_zones))
+        AFB:error (source, "--InLua-- smix:snd_zones fail to attach sndcards=%s", Dump_Table(multi_zones))
         goto OnErrorExit
     else
-        AFB:notice (source, "--InLua-- L2C:snd_zones done response=%s\n", Dump_Table(response))
+        AFB:notice (source, "--InLua-- smix:snd_zones done response=%s\n", Dump_Table(response))
     end
 
     -- =================== Audio Stream ============================
@@ -193,12 +193,12 @@ function _mixer_config_ (source, args)
         stream_children,
     }
 
-    error,response= L2C:snd_streams (source, snd_streams)
+    error,response= smix:snd_streams (source, snd_streams)
     if (error ~= 0) then 
-        AFB:error (source, "--InLua-- L2C:snd_streams fail to attach sndcards=%s", Dump_Table(aloop))
+        AFB:error (source, "--InLua-- smix:snd_streams fail to attach sndcards=%s", Dump_Table(aloop))
         goto OnErrorExit
     else
-        AFB:notice (source, "--InLua-- L2C:streams_loops done response=%s\n", Dump_Table(response))
+        AFB:notice (source, "--InLua-- smix:streams_loops done response=%s\n", Dump_Table(response))
     end
 
 
