@@ -74,7 +74,7 @@ set (PKG_REQUIRED_LIST
 	afb-daemon>=4.0
 	libmicrohttpd>=0.9.55
 	uuid
-        alsa>=1.1.2
+	alsa>=1.1.2
 )
 
 # Prefix path where will be installed the files
@@ -130,9 +130,8 @@ list(APPEND link_libraries afb-helpers)
 # CACHE STRING "Compilation flags for RELEASE build type.")
 
 set(CONTROL_SUPPORT_LUA 1)
-list(APPEND PKG_REQUIRED_LIST lua>=5.3)
-add_definitions(-DCONTROL_PLUGIN_PATH="${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/lib/plugins:${CMAKE_BINARY_DIR}/package/lib/plugins")
-add_definitions(-DCONTROL_CONFIG_PATH="${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/etc:${CMAKE_BINARY_DIR}/package/etc")
+add_definitions(-DCONTROL_PLUGIN_PATH="${CMAKE_BINARY_DIR}/package/lib/plugins:${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/lib/plugins")
+add_definitions(-DCONTROL_CONFIG_PATH="${CMAKE_BINARY_DIR}/package/etc:${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/etc")
 add_definitions(-DCONTROL_LUA_PATH="${CMAKE_SOURCE_DIR}/conf.d/project/lua.d:${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/data")
 add_definitions(-DCTL_PLUGIN_MAGIC=987456123)
 add_definitions(-DUSE_API_DYN=1 -DAFB_BINDING_VERSION=dyn)

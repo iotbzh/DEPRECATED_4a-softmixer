@@ -1,19 +1,18 @@
 {
-    "schema": "http://iot.bzh/download/public/schema/json/ctl-schema.json",
+    "$schema": "http://iot.bzh/download/public/schema/json/ctl-schema.json",
     "metadata": {
         "uid": "Soft Mixer",
         "version": "1.0",
         "api": "softmixer",
         "info": "Soft Mixer emulating hardware mixer"
     },
-    "plugins": [
+    "resources": [
         {
             "uid": "alsa-softmixer",
             "info": "Map alsa-loop subdevices to 4A HAL streams",
             "spath":"./plugins/alsa:../conf.d/project/lua.d",
-            "file": ["alsa-router.ctlso", "softmixer-simple.lua"],
-            "lua2c_prefix": "smix",
-            "lua2c": ["snd_cards", "snd_zones", "snd_loops", "snd_streams"]
+            "libs": ["alsa-router.ctlso", "softmixer-simple.lua"],
+            "lua": {"prefix":"smix","functions": ["snd_cards", "snd_zones", "snd_loops", "snd_streams"]}
         }
     ],
 
@@ -21,26 +20,23 @@
         {
             "uid": "init-soft-mixer",
             "info": "Initialise Audio Router",
-            "uri": "lua://alsa-softmixer",
-            "function": "_init_softmixer_"
+            "action": "lua://alsa-softmixer#_init_softmixer_"
         }
     ],
 
     "controls": [
         {
             "uid": "mixer-config",
-            "uri": "lua://alsa-softmixer",
-            "function": "_mixer_config_"
+            "action": "lua://alsa-softmixer#_mixer_config_"
         },
         {
             "uid": "snd-cards",
-            "uri": "plugin://alsa-softmixer",
-            "function": "snd_cards"
+            "action": "plugin://alsa-softmixer#snd_cards"
         },
         {
             "uid": "snd-zone",
-            "uri": "plugin://alsa-softmixer",
-             "function": "snd_zones"
+            "action": "plugin://alsa-softmixer#snd_zones"
         }
     ]
+    
 }

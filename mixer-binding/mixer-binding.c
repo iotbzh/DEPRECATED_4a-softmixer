@@ -28,7 +28,7 @@ PUBLIC afb_dynapi *AFB_default;
 
 // Config Section definition (note: controls section index should match handle retrieval in HalConfigExec)
 static CtlSectionT ctrlSections[]= {
-    {.key="plugins" , .loadCB= PluginConfig},
+    {.key="resources" , .loadCB= PluginConfig},
     {.key="onload"  , .loadCB= OnloadConfig},
     {.key="controls", .loadCB= ControlConfig},
 
