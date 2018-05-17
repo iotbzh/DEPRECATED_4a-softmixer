@@ -36,10 +36,11 @@ typedef struct {
 } apiHandleT;
 
 static void StreamApiVerbCB(AFB_ReqT request) {
-    int error, doClose=0, doQuiet=0, doToggle=0, doMute=-1;
-    long mute, volume=-1;
-    json_object *responseJ, *argsJ= afb_request_json(request);
+    int error, doClose = 0, doQuiet = 0, doToggle = 0, doMute = -1;
+    long mute, volume;
+    json_object *doVolume, *responseJ, *argsJ = afb_request_json(request);
     apiHandleT *handle = (apiHandleT*) afb_request_get_vcbdata(request);
+    snd_ctl_t *ctlDev=NULL;
 
     CtlSourceT *source = alloca(sizeof (CtlSourceT));
     source->uid = handle->verb;
@@ -47,68 +48,105 @@ static void StreamApiVerbCB(AFB_ReqT request) {
     source->request = NULL;
     source->context = NULL;
 
-    error = wrap_json_unpack(argsJ, "{s?b s?b,s?b,s?b,s?i !}"
+    error = wrap_json_unpack(argsJ, "{s?b s?b,s?b,s?b,s?o !}"
             , "quiet", &doQuiet
             , "close", &doClose
             , "mute", &doMute
             , "toggle", &doToggle
-            , "volume", &volume
+            , "volume", &doVolume
             );
     if (error) {
         AFB_ReqFailF(request, "StreamApiVerbCB", "Missing 'close|mute|volume|quiet' args=%s", json_object_get_string(argsJ));
         goto OnErrorExit;
     }
-    
-    snd_ctl_t *ctlDev= AlsaCtlOpenCtl (source, handle->mixer->loop->cardid);
+
+    ctlDev = AlsaCtlOpenCtl(source, handle->mixer->loop->cardid);
     if (!ctlDev) {
         AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to open sndcard=%s", handle->mixer->loop->cardid);
-        goto OnErrorExit;        
-    }
-    
-    if (doClose) {
-        AFB_ReqFailF(request,  "StreamApiVerbCB", "(Fulup) Close action still to be done mixer=%s", json_object_get_string(argsJ));
         goto OnErrorExit;
     }
-    
-    if (doToggle) {
-        error+= AlsaCtlNumidGetLong (source, ctlDev, handle->streams->mute, &mute);
-        error+= AlsaCtlNumidSetLong (source, ctlDev, handle->streams->mute, !mute);
+
+    if (doClose) {
+        AFB_ReqFailF(request, "StreamApiVerbCB", "(Fulup) Close action still to be done mixer=%s", json_object_get_string(argsJ));
+        goto OnErrorExit;
     }
-    
-    if (volume != -1) {
-        error= AlsaCtlNumidSetLong (source, ctlDev, handle->streams->volume, volume);
+
+    if (doToggle) {
+        error += AlsaCtlNumidGetLong(source, ctlDev, handle->streams->mute, &mute);
+        error += AlsaCtlNumidSetLong(source, ctlDev, handle->streams->mute, !mute);
+    }
+
+    if (doVolume) {
+        long curvol, newvol;
+        const char*volString;
+
+        error = AlsaCtlNumidGetLong(source, ctlDev, handle->streams->volume, &curvol);
         if (error) {
-            AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to set stream volume numid=%d value=%ld", handle->streams->volume, volume);
-            goto OnErrorExit;            
+            AFB_ReqFailF(request, "invalid-numid", "Fail to set volume numid=%d value=%ld", handle->streams->volume, volume);
+            goto OnErrorExit;
+        }
+
+
+        switch (json_object_get_type(doVolume)) {
+            case json_type_string:
+                volString = json_object_get_string(doVolume);
+                switch (volString[0]) {
+                    case '+':
+                        sscanf(&volString[1], "%ld", &newvol);
+                        newvol = curvol + newvol;
+                        break;
+
+                    case '-':
+                        sscanf(&volString[1], "%ld", &newvol);
+                        newvol = curvol - newvol;
+                        break;
+                    default:
+                        AFB_ReqFailF(request, "not-integer", "relative volume should start by '+|-' value=%s", json_object_get_string(doVolume));
+                        goto OnErrorExit;
+                }
+                break;
+            case json_type_int:
+                newvol = json_object_get_int(doVolume);
+                break;
+            default:
+                AFB_ReqFailF(request, "not-integer", "volume should be string or integer value=%s", json_object_get_string(doVolume));
+                goto OnErrorExit;
+
+        }
+
+        error = AlsaCtlNumidSetLong(source, ctlDev, handle->streams->volume, newvol);
+        if (error) {
+            AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to set stream volume numid=%d value=%ld", handle->streams->volume, newvol);
+            goto OnErrorExit;
         }
     }
-    
+
     if (doMute != -1) {
-        error= AlsaCtlNumidSetLong (source, ctlDev, handle->streams->mute, !mute);
+        error = AlsaCtlNumidSetLong(source, ctlDev, handle->streams->mute, !mute);
         if (error) {
             AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to set stream volume numid=%d value=%d", handle->streams->volume, !mute);
-            goto OnErrorExit;            
+            goto OnErrorExit;
         }
     }
 
     // if not in quiet mode return effective selected control values
-    if (doQuiet) responseJ=NULL;
+    if (doQuiet) responseJ = NULL;
     else {
-        error+= AlsaCtlNumidGetLong (source, ctlDev, handle->streams->volume, &volume);
-        error+= AlsaCtlNumidGetLong (source, ctlDev, handle->streams->mute, &mute);
+        error += AlsaCtlNumidGetLong(source, ctlDev, handle->streams->volume, &volume);
+        error += AlsaCtlNumidGetLong(source, ctlDev, handle->streams->mute, &mute);
         if (error) {
-            AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to get stream numids volume=%ld mute=%ld",volume, mute);
-            goto OnErrorExit;            
+            AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to get stream numids volume=%ld mute=%ld", volume, mute);
+            goto OnErrorExit;
         }
-        wrap_json_pack (&responseJ,"{si,sb}", "volume",volume, "mute",!mute);
+        wrap_json_pack(&responseJ, "{si,sb}", "volume", volume, "mute", !mute);
     }
 
-    snd_ctl_close (ctlDev);
+    snd_ctl_close(ctlDev);
     AFB_ReqSucess(request, responseJ, handle->verb);
     return;
 
 OnErrorExit:
-    if(ctlDev) snd_ctl_close (ctlDev);
+    if (ctlDev) snd_ctl_close(ctlDev);
     return;
 
 }
@@ -333,8 +371,8 @@ PUBLIC int SndStreams(CtlSourceT *source, json_object *argsJ, json_object **resp
 
         // free temporary resources
         snd_ctl_close(ctlDev);
-        sndStream[idx].volume= volNumid;
-        sndStream[idx].mute= runNumid;
+        sndStream[idx].volume = volNumid;
+        sndStream[idx].mute = runNumid;
 
         // Debug Alsa Config 
         //AlsaDumpElemConfig (source, "\n\nAlsa_Config\n------------\n", "pcm");
