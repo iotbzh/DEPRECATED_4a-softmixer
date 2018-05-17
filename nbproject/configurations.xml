@@ -37,7 +37,7 @@
           <in>alsa-plug-multi.c</in>
           <in>alsa-plug-rate.c</in>
           <in>alsa-plug-route.c</in>
-          <in>alsa-plug-stream.c</in>
+          <in>alsa-plug-vol.c</in>
           <in>alsa-softmixer.c</in>
           <in>alsa-utils-bypath.c</in>
           <in>alsa-utils-dump.c</in>
@@ -148,6 +148,7 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-afb-helpers-submodule</pElem>
           </incDir>
@@ -160,6 +161,7 @@
         <cTool flags="1">
           <incDir>
             <pElem>app-afb-helpers-submodule</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
             <pElem>build/app-afb-helpers-submodule</pElem>
           </incDir>
         </cTool>
@@ -172,6 +174,8 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -186,7 +190,9 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
           </incDir>
@@ -200,6 +206,8 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -214,6 +222,8 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -239,6 +249,8 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -253,6 +265,8 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -267,6 +281,8 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -281,6 +297,8 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -292,9 +310,6 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
           </incDir>
           <preprocessorList>
             <Elem>AFB_BINDING_VERSION=dyn</Elem>
@@ -312,6 +327,7 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>mixer-binding</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
             <pElem>../../../opt/include/alsa</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>app-controller-submodule/ctl-lib</pElem>
@@ -429,7 +445,7 @@
           </incDir>
         </cTool>
       </item>
-      <item path="plugins/alsa/alsa-plug-stream.c" ex="false" tool="0" flavor2="2">
+      <item path="plugins/alsa/alsa-plug-vol.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
             <pElem>/usr/include/lua5.3</pElem>

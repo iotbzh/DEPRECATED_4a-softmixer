@@ -21,6 +21,11 @@
 #include "alsa-softmixer.h"
 #include <string.h>
 
+// Set stream volume control in %
+#define VOL_CONTROL_MAX  100
+#define VOL_CONTROL_MIN  0
+#define VOL_CONTROL_STEP 1
+
 // Fulup need to be cleanup with new controller version
 extern Lua2cWrapperT Lua2cWrap;
 
@@ -158,14 +163,14 @@ CTLP_LUA2C(snd_streams, source, argsJ, responseJ) {
         // create stream and delay pcm openning until vol control is created
         char volName[ALSA_CARDID_MAX_LEN];
         snprintf(volName, sizeof (volName), "vol-%s", sndStream[idx].uid);
-        AlsaPcmInfoT *streamPcm = AlsaCreateStream(source, &sndStream[idx], captureDev, volName, 0);
+        AlsaPcmInfoT *streamPcm = AlsaCreateStream(source, &sndStream[idx], captureDev, volName, VOL_CONTROL_MAX, 0);
         if (!streamPcm) {
             AFB_ApiError(source->api, "L2C:sndstreams:%s(pcm) fail to create stream", sndStream[idx].uid);
             goto OnErrorExit;
         }
 
         // create volume control before softvol pcm is opened
-        int volNumid = AlsaCtlCreateControl(source, ctlDev, playbackDev, volName, streamPcm->params.channels, 0, 100, 1, sndStream[idx].volume);
+        int volNumid = AlsaCtlCreateControl(source, ctlDev, playbackDev, volName, streamPcm->params.channels, VOL_CONTROL_MIN, VOL_CONTROL_MAX, VOL_CONTROL_STEP, sndStream[idx].volume);
         if (volNumid <= 0) goto OnErrorExit;
 
         //        **** Fulup (would need some help to get automatic rate converter to work).         

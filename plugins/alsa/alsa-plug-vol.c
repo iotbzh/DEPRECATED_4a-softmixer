@@ -36,7 +36,7 @@ STATIC AlsaPcmInfoT* SlaveZoneByUid(CtlSourceT *source,  AlsaPcmInfoT **pcmZones
     return NULL;
 }
 
-PUBLIC AlsaPcmInfoT* AlsaCreateStream(CtlSourceT *source, AlsaSndStreamT *stream, AlsaPcmInfoT *ctlControl, const char* ctlName, int open) {
+PUBLIC AlsaPcmInfoT* AlsaCreateStream(CtlSourceT *source, AlsaSndStreamT *stream, AlsaPcmInfoT *ctlControl, const char* ctlName, int max, int open) {
 
     snd_config_t *streamConfig, *elemConfig, *slaveConfig, *controlConfig,*pcmConfig;
     int error = 0;
@@ -77,7 +77,7 @@ PUBLIC AlsaPcmInfoT* AlsaCreateStream(CtlSourceT *source, AlsaSndStreamT *stream
     error += snd_config_set_id (streamConfig, pcmPlug->cardid);
     error += snd_config_imake_string(&elemConfig, "type", "softvol");
     error += snd_config_add(streamConfig, elemConfig);
-    error += snd_config_imake_integer(&elemConfig, "resolution", 99); // use 0-100%
+    error += snd_config_imake_integer(&elemConfig, "resolution", max+1); 
     error += snd_config_add(streamConfig, elemConfig);
     if (error) goto OnErrorExit;
     

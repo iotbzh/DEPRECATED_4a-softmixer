@@ -153,6 +153,8 @@ PUBLIC int AlsaCtlSubscribe(CtlSourceT *source, snd_ctl_t *ctlDev);
 PUBLIC int AlsaCtlRegister(CtlSourceT *source, AlsaPcmInfoT *pcm, int numid);
 PUBLIC int AlsaCtlNumidGetLong(CtlSourceT *source, snd_ctl_t* ctlDev, int numid, long* value);
 PUBLIC int AlsaCtlNumidSetLong(CtlSourceT *source, snd_ctl_t* ctlDev, int numid, long value);
+PUBLIC int AlsaCtlNameGetLong(CtlSourceT *source, snd_ctl_t* ctlDev, const char *ctlName, long* value);
+PUBLIC int AlsaCtlNameSetLong(CtlSourceT *source, snd_ctl_t* ctlDev, const char *ctlName, long value);
 PUBLIC int AlsaCtlCreateControl(CtlSourceT *source, snd_ctl_t* ctlDev, AlsaPcmInfoT *subdevs, char* name, int ctlCount, int ctlMin, int ctlMax, int ctlStep, long value);
 PUBLIC snd_ctl_elem_id_t *AlsaCtlGetNameElemId(CtlSourceT *source, snd_ctl_t* ctlDev, const char *ctlName);
 PUBLIC int CtlElemIdSetLong(AFB_ApiT api, snd_ctl_t *ctlDev, snd_ctl_elem_id_t *elemId, long value);
@@ -166,7 +168,7 @@ PUBLIC int AlsaPcmCopy(CtlSourceT *source, AlsaPcmInfoT *pcmIn, AlsaPcmInfoT *pc
 PUBLIC AlsaPcmInfoT* AlsaCreateDmix(CtlSourceT *source, const char* pcmName, AlsaPcmInfoT *pcmSlave, int open);
 PUBLIC AlsaPcmInfoT* AlsaCreateMulti(CtlSourceT *source, const char *pcmName, int open);
 PUBLIC AlsaPcmInfoT* AlsaCreateRoute(CtlSourceT *source, AlsaSndZoneT *zone, int open);
-PUBLIC AlsaPcmInfoT* AlsaCreateStream(CtlSourceT *source, AlsaSndStreamT *stream, AlsaPcmInfoT *ctlControl, const char* ctlName, int open);
+PUBLIC AlsaPcmInfoT* AlsaCreateStream(CtlSourceT *source, AlsaSndStreamT *stream, AlsaPcmInfoT *ctlControl, const char* ctlName, int max, int open);
 PUBLIC AlsaPcmInfoT* AlsaCreateRate(CtlSourceT *source, const char* pcmName, AlsaPcmInfoT *pcmSlave, int open);
 
 #endif

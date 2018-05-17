@@ -64,3 +64,13 @@ Current version does not handle audio rate conversion, using gstreamer or equiva
     speaker-test -D hw:XXX:0:??? -twav -c!! 'cc' is the number of channel and depends on the audio stream zone target.
 ```
 
+## Warning
+
+Alsa try top automatically store current state into /var/lib/alsa/asound.state when developing/testing this may create impossible
+situation. In order to clean up your Alsa snd-aloop config, a simple "rmmod" might not be enough in some case you may have to delete
+/var/lib/alsa/asound.state before applying "modprobe".
+
+In case of doubt check with folling command that you start from a clear green field
+```
+rmmod snd-aloop && modprobe --first-time  snd-aloop && amixer -D hw:Loopback controls | grep vol
+```

@@ -71,7 +71,7 @@ function _mixer_config_ (source, args)
 
     -- ============================= Sound Cards ===================  
 
-    local sndcard_0 = {
+    local snd_yamaha = {
         ["uid"]= "YAMAHA-APU70",
         ["devpath"]= "/dev/snd/by-id/usb-YAMAHA_Corporation_YAMAHA_AP-U70_USB_Audio_00-00",
         ["params"] = snd_params,
@@ -81,7 +81,7 @@ function _mixer_config_ (source, args)
         }
     }
 
-    local sndcard_1 = {
+    local snd_jabra= {
         ["uid"]= "Jabra-Solemate",
         ["devpath"]= "/dev/snd/by-id/usb-0b0e_Jabra_SOLEMATE_v1.34.0-00",
         ["params"] = snd_params,
@@ -93,7 +93,7 @@ function _mixer_config_ (source, args)
 
      -- group sound card as one multi channels card
     local sndcards= {
-        sndcard_1,
+        snd_yamaha,
     }
 
     error,response= smix:snd_cards (source, sndcards)

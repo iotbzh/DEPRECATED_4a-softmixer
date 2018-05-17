@@ -89,7 +89,7 @@ PUBLIC snd_ctl_elem_id_t *AlsaCtlGetNumidElemId(CtlSourceT *source, snd_ctl_t* c
     }
 
     if (index == ctlCount) {
-        AFB_ApiError(source->api, "AlsaCtlGetNumidElemId [%s] fail get numid=%i count", ALSA_CTL_UID(ctlDev, string), numid);
+        AFB_ApiNotice(source->api, "AlsaCtlGetNumidElemId [%s] fail get numid=%i count", ALSA_CTL_UID(ctlDev, string), numid);
         goto OnErrorExit;
     }
 
@@ -139,7 +139,7 @@ PUBLIC snd_ctl_elem_id_t *AlsaCtlGetNameElemId(CtlSourceT *source, snd_ctl_t* ct
     }
 
     if (index == ctlCount) {
-        AFB_ApiError(source->api, "AlsaCtlGetNameElemId [%s] fail get ctl name=%s", ALSA_CTL_UID(ctlDev, string), ctlName);
+        AFB_ApiNotice(source->api, "AlsaCtlGetNameElemId [%s] ctl not found name=%s", ALSA_CTL_UID(ctlDev, string), ctlName);
         goto OnErrorExit;
     }
 
@@ -347,13 +347,52 @@ PUBLIC int AlsaCtlNumidGetLong(CtlSourceT *source, snd_ctl_t* ctlDev, int numid,
 
     snd_ctl_elem_id_t *elemId = AlsaCtlGetNumidElemId(source, ctlDev, numid);
     if (!elemId) {
-        AFB_ApiError(source->api, "AlsaCtlGetNumValueI [sndcard=%s] fail to find numid=%d", snd_ctl_name(ctlDev), numid);
+        AFB_ApiError(source->api, "AlsaCtlNumidGetLong [sndcard=%s] fail to find numid=%d", snd_ctl_name(ctlDev), numid);
         goto OnErrorExit;
     }
 
     int error = CtlElemIdGetLong(source->api, ctlDev, elemId, value);
     if (error) {
-        AFB_ApiError(source->api, "AlsaCtlGetNumValueI [sndcard=%s] fail to get numid=%d value", snd_ctl_name(ctlDev), numid);
+        AFB_ApiError(source->api, "AlsaCtlNumidGetLong [sndcard=%s] fail to get numid=%d value", snd_ctl_name(ctlDev), numid);
+        goto OnErrorExit;
+    }
+
+    return 0;
+OnErrorExit:
+    return -1;
+}
+
+PUBLIC int AlsaCtlNameSetLong(CtlSourceT *source, snd_ctl_t* ctlDev, const char *ctlName, long value) {
+
+    snd_ctl_elem_id_t *elemId = AlsaCtlGetNameElemId(source, ctlDev, ctlName);
+    if (!elemId) {
+        AFB_ApiError(source->api, "AlsaCtlNameSetLong [sndcard=%s] fail to find crlName=%s", snd_ctl_name(ctlDev), ctlName);
+        goto OnErrorExit;
+    }
+
+    int error = CtlElemIdSetLong(source->api, ctlDev, elemId, value);
+    if (error) {
+        AFB_ApiError(source->api, "AlsaCtlNameSetLong [sndcard=%s] fail to set crlName=%s value=%ld", snd_ctl_name(ctlDev), ctlName, value);
+        goto OnErrorExit;
+    }
+
+    return 0;
+OnErrorExit:
+    return -1;
+}
+
+
+PUBLIC int AlsaCtlNameGetLong(CtlSourceT *source, snd_ctl_t* ctlDev, const char *ctlName, long* value) {
+
+    snd_ctl_elem_id_t *elemId = AlsaCtlGetNameElemId(source, ctlDev, ctlName);
+    if (!elemId) {
+        AFB_ApiError(source->api, "AlsaCtlNameGetLong [sndcard=%s] fail to find crlName=%s", snd_ctl_name(ctlDev), ctlName);
+        goto OnErrorExit;
+    }
+
+    int error = CtlElemIdGetLong(source->api, ctlDev, elemId, value);
+    if (error) {
+        AFB_ApiError(source->api, "AlsaCtlNameGetLong [sndcard=%s] fail to get crlName=%s value", snd_ctl_name(ctlDev), ctlName);
         goto OnErrorExit;
     }
 
@@ -372,9 +411,9 @@ STATIC int AlsaCtlMakeControl(CtlSourceT *source, snd_ctl_t* ctlDev, AlsaPcmInfo
     snd_ctl_elem_info_set_interface(elemInfo, SND_CTL_ELEM_IFACE_MIXER);
     snd_ctl_elem_info(ctlDev, elemInfo);
     
-    // softvol plugin is bugged and can only map volume to sndcard device+subdev=0
-    // snd_ctl_elem_info_set_device(elemInfo, subdev->device);
-    // snd_ctl_elem_info_set_subdevice(elemInfo, subdev->subdev);
+    // map volume to sndcard device+subdev=0
+    snd_ctl_elem_info_set_device(elemInfo, subdev->device);
+    snd_ctl_elem_info_set_subdevice(elemInfo, subdev->subdev);
     snd_ctl_elem_info_set_device(elemInfo, 0);
     snd_ctl_elem_info_set_subdevice(elemInfo, 0);
 
@@ -426,10 +465,11 @@ PUBLIC int AlsaCtlCreateControl(CtlSourceT *source, snd_ctl_t* ctlDev, AlsaPcmIn
 
     int error = CtlElemIdSetLong(source->api, ctlDev, elemId, value);
     if (error) {
-        AFB_ApiError(source->api, "AlsaCtlCreateControl [sndcard=%s] fail to set ctlName=%s Numid=%d", snd_ctl_name(ctlDev), ctlName, numid);
+        AFB_ApiError(source->api, "AlsaCtlCreateControl [sndcard=%s] fail to set ctlName=%s Numid=%d", snd_ctl_name(ctlDev), ctlName, numid); 
         goto OnErrorExit;
     }
 
+    AFB_ApiNotice(source->api, "AlsaCtlCreateControl [sndcard=%s] ctl create name=%s numid=%d value=%ld", snd_ctl_name(ctlDev), ctlName, numid, value);
     return numid;
 OnErrorExit:
     return -1;
@@ -483,7 +523,7 @@ STATIC int CtlSubscribeEventCB(sd_event_source* src, int fd, uint32_t revents, v
     if (idx == AudioStreamHandle.count) {
         char cardName[32];
         ALSA_CTL_UID(subscribeHandle->ctlDev, cardName);
-        AFB_ApiWarning(subscribeHandle->api, "CtlSubscribeEventCB:%s/%d card=%s numid=%d (ignored)", subscribeHandle->info, subscribeHandle->tid, cardName, numid);
+        AFB_ApiNotice(subscribeHandle->api, "CtlSubscribeEventCB:%s/%d card=%s numid=%d (ignored)", subscribeHandle->info, subscribeHandle->tid, cardName, numid);
     }
 
 OnSuccessExit:
