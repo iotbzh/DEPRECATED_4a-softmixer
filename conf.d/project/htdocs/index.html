@@ -8,14 +8,15 @@
 
 <body onload="init('hal_registry','alsacore', 'hallist')">
 
-    <h1>Simple Control Test</h1>
+    <h1>Simple Mixer Test</h1>
     <button id="connected" onclick="init()">Binder WS Fail</button> 
     <button id="mnitoring" onclick="window.open('/monitoring/monitor.html','_monitor_ctl')">Debug/Monitoring</a></button>
     <br><br>
 
     <h2>V3 API CALL</h2>
     <ol>
-    <li><button onclick="callbinder('softmixer','mixer-config');">Mixer Config</button></li>
+    <li><button onclick="callbinder('softmixer','simple_mixer',{list:{streams:true}});">Streams List</button></li>
+    <li><button onclick="callbinder('softmixer','simple_mixer/multimedia',{toggle: true});">Stream Multimedia pause/resume</button></li>
     </ol>
 
     <div id="main" style="visibility:hidden">

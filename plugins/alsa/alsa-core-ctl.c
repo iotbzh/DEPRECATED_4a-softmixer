@@ -156,7 +156,7 @@ PUBLIC snd_ctl_t *AlsaCtlOpenCtl(CtlSourceT *source, const char *cardid) {
     int error;
     snd_ctl_t *ctlDev;
 
-    if (cardid) goto OnErrorExit;
+    if (!cardid) goto OnErrorExit;
 
     if ((error = snd_ctl_open(&ctlDev, cardid, SND_CTL_READONLY)) < 0) {
         cardid = "Not Defined";

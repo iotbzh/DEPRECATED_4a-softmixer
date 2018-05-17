@@ -92,10 +92,23 @@ STATIC int ProcessOneLoop(CtlSourceT *source, json_object *loopJ, AlsaSndLoopT *
         loopDefParams->sampleSize=0;
     }
 
-    // make sure useful information will not be removed
-    loop->uid = strdup(loop->uid);
-    if (loop->cardid) loop->cardid = strdup(loop->cardid);
-    if (loop->devpath) loop->cardid = strdup(loop->devpath);
+    // Fake a sound card to check if loop is a valid Alsa snd driver
+    AlsaPcmInfoT sndLoop;
+    sndLoop.uid = loop->uid;
+    sndLoop.devpath = loop->devpath;
+    sndLoop.cardid = loop->cardid;
+    sndLoop.device = 0;
+    sndLoop.subdev = 0;
+    error = AlsaByPathDevid(source, &sndLoop);
+    if (error) {
+        AFB_ApiError(source->api, "ProcessOneLoop: loop=%s not found config=%s", loop->uid, json_object_get_string(loopJ));
+        goto OnErrorExit;
+    }
+    loop->uid= sndLoop.uid;
+    loop->devpath= sndLoop.devpath;
+    loop->cardid=sndLoop.cardid;
+    loop->cardidx=sndLoop.cardidx;
+
 
     // Default devices is payback=0 capture=1
     if (!devicesJ) {

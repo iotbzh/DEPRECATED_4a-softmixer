@@ -122,6 +122,7 @@ typedef struct {
     AlsaPcmInfoT *backend;
     AlsaPcmInfoT *multiPcm;
     AlsaPcmInfoT **routes;
+    AlsaSndStreamT *streams;
 } SoftMixerHandleT; 
 
 // alsa-utils-bypath.c

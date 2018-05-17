@@ -27,9 +27,11 @@ extern Lua2cWrapperT Lua2cWrap;
 // API 
 
 static void MixerApiVerbCB(AFB_ReqT request) {
-    json_object *responseJ, *backendJ = NULL, *frontendJ = NULL, *zonesJ = NULL, *streamsJ = NULL;
+    json_object *valueJ, *backendJ = NULL, *frontendJ = NULL, *zonesJ = NULL, *streamsJ = NULL, *listJ = NULL;
     // retrieve action handle from request and execute the request
     json_object *argsJ = afb_request_json(request);
+    json_object *responseJ = json_object_new_object();
+
     SoftMixerHandleT *mixerHandle = (SoftMixerHandleT*) afb_request_get_vcbdata(request);
     int error;
     int close = 0;
@@ -40,24 +42,74 @@ static void MixerApiVerbCB(AFB_ReqT request) {
     source->request = request;
     source->context = mixerHandle;
 
-    error = wrap_json_unpack(argsJ, "{s?b s?o,s?o,s?o,s?o !}"
+    error = wrap_json_unpack(argsJ, "{s?b,s?o,s?o,s?o,s?o,s?o !}"
             , "close", &close
+            , "list", &listJ
             , "backend", &backendJ
             , "frontend", &frontendJ
             , "zones", &zonesJ
             , "streams", &streamsJ
             );
     if (error) {
-        AFB_ReqFailF(request, "MixerApiVerbCB", "missing 'uid|backend|frontend|zones|streams' mixer=%s", json_object_get_string(argsJ));
+        AFB_ReqFailF(request, "invalid syntax", "request missing 'uid|list|backend|frontend|zones|streams' mixer=%s", json_object_get_string(argsJ));
         goto OnErrorExit;
     }
 
     // Free attached resources and free mixer
     if (close) {
-        AFB_ReqFailF(request, "MixerApiVerbCB", "(Fulup) Close action still to be done mixer=%s", json_object_get_string(argsJ));
+        AFB_ReqFailF(request, "not implemented", "(Fulup) Close action still to be done mixer=%s", json_object_get_string(argsJ));
         goto OnErrorExit;
     }
 
+    if (listJ) {
+        int streams = 0, quiet = 0, backend = 0, frontend = 0, zones = 0;
+
+        error = wrap_json_unpack(listJ, "{s?b,s?b,s?b,s?b,s?b !}"
+                , "quiet", &quiet
+                , "streams", &streams
+                , "backend", &backend
+                , "frontend", &frontend
+                , "zones", &zones
+                );
+        if (error) {
+            AFB_ReqFailF(request, "invalid syntax", "list missing 'uid|backend|frontend|zones|streams' list=%s", json_object_get_string(listJ));
+            goto OnErrorExit;
+        }
+
+        if (streams) {
+            streamsJ = json_object_new_array();
+
+            AlsaSndStreamT *streams = mixerHandle->streams;
+            for (int idx = 0; streams[idx].uid; idx++) {
+                if (quiet) {
+                    json_object_array_add(streamsJ, json_object_new_string(streams[idx].uid));
+                } else {
+                    json_object *numidJ;
+                    wrap_json_pack(&numidJ, "{si,si}"
+                            , "volume", streams[idx].volume
+                            , "mute",   streams[idx].mute
+                            );
+                    wrap_json_pack(&valueJ, "{ss,so}"
+                            , "uid", streams[idx].uid
+                            , "numid", numidJ
+                            );
+                    json_object_array_add(streamsJ, valueJ);
+                    AFB_ApiWarning (request->dynapi, "stream=%s", json_object_get_string(streamsJ));
+                }
+                
+            }
+            json_object_object_add(responseJ, "streams", streamsJ);
+        }
+        
+        if (backend || frontend || zones) {
+            AFB_ReqFailF(request, "not implemented", "(Fulup) list action Still To Be Done");
+            goto OnErrorExit;
+        }
+
+        AFB_ReqSucess(request, responseJ, NULL);
+        return;
+    }
+    
     if (backendJ) {
         error = SndBackend(source, backendJ);
         if (error) goto OnErrorExit;

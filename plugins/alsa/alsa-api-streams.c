@@ -36,8 +36,8 @@ typedef struct {
 } apiHandleT;
 
 static void StreamApiVerbCB(AFB_ReqT request) {
-    int close=0, error=0, quiet=0;
-    long volume=-1, mute=-1;
+    int error, doClose=0, doQuiet=0, doToggle=0, doMute=-1;
+    long mute, volume=-1;
     json_object *responseJ, *argsJ= afb_request_json(request);
     apiHandleT *handle = (apiHandleT*) afb_request_get_vcbdata(request);
 
@@ -47,10 +47,11 @@ static void StreamApiVerbCB(AFB_ReqT request) {
     source->request = NULL;
     source->context = NULL;
 
-    error = wrap_json_unpack(argsJ, "{s?b s?b,s?b, s?i !}"
-            , "quiet", &quiet
-            , "close", &close
-            , "mute", &mute
+    error = wrap_json_unpack(argsJ, "{s?b s?b,s?b,s?b,s?i !}"
+            , "quiet", &doQuiet
+            , "close", &doClose
+            , "mute", &doMute
+            , "toggle", &doToggle
             , "volume", &volume
             );
     if (error) {
@@ -64,9 +65,14 @@ static void StreamApiVerbCB(AFB_ReqT request) {
         goto OnErrorExit;        
     }
     
-    if (close) {
+    if (doClose) {
         AFB_ReqFailF(request,  "StreamApiVerbCB", "(Fulup) Close action still to be done mixer=%s", json_object_get_string(argsJ));
         goto OnErrorExit;
+    }
+    
+    if (doToggle) {
+        error+= AlsaCtlNumidGetLong (source, ctlDev, handle->streams->mute, &mute);
+        error+= AlsaCtlNumidSetLong (source, ctlDev, handle->streams->mute, !mute);
     }
     
     if (volume != -1) {
@@ -77,8 +83,8 @@ static void StreamApiVerbCB(AFB_ReqT request) {
         }
     }
     
-    if (mute != -1) {
-        error= AlsaCtlNumidSetLong (source, ctlDev, handle->streams->volume, !mute);
+    if (doMute != -1) {
+        error= AlsaCtlNumidSetLong (source, ctlDev, handle->streams->mute, !mute);
         if (error) {
             AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to set stream volume numid=%d value=%d", handle->streams->volume, !mute);
             goto OnErrorExit;            
@@ -86,7 +92,7 @@ static void StreamApiVerbCB(AFB_ReqT request) {
     }
 
     // if not in quiet mode return effective selected control values
-    if (quiet) responseJ=NULL;
+    if (doQuiet) responseJ=NULL;
     else {
         error+= AlsaCtlNumidGetLong (source, ctlDev, handle->streams->volume, &volume);
         error+= AlsaCtlNumidGetLong (source, ctlDev, handle->streams->mute, &mute);
@@ -94,13 +100,15 @@ static void StreamApiVerbCB(AFB_ReqT request) {
             AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to get stream numids volume=%ld mute=%ld",volume, mute);
             goto OnErrorExit;            
         }
-        wrap_json_pack (&responseJ,"{volume:si, mute:sb}", volume, mute);
+        wrap_json_pack (&responseJ,"{si,sb}", "volume",volume, "mute",!mute);
     }
 
+    snd_ctl_close (ctlDev);
     AFB_ReqSucess(request, responseJ, handle->verb);
     return;
 
 OnErrorExit:
+    if(ctlDev) snd_ctl_close (ctlDev);
     return;
 
 }
@@ -317,14 +325,16 @@ PUBLIC int SndStreams(CtlSourceT *source, json_object *argsJ, json_object **resp
         apiHandle->mixer = mixerHandle;
         apiHandle->streams = &sndStream[idx];
         apiHandle->verb = strdup(apiVerb);
-        error = afb_dynapi_add_verb(source->api, apiHandle->verb, sndStream[idx].info, StreamApiVerbCB, mixerHandle, NULL, 0);
+        error = afb_dynapi_add_verb(source->api, apiHandle->verb, sndStream[idx].info, StreamApiVerbCB, apiHandle, NULL, 0);
         if (error) {
             AFB_ApiError(source->api, "SndStreams mixer=%s fail to register API verb=%s", mixerHandle->uid, apiHandle->verb);
             return -1;
         }
 
-        // free tempry resource
+        // free temporary resources
         snd_ctl_close(ctlDev);
+        sndStream[idx].volume= volNumid;
+        sndStream[idx].mute= runNumid;
 
         // Debug Alsa Config 
         //AlsaDumpElemConfig (source, "\n\nAlsa_Config\n------------\n", "pcm");
@@ -333,6 +343,8 @@ PUBLIC int SndStreams(CtlSourceT *source, json_object *argsJ, json_object **resp
         AFB_ApiNotice(source->api, "SndStreams: mixer=%s stream=%s OK reponse=%s\n", mixerHandle->uid, streamPcm->uid, json_object_get_string(streamJ));
     }
 
+    // save handle for further use
+    mixerHandle->streams = sndStream;
     return 0;
 
 OnErrorExit:
