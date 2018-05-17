@@ -23,15 +23,17 @@
 ALSA_PLUG_PROTO(multi);
 
 PUBLIC AlsaPcmInfoT* AlsaCreateMulti(CtlSourceT *source, const char *pcmUid, int open) {
-
+    SoftMixerHandleT *mixerHandle = (SoftMixerHandleT*) source->context;
     snd_config_t *multiConfig, *elemConfig, *slavesConfig, *slaveConfig, *bindingsConfig, *bindingConfig, *pcmConfig;
     int error = 0, channelIdx=0;
     AlsaPcmInfoT *pcmPlug = calloc(1, sizeof (AlsaPcmInfoT));
     pcmPlug->uid   = pcmUid;
     pcmPlug->cardid = pcmUid;
     
-    AlsaPcmInfoT* pcmSlaves=Softmixer->sndcardCtl;
-        if (!Softmixer->sndcardCtl) {
+    assert(mixerHandle);
+    
+    AlsaPcmInfoT* pcmSlaves=mixerHandle->backend;
+    if (!pcmSlaves) {
         AFB_ApiError(source->api, "AlsaCreateMulti: No Sound Card find [should register snd_cards first]");
         goto OnErrorExit;
     }

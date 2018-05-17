@@ -26,11 +26,11 @@ extern Lua2cWrapperT Lua2cWrap;
 
 STATIC int ProcessOneChannel(CtlSourceT *source, const char* uid, json_object *channelJ, AlsaPcmChannels *channel) {
     const char*channelUid;
-    
+
     int error = wrap_json_unpack(channelJ, "{ss,si,s?i !}", "target", &channelUid, "channel", &channel->port);
     if (error) goto OnErrorExit;
-    
-    channel->uid=strdup(channelUid);
+
+    channel->uid = strdup(channelUid);
     return 0;
 
 OnErrorExit:
@@ -44,9 +44,13 @@ STATIC int ProcessOneZone(CtlSourceT *source, json_object *zoneJ, AlsaSndZoneT *
     const char* streamType;
     int error;
 
-    error = wrap_json_unpack(zoneJ, "{ss,s?s,so !}", "uid", &zone->uid, "type", &streamType, "mapping", &mappingJ);
+    error = wrap_json_unpack(zoneJ, "{ss,s?s,so !}"
+            , "uid", &zone->uid
+            , "type", &streamType
+            , "mapping", &mappingJ
+            );
     if (error) {
-        AFB_ApiNotice(source->api, "ProcessOneone missing 'uid|type|mapping' zone=%s", json_object_get_string(zoneJ));
+        AFB_ApiNotice(source->api, "ProcessOneZone missing 'uid|type|mapping' zone=%s", json_object_get_string(zoneJ));
         goto OnErrorExit;
     }
 
@@ -59,9 +63,9 @@ STATIC int ProcessOneZone(CtlSourceT *source, json_object *zoneJ, AlsaSndZoneT *
             goto OnErrorExit;
         }
     }
-    
+
     // make sure remain valid even when json object is removed
-    zone->uid= strdup(zone->uid); 
+    zone->uid = strdup(zone->uid);
 
     switch (json_object_get_type(mappingJ)) {
         case json_type_object:
@@ -90,55 +94,63 @@ OnErrorExit:
     return -1;
 }
 
-CTLP_LUA2C(snd_zones, source, argsJ, responseJ) {
-    AlsaSndZoneT *sndZone;
+PUBLIC int SndZones(CtlSourceT *source, json_object *argsJ) {
+    SoftMixerHandleT *mixerHandle = (SoftMixerHandleT*) source->context;
+    AlsaSndZoneT *zones=NULL;
     int error;
     size_t count;
+
+    assert(mixerHandle);
+
+    if (mixerHandle->routes) {
+        AFB_ApiError(source->api, "SndZones: mixer=%s Zones already registered %s", mixerHandle->uid, json_object_get_string(argsJ));
+        goto OnErrorExit;
+    }
 
     switch (json_object_get_type(argsJ)) {
         case json_type_object:
             count = 1;
-            sndZone = calloc(count + 1, sizeof (AlsaSndZoneT));
-            error = ProcessOneZone(source, argsJ, &sndZone[0]);
+            zones = calloc(count + 1, sizeof (AlsaSndZoneT));
+            error = ProcessOneZone(source, argsJ, &zones[0]);
             if (error) {
-                AFB_ApiError(source->api, "L2C:sndzones: invalid zone= %s", json_object_get_string(argsJ));
+                AFB_ApiError(source->api, "SndZones: mixer=%s invalid zone= %s", mixerHandle->uid, json_object_get_string(argsJ));
                 goto OnErrorExit;
             }
             break;
 
         case json_type_array:
             count = json_object_array_length(argsJ);
-            sndZone = calloc(count + 1, sizeof (AlsaSndZoneT));
+            zones = calloc(count + 1, sizeof (AlsaSndZoneT));
             for (int idx = 0; idx < count; idx++) {
                 json_object *sndZoneJ = json_object_array_get_idx(argsJ, idx);
-                error = ProcessOneZone(source, sndZoneJ, &sndZone[idx]);
+                error = ProcessOneZone(source, sndZoneJ, &zones[idx]);
                 if (error) {
-                    AFB_ApiError(source->api, "L2C:sndzones: invalid zone= %s", json_object_get_string(sndZoneJ));
+                    AFB_ApiError(source->api, "SndZones: mixer=%s invalid zone= %s", mixerHandle->uid, json_object_get_string(sndZoneJ));
                     goto OnErrorExit;
                 }
             }
             break;
         default:
-            AFB_ApiError(source->api, "L2C:sndzones: invalid argsJ=  %s", json_object_get_string(argsJ));
+            AFB_ApiError(source->api, "SndZones: mixer=%s invalid argsJ=  %s", mixerHandle->uid, json_object_get_string(argsJ));
             goto OnErrorExit;
     }
 
     // register routed into global softmixer handle
-    Softmixer->zonePcms = calloc(count+1, sizeof (AlsaPcmInfoT*));
+    mixerHandle->routes= calloc(count + 1, sizeof (AlsaPcmInfoT*));
 
     // instantiate one route PCM per zone with multi plugin as slave
-    for (int idx = 0; sndZone[idx].uid != NULL; idx++) {
-        Softmixer->zonePcms[idx] = AlsaCreateRoute(source, &sndZone[idx], 0);
-        if (!Softmixer->zonePcms[idx]) {
-            AFB_ApiNotice(source->api, "L2C:sndzones fail to create route zone=%s", sndZone[idx].uid);
+    for (int idx = 0; zones[idx].uid != NULL; idx++) {
+        mixerHandle->routes[idx] = AlsaCreateRoute(source, &zones[idx], 0);
+        if (!mixerHandle->routes[idx]) {
+            AFB_ApiNotice(source->api, "SndZones: mixer=%s fail to create route zone=%s", mixerHandle->uid, zones[idx].uid);
             goto OnErrorExit;
         }
     }
     
-    // do not need this handle anymore
-    free (sndZone);
+    free (zones);
     return 0;
 
 OnErrorExit:
+    if (zones) free(zones);
     return -1;
 }

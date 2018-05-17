@@ -30,24 +30,14 @@ end
 
 
 -- Display receive arguments and echo them to caller
-function _mixer_config_ (source, args)
+function _mixer_simple_test_ (source, args)
     do
     local error
     local response
 
-    -- ==================== Default rate ===========================
-
-    local audio_defaults = {
-        ["rate"]   = 48000,
-    }  
-
-    -- ======================= Loop PCM ===========================
-
-    local snd_aloop = {
-        ["uid"]     = "Alsa-Loop",
-        ["devpath"] = "/dev/snd/by-path/platform-snd_aloop.0",
+    -- ================== Default Alsa snd-aloop numid and subdev config
+    local aloop = {
         ["devices"] = {["playback"]=0,["capture"]=1},
-        ["params"]  = audio_defaults,
         ["subdevs"] = {
             {["subdev"]= 0, ["numid"]= 51},
             {["subdev"]= 1, ["numid"]= 57},
@@ -60,17 +50,23 @@ function _mixer_config_ (source, args)
         }
     }
 
-    error,response= smix:snd_loops (source, snd_aloop)
-    if (error ~= 0) then 
-        AFB:error (source, "--InLua-- smix:snd_loops fail to attach sndcards=%s", Dump_Table(aloop))
-        goto OnErrorExit
-    else
-        AFB:notice (source, "--InLua-- smix:snd_loops done response=%s\n", Dump_Table(response))
-    end
-    
+    -- ==================== Default rate ===========================
+
+    local audio_defaults = {
+        ["rate"]   = 48000,
+    }  
+
+    -- ======================= Loop PCM ===========================
+    local snd_aloop = {
+        ["uid"]     = "Alsa-Loop",
+        ["devpath"] = "/dev/snd/by-path/platform-snd_aloop.0",       
+        ["params"]  = audio_defaults,
+        ["devices"] = aloop.devices,
+        ["subdevs"] = aloop.subdevs,
+    }
+
 
     -- ============================= Sound Cards ===================  
-
     local snd_yamaha = {
         ["uid"]= "YAMAHA-APU70",
         ["devpath"]= "/dev/snd/by-id/usb-YAMAHA_Corporation_YAMAHA_AP-U70_USB_Audio_00-00",
@@ -91,21 +87,8 @@ function _mixer_config_ (source, args)
         }
     }
 
-     -- group sound card as one multi channels card
-    local sndcards= {
-        snd_yamaha,
-    }
-
-    error,response= smix:snd_cards (source, sndcards)
-    if (error ~= 0) then 
-        AFB:error (source, "--InLua-- smix:snd_cards fail to attach sndcards=%s", Dump_Table(sndcards))
-        goto OnErrorExit
-    else
-        AFB:notice (source, "--InLua-- smix:snd_cards done response=%s\n", Dump_Table(response))
-    end
  
     -- ============================= Zones ===================    
-
     local zone_front= {
         ["uid"]  = "front-seats",
         ["type"] = "playback",
@@ -115,20 +98,7 @@ function _mixer_config_ (source, args)
         }
     }
 
-    local multi_zones = {
-        zone_front,
-    }
-
-    error,response= smix:snd_zones (source, multi_zones)
-    if (error ~= 0) then 
-        AFB:error (source, "--InLua-- smix:snd_zones fail to attach sndcards=%s", Dump_Table(multi_zones))
-        goto OnErrorExit
-    else
-        AFB:notice (source, "--InLua-- smix:snd_zones done response=%s\n", Dump_Table(response))
-    end
-
     -- =================== Audio Stream ============================
-
     local stream_music= {
         ["uid"]   = "multimedia",
         ["zone"]  = "front-seats",
@@ -143,20 +113,24 @@ function _mixer_config_ (source, args)
         ["mute"]  = false,
     }
         
-    local snd_streams = {
-        stream_music,
-        stream_navigation,
+    --- ================ Create Mixer =========================
+    local MyMixer= {
+        ["uid"]="Simple_Mixer",
+        ["backend"] = {snd_yamaha},
+        ["frontend"]= {snd_aloop},
+        ["zones"]   = {zone_front},
+        ["streams"] = {stream_music,stream_navigation},
     }
 
-    error,response= smix:snd_streams (source, snd_streams)
+    local error,response= smix:_mixer_new_ (source, MyMixer)
     if (error ~= 0) then 
-        AFB:error (source, "--InLua-- smix:snd_streams fail to attach sndcards=%s", Dump_Table(aloop))
+        AFB:error (source, "--InLua-- smix:_mixer_new_ fail config=%s", Dump_Table(aloop))
         goto OnErrorExit
     else
-        AFB:notice (source, "--InLua-- smix:streams_loops done response=%s\n", Dump_Table(response))
+        AFB:notice (source, "--InLua-- smix:_mixer_new_ done response=%s\n", Dump_Table(response))
     end
 
-
+  
     -- ================== Happy End =============================
     AFB:notice (source, "--InLua-- _mixer_config_ done")
     return 0 end 
@@ -166,16 +140,3 @@ function _mixer_config_ (source, args)
         AFB:error (source, "--InLua-- snd_attach fail")
         return 1 -- unhappy end --
 end 
-
--- Display receive arguments and echo them to caller
-function _init_softmixer_ (source, args)
-    
-    printf ("*********** in print ")
-    -- create event to push change audio roles to potential listeners
-    _EventHandle=AFB:evtmake(source, "control")
-
-    _mixer_config_ (source, args)
-
-end
-
-printf ("*********** load done ")

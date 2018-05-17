@@ -17,7 +17,7 @@
 ###########################################################################
 
 
-PROJECT_TARGET_ADD(alsa-router)
+PROJECT_TARGET_ADD(alsa-softmixer)
 
         file(GLOB SOURCE_FILES "alsa-*.c")
 

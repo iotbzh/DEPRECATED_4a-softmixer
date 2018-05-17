@@ -56,7 +56,7 @@ STATIC int CtrlLoadStaticVerbs (afb_dynapi *apiHandle, AFB_ApiVerbs *verbs) {
     int errcount=0;
 
     for (int idx=0; verbs[idx].verb; idx++) {
-        errcount+= afb_dynapi_add_verb(apiHandle, CtrlApiVerbs[idx].verb, NULL, CtrlApiVerbs[idx].callback, (void*)&CtrlApiVerbs[idx], CtrlApiVerbs[idx].auth, 0);
+        errcount+= afb_dynapi_add_verb(apiHandle, CtrlApiVerbs[idx].verb, CtrlApiVerbs[idx].info, CtrlApiVerbs[idx].callback, (void*)&CtrlApiVerbs[idx], CtrlApiVerbs[idx].auth, 0);
     }
 
     return errcount;
@@ -100,7 +100,8 @@ STATIC int CtrlLoadOneApi (void *cbdata, AFB_ApiT apiHandle) {
     // init API function (does not receive user closure ???
     afb_dynapi_on_init(apiHandle, CtrlInitOneApi);
 
-    afb_dynapi_seal(apiHandle);
+    // should not seal API as each mixer+stream create a new verb
+    // afb_dynapi_seal(apiHandle);
     return err;
 
 OnErrorExit:

@@ -126,7 +126,7 @@ STATIC int ProcessOneLoop(CtlSourceT *source, json_object *loopJ, AlsaSndLoopT *
             }
             break;
         default:
-            AFB_ApiError(source->api, "L2C:ProcessOneLoop=%s invalid subdevs= %s", loop->uid, json_object_get_string(subdevsJ));
+            AFB_ApiError(source->api, "ProcessOneLoop=%s invalid subdevs= %s", loop->uid, json_object_get_string(subdevsJ));
             goto OnErrorExit;
     }
 
@@ -136,24 +136,41 @@ OnErrorExit:
     return -1;
 }
 
-CTLP_LUA2C(snd_loops, source, argsJ, responseJ) {
+PUBLIC int SndFrontend (CtlSourceT *source, json_object *argsJ) {
+    SoftMixerHandleT *mixerHandle = (SoftMixerHandleT*) source->context;
     int error;
-    AlsaSndLoopT *sndLoop = calloc(1, sizeof (AlsaSndLoopT));
     
-
-    if (json_object_get_type(argsJ) != json_type_object) {
-        AFB_ApiError(source->api, "L2C:sndloops: invalid object type= %s", json_object_get_string(argsJ));
+    assert (mixerHandle);  
+    
+    if (mixerHandle->loop) {
+        AFB_ApiError(source->api, "SndFrontend: mixer=%s SndFrontend already declared %s", mixerHandle->uid, json_object_get_string(argsJ));
+        goto OnErrorExit;     
+    }
+    
+    mixerHandle->loop= calloc(1, sizeof (AlsaSndLoopT));
+    
+    // or syntax purpose array is accepted but frontend should have a single driver entry
+    json_type type= json_object_get_type(argsJ);
+    if (type == json_type_array) {
+        size_t count= json_object_array_length(argsJ);
+        if (count != 1) {
+            AFB_ApiError(source->api, "SndFrontend: mixer=%s frontend only support on input driver args=%s", mixerHandle->uid, json_object_get_string(argsJ));
+            goto OnErrorExit;            
+        }
+        argsJ= json_object_array_get_idx(argsJ,0);
+    } 
+    
+    type= json_object_get_type(argsJ);
+    if (type != json_type_object) {
+        AFB_ApiError(source->api, "SndFrontend: mixer=%s invalid object type= %s", mixerHandle->uid, json_object_get_string(argsJ));
         goto OnErrorExit;
     }
 
-    error = ProcessOneLoop(source, argsJ, sndLoop);
+    error = ProcessOneLoop(source, argsJ, mixerHandle->loop);
     if (error) {
-        AFB_ApiError(source->api, "L2C:sndloops: invalid object= %s", json_object_get_string(argsJ));
+        AFB_ApiError(source->api, "SndFrontend: mixer=%s invalid object= %s", mixerHandle->uid, json_object_get_string(argsJ));
         goto OnErrorExit;
     }
-
-    // register routed into global softmixer handle
-    Softmixer->loopCtl = sndLoop;
 
     return 0;
 

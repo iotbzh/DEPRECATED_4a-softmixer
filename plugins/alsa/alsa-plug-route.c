@@ -48,17 +48,20 @@ OnErrorExit:
 }
 
 PUBLIC AlsaPcmInfoT* AlsaCreateRoute(CtlSourceT *source, AlsaSndZoneT *zone, int open) {
-
+    SoftMixerHandleT *mixerHandle = (SoftMixerHandleT*) source->context;
     snd_config_t *routeConfig, *elemConfig, *slaveConfig, *tableConfig, *pcmConfig;
     int error = 0;
     AlsaPcmInfoT *pcmPlug = calloc(1, sizeof (AlsaPcmInfoT));
     pcmPlug->uid    = zone->uid;
     pcmPlug->cardid = zone->uid;
+    
+    assert(mixerHandle);
 
-    AlsaPcmInfoT *pcmBackend = Softmixer->sndcardCtl;
-    AlsaPcmInfoT* pcmSlave=Softmixer->multiPcm;
+    AlsaPcmInfoT *pcmBackend = mixerHandle->backend;
+    AlsaPcmInfoT* pcmSlave=mixerHandle->multiPcm;
     if (!pcmBackend || !pcmSlave) {
-        AFB_ApiError(source->api, "AlsaCreateRoute:zone(%s)(zone) No Sound Card Ctl find [should register snd_cards first]", zone->uid);
+        AFB_ApiError(source->api, "AlsaCreateRoute: mixer=%s zone(%s)(zone) No Sound Card Ctl find [should register snd_cards first]"
+                , mixerHandle->uid, zone->uid);
         goto OnErrorExit;
     }
 

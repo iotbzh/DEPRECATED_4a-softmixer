@@ -1,0 +1,75 @@
+{
+    "$schema": "http://iot.bzh/download/public/schema/json/ctl-schema.json",
+    "metadata": {
+        "uid": "Soft Mixer",
+        "version": "1.0",
+        "api": "softmixer",
+        "info": "Soft Mixer emulating hardware mixer"
+    },
+    "resources": [
+        {
+            "uid": "softmixer",
+            "info": "Map alsa-loop subdevices to 4A HAL streams",
+            "spath": "./plugins/alsa:../conf.d/project/lua.d",
+            "libs": ["alsa-softmixer.ctlso", "softmixer-simple-test.lua"],
+            "lua": {
+                "prefix": "smix",
+                "functions": ["_mixer_new_"]
+            }
+        }
+    ],
+
+    "onload": [
+        {
+            "uid": "init-soft-mixer",
+            "info": "Initialise Audio Router",
+            "action": "lua://softmixer#_mixer_simple_test_"
+        }
+    ],
+    "controls": [
+        {
+            "uid": "new",
+            "action": "plugin://softmixer#_mixer_new_",
+            "args": {
+                "devices": {
+                    "playback": 0,
+                    "capture": 1
+                },
+                "subdevs": [
+                    {
+                        "subdev": 0,
+                        "numid": 51
+                    },
+                    {
+                        "subdev": 1,
+                        "numid": 57
+                    },
+                    {
+                        "subdev": 2,
+                        "numid": 63
+                    },
+                    {
+                        "subdev": 3,
+                        "numid": 69
+                    },
+                    {
+                        "subdev": 4,
+                        "numid": 75
+                    },
+                    {
+                        "subdev": 5,
+                        "numid": 81
+                    },
+                    {
+                        "subdev": 6,
+                        "numid": 87
+                    },
+                    {
+                        "subdev": 7,
+                        "numid": 93
+                    }
+                ]
+            }
+        }
+    ]
+}

@@ -24,13 +24,14 @@
 #include <afb/afb-binding.h>
 #include <systemd/sd-event.h>
 #include <json-c/json_object.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <assert.h>
+#include <alsa/asoundlib.h>
 
 #include "ctl-plugin.h"
 #include "wrap-json.h"
 
-#include <alsa/asoundlib.h>
 
 #ifndef PUBLIC
 #define PUBLIC
@@ -104,10 +105,9 @@ typedef struct {
     AlsaPcmInfoT *subdevs;
 } AlsaSndLoopT;
 
-
-
 typedef struct { 
     const char *uid;
+    const char *info;
     const char *zone;
     int volume;
     int mute;
@@ -116,22 +116,19 @@ typedef struct {
 } AlsaSndStreamT;
 
 typedef struct {
-    AlsaSndLoopT *loopCtl;
-    AlsaPcmInfoT *sndcardCtl;
+    const char *uid;
+    const char *info;
+    AlsaSndLoopT *loop;
+    AlsaPcmInfoT *backend;
     AlsaPcmInfoT *multiPcm;
-    AlsaPcmInfoT **zonePcms;
+    AlsaPcmInfoT **routes;
 } SoftMixerHandleT; 
-
-extern SoftMixerHandleT *Softmixer;
 
 // alsa-utils-bypath.c
 PUBLIC snd_ctl_card_info_t* AlsaByPathInfo(CtlSourceT *source, const char *control);
 PUBLIC AlsaPcmInfoT* AlsaByPathOpenPcm(CtlSourceT *source, AlsaPcmInfoT *dev, snd_pcm_stream_t direction);
 PUBLIC snd_ctl_t *AlsaByPathOpenCtl(CtlSourceT *source, AlsaPcmInfoT *dev);
 PUBLIC int AlsaByPathDevid(CtlSourceT *source, AlsaPcmInfoT *dev);
-
-// alsa-api-*.c
-PUBLIC int ProcessSndParams(CtlSourceT *source, const char* uid, json_object *paramsJ, AlsaPcmHwInfoT *params);
 
 // alsa-utils-dump.c
 PUBLIC void AlsaDumpFormats(CtlSourceT *source, snd_pcm_t *pcmHandle);
@@ -168,7 +165,14 @@ PUBLIC int AlsaPcmCopy(CtlSourceT *source, AlsaPcmInfoT *pcmIn, AlsaPcmInfoT *pc
 PUBLIC AlsaPcmInfoT* AlsaCreateDmix(CtlSourceT *source, const char* pcmName, AlsaPcmInfoT *pcmSlave, int open);
 PUBLIC AlsaPcmInfoT* AlsaCreateMulti(CtlSourceT *source, const char *pcmName, int open);
 PUBLIC AlsaPcmInfoT* AlsaCreateRoute(CtlSourceT *source, AlsaSndZoneT *zone, int open);
-PUBLIC AlsaPcmInfoT* AlsaCreateStream(CtlSourceT *source, AlsaSndStreamT *stream, AlsaPcmInfoT *ctlControl, const char* ctlName, int max, int open);
+PUBLIC AlsaPcmInfoT* AlsaCreateSoftvol(CtlSourceT *source, AlsaSndStreamT *stream, AlsaPcmInfoT *ctlControl, const char* ctlName, int max, int open);
 PUBLIC AlsaPcmInfoT* AlsaCreateRate(CtlSourceT *source, const char* pcmName, AlsaPcmInfoT *pcmSlave, int open);
+
+// alsa-api-*
+PUBLIC int ProcessSndParams(CtlSourceT *source, const char* uid, json_object *paramsJ, AlsaPcmHwInfoT *params);
+PUBLIC int SndFrontend (CtlSourceT *source, json_object *argsJ);
+PUBLIC int SndBackend (CtlSourceT *source, json_object *argsJ);
+PUBLIC int SndZones (CtlSourceT *source, json_object *argsJ);
+PUBLIC int SndStreams(CtlSourceT *source, json_object *argsJ, json_object **responseJ);
 
 #endif

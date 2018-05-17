@@ -26,10 +26,10 @@
       </df>
       <df name="plugins">
         <df name="alsa">
-          <in>alsa-api-sndcards.c</in>
-          <in>alsa-api-sndloops.c</in>
-          <in>alsa-api-sndstreams.c</in>
-          <in>alsa-api-sndzones.c</in>
+          <in>alsa-api-backend.c</in>
+          <in>alsa-api-frontend.c</in>
+          <in>alsa-api-streams.c</in>
+          <in>alsa-api-zones.c</in>
           <in>alsa-capture.c</in>
           <in>alsa-core-ctl.c</in>
           <in>alsa-core-pcm.c</in>
@@ -367,28 +367,28 @@
         <cTool flags="1">
         </cTool>
       </item>
-      <item path="plugins/alsa/alsa-api-sndcards.c" ex="false" tool="0" flavor2="2">
+      <item path="plugins/alsa/alsa-api-backend.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
         </cTool>
       </item>
-      <item path="plugins/alsa/alsa-api-sndloops.c" ex="false" tool="0" flavor2="2">
+      <item path="plugins/alsa/alsa-api-frontend.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
         </cTool>
       </item>
-      <item path="plugins/alsa/alsa-api-sndstreams.c" ex="false" tool="0" flavor2="2">
+      <item path="plugins/alsa/alsa-api-streams.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
         </cTool>
       </item>
-      <item path="plugins/alsa/alsa-api-sndzones.c" ex="false" tool="0" flavor2="2">
+      <item path="plugins/alsa/alsa-api-zones.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
             <pElem>/usr/include/lua5.3</pElem>

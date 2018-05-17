@@ -170,6 +170,7 @@ OnErrorExit:
     return NULL;
 }
 
+
 STATIC int CtlElemIdGetNumid(AFB_ApiT api, snd_ctl_t *ctlDev, snd_ctl_elem_id_t *elemId, int *numid) {
     snd_ctl_elem_info_t *elemInfo;
 
