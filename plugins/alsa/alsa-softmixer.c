@@ -22,11 +22,11 @@
 
 // Force Lua2cWrapper inclusion within already existing plugin
 
-CTLP_LUA_Registry("alsa-softmixer")
+CTLP_LUA_REGISTER("alsa-softmixer")
 
 // Call at initialisation time
 CTLP_ONLOAD(plugin, callbacks) {
     AFB_ApiDebug(plugin->api, "SoftMixer Plugin Registryed: uid='%s' 'info='%s'", plugin->uid, plugin->info);    
-    return NULL;
+    return 0;
 }
 
