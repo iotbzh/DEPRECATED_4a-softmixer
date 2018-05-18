@@ -28,48 +28,8 @@
     ],
     "controls": [
         {
-            "uid": "new",
-            "action": "plugin://softmixer#_mixer_new_",
-            "args": {
-                "devices": {
-                    "playback": 0,
-                    "capture": 1
-                },
-                "subdevs": [
-                    {
-                        "subdev": 0,
-                        "numid": 51
-                    },
-                    {
-                        "subdev": 1,
-                        "numid": 57
-                    },
-                    {
-                        "subdev": 2,
-                        "numid": 63
-                    },
-                    {
-                        "subdev": 3,
-                        "numid": 69
-                    },
-                    {
-                        "subdev": 4,
-                        "numid": 75
-                    },
-                    {
-                        "subdev": 5,
-                        "numid": 81
-                    },
-                    {
-                        "subdev": 6,
-                        "numid": 87
-                    },
-                    {
-                        "subdev": 7,
-                        "numid": 93
-                    }
-                ]
-            }
+            "uid": "create",
+            "action": "plugin://softmixer#mixer_new"
         }
     ]
 }

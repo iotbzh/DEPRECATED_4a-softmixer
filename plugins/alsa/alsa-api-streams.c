@@ -221,18 +221,18 @@ OnErrorExit:
 }
 
 PUBLIC int LoopStreams(CtlSourceT *source, json_object *argsJ, json_object **responseJ) {
-    SoftMixerHandleT *mixerHandle = (SoftMixerHandleT*) source->context;
+    SoftMixerHandleT *mixer = (SoftMixerHandleT*) source->context;
     AlsaLoopStreamT *loopStream;
     int error;
     long value;
     size_t count;
 
-    assert(mixerHandle);
+    assert(mixer);
 
     // assert static/global softmixer handle get requited info
-    AlsaSndLoopT *ctlLoop = mixerHandle->frontend;
+    AlsaSndLoopT *ctlLoop = mixer->frontend;
     if (!ctlLoop) {
-        AFB_ApiError(source->api, "LoopStreams: mixer=%s No Loop found [should Registry snd_loop first]", mixerHandle->uid);
+        AFB_ApiError(source->api, "LoopStreams: mixer=%s No Loop found [should Registry snd_loop first]", mixer->uid);
         goto OnErrorExit;
     }
 
@@ -242,7 +242,7 @@ PUBLIC int LoopStreams(CtlSourceT *source, json_object *argsJ, json_object **res
             loopStream = calloc(count + 1, sizeof (AlsaLoopStreamT));
             error = ProcessOneStream(source, argsJ, &loopStream[0]);
             if (error) {
-                AFB_ApiError(source->api, "LoopStreams: mixer=%s invalid stream= %s", mixerHandle->uid, json_object_get_string(argsJ));
+                AFB_ApiError(source->api, "LoopStreams: mixer=%s invalid stream= %s", mixer->uid, json_object_get_string(argsJ));
                 goto OnErrorExit;
             }
             break;
@@ -254,13 +254,13 @@ PUBLIC int LoopStreams(CtlSourceT *source, json_object *argsJ, json_object **res
                 json_object *loopStreamJ = json_object_array_get_idx(argsJ, idx);
                 error = ProcessOneStream(source, loopStreamJ, &loopStream[idx]);
                 if (error) {
-                    AFB_ApiError(source->api, "loopstreams: mixer=%s invalid stream= %s", mixerHandle->uid, json_object_get_string(loopStreamJ));
+                    AFB_ApiError(source->api, "loopstreams: mixer=%s invalid stream= %s", mixer->uid, json_object_get_string(loopStreamJ));
                     goto OnErrorExit;
                 }
             }
             break;
         default:
-            AFB_ApiError(source->api, "LoopStreams: mixer=%s invalid argsJ=  %s", mixerHandle->uid, json_object_get_string(argsJ));
+            AFB_ApiError(source->api, "LoopStreams: mixer=%s invalid argsJ=  %s", mixer->uid, json_object_get_string(argsJ));
             goto OnErrorExit;
     }
 
@@ -272,10 +272,10 @@ PUBLIC int LoopStreams(CtlSourceT *source, json_object *argsJ, json_object **res
         json_object *streamJ, *paramsJ;
 
         // Search for a free loop capture device
-        AFB_ApiNotice(source->api, "LoopStreams: mixer=%s stream=%s Start", mixerHandle->uid, (char*) loopStream[idx].uid);
+        AFB_ApiNotice(source->api, "LoopStreams: mixer=%s stream=%s Start", mixer->uid, (char*) loopStream[idx].uid);
         ctlLoop->scount--;
         if (ctlLoop->scount < 0) {
-            AFB_ApiError(source->api, "LoopStreams: mixer=%s stream=%s no more subdev avaliable in loopback=%s", mixerHandle->uid, loopStream[idx].uid, ctlLoop->uid);
+            AFB_ApiError(source->api, "LoopStreams: mixer=%s stream=%s no more subdev avaliable in loopback=%s", mixer->uid, loopStream[idx].uid, ctlLoop->uid);
             goto OnErrorExit;
         }
 
@@ -293,14 +293,14 @@ PUBLIC int LoopStreams(CtlSourceT *source, json_object *argsJ, json_object **res
 
         // Registry capture PCM for active/pause event
         if (captureDev->numid) {
-            error = AlsaCtlRegister(source, mixerHandle, captureDev, FONTEND_NUMID_RUN, captureDev->numid);
+            error = AlsaCtlRegister(source, mixer, captureDev, FONTEND_NUMID_RUN, captureDev->numid);
             if (error) goto OnErrorExit;
         }
 
         // Try to create/setup volume control.
         snd_ctl_t* ctlDev = AlsaCrlFromPcm(source, captureDev->handle);
         if (!ctlDev) {
-            AFB_ApiError(source->api, "LoopStreams: mixer=%s [pcm=%s] fail attache sndcard", mixerHandle->uid, captureDev->cardid);
+            AFB_ApiError(source->api, "LoopStreams: mixer=%s [pcm=%s] fail attache sndcard", mixer->uid, captureDev->cardid);
             goto OnErrorExit;
         }
 
@@ -313,7 +313,7 @@ PUBLIC int LoopStreams(CtlSourceT *source, json_object *argsJ, json_object **res
         if (pauseNumid <= 0) goto OnErrorExit;
 
         // Registry mute/unmute as a pause/resume control
-        error = AlsaCtlRegister(source, mixerHandle, captureDev, FONTEND_NUMID_PAUSE, pauseNumid);
+        error = AlsaCtlRegister(source, mixer, captureDev, FONTEND_NUMID_PAUSE, pauseNumid);
         if (error) goto OnErrorExit;
 
         // create stream and delay pcm openning until vol control is created
@@ -321,7 +321,7 @@ PUBLIC int LoopStreams(CtlSourceT *source, json_object *argsJ, json_object **res
         snprintf(volName, sizeof (volName), "vol-%s", loopStream[idx].uid);
         AlsaPcmInfoT *streamPcm = AlsaCreateSoftvol(source, &loopStream[idx], captureDev, volName, VOL_CONTROL_MAX, 0);
         if (!streamPcm) {
-            AFB_ApiError(source->api, "LoopStreams: mixer=%s%s(pcm) fail to create stream", mixerHandle->uid, loopStream[idx].uid);
+            AFB_ApiError(source->api, "LoopStreams: mixer=%s%s(pcm) fail to create stream", mixer->uid, loopStream[idx].uid);
             goto OnErrorExit;
         }
 
@@ -342,7 +342,7 @@ PUBLIC int LoopStreams(CtlSourceT *source, json_object *argsJ, json_object **res
         // everything is not ready to open capture pcm
         error = snd_pcm_open(&streamPcm->handle, loopStream[idx].uid, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
         if (error) {
-            AFB_ApiError(source->api, "LoopStreams: mixer=%s%s(pcm) fail to open capture", mixerHandle->uid, loopStream[idx].uid);
+            AFB_ApiError(source->api, "LoopStreams: mixer=%s%s(pcm) fail to open capture", mixer->uid, loopStream[idx].uid);
             goto OnErrorExit;
         }
 
@@ -354,7 +354,7 @@ PUBLIC int LoopStreams(CtlSourceT *source, json_object *argsJ, json_object **res
         error = AlsaPcmCopy(source, &loopStream[idx], captureDev, streamPcm, &streamPcm->params);
         if (error) goto OnErrorExit;
 
-        error = AlsaCtlRegister(source, mixerHandle, captureDev, FONTEND_NUMID_IGNORE, volNumid);
+        error = AlsaCtlRegister(source, mixer, captureDev, FONTEND_NUMID_IGNORE, volNumid);
         if (error) goto OnErrorExit;
         
         // retrieve active/pause control and set PCM status accordingly 
@@ -363,7 +363,7 @@ PUBLIC int LoopStreams(CtlSourceT *source, json_object *argsJ, json_object **res
 
         // toggle pause/resume (should be done after pcm_start)
         if ((error = snd_pcm_pause(captureDev->handle, !value)) < 0) {
-            AFB_ApiWarning(source->api, "LoopStreams: mixer=%s [capture=%s] fail to pause error=%s", mixerHandle->uid, captureDev->cardid, snd_strerror(error));
+            AFB_ApiWarning(source->api, "LoopStreams: mixer=%s [capture=%s] fail to pause error=%s", mixer->uid, captureDev->cardid, snd_strerror(error));
         }
 
         // prepare response for application
@@ -374,35 +374,35 @@ PUBLIC int LoopStreams(CtlSourceT *source, json_object *argsJ, json_object **res
         error += wrap_json_pack(&streamJ, "{ss ss si si so}", "uid", streamPcm->uid, "alsa", playbackDev->cardid, "volid", volNumid, "runid", pauseNumid, "params", paramsJ);
         error += json_object_array_add(*responseJ, streamJ);
         if (error) {
-            AFB_ApiError(source->api, "LoopStreams: mixer=%s stream=%s fail to prepare response", mixerHandle->uid, captureDev->cardid);
+            AFB_ApiError(source->api, "LoopStreams: mixer=%s stream=%s fail to prepare response", mixer->uid, captureDev->cardid);
             goto OnErrorExit;
         }
 
         // create a dedicated verb for this stream compose of mixeruid/streamuid
         apiHandleT *apiHandle = calloc(1, sizeof (apiHandleT));
         char apiVerb[128];
-        error = snprintf(apiVerb, sizeof (apiVerb), "%s/%s", mixerHandle->uid, loopStream[idx].uid);
+        error = snprintf(apiVerb, sizeof (apiVerb), "%s/%s", mixer->uid, loopStream[idx].uid);
         if (error == sizeof (apiVerb)) {
-            AFB_ApiError(source->api, "LoopStreams mixer=%s fail to Registry Stream API too long %s/%s", mixerHandle->uid, mixerHandle->uid, loopStream[idx].uid);
-            return -1;
+            AFB_ApiError(source->api, "LoopStreams mixer=%s fail to Registry Stream API too long %s/%s", mixer->uid, mixer->uid, loopStream[idx].uid);
+            goto OnErrorExit;
         }
 
         // if set get stream attached volramp
         if (loopStream->ramp) {
             apiHandle->ramp = RampGetByUid(source, ctlLoop->ramps, loopStream->ramp);
             if (!apiHandle->ramp) {
-                AFB_ApiError(source->api, "LoopStreams: mixer=%s%s(pcm) fail to find ramp=%s", mixerHandle->uid, loopStream[idx].uid, loopStream->ramp);
+                AFB_ApiError(source->api, "LoopStreams: mixer=%s%s(pcm) fail to find ramp=%s", mixer->uid, loopStream[idx].uid, loopStream->ramp);
                 goto OnErrorExit;
             }         
         }
 
-        apiHandle->mixer = mixerHandle;
+        apiHandle->mixer = mixer;
         apiHandle->stream= &loopStream[idx];
         apiHandle->verb = strdup(apiVerb);
         error = afb_dynapi_add_verb(source->api, apiHandle->verb, loopStream[idx].info, StreamApiVerbCB, apiHandle, NULL, 0);
         if (error) {
-            AFB_ApiError(source->api, "LoopStreams mixer=%s fail to Registry API verb=%s", mixerHandle->uid, apiHandle->verb);
-            return -1;
+            AFB_ApiError(source->api, "LoopStreams mixer=%s fail to Registry API verb=%s", mixer->uid, apiHandle->verb);
+            goto OnErrorExit;
         }
 
         // free temporary resources
@@ -414,11 +414,11 @@ PUBLIC int LoopStreams(CtlSourceT *source, json_object *argsJ, json_object **res
         //AlsaDumpElemConfig (source, "\n\nAlsa_Config\n------------\n", "pcm");
         //AlsaDumpPcmInfo(source, "\n\nPcm_config\n-----------\n", streamPcm->handle);
 
-        AFB_ApiNotice(source->api, "LoopStreams: mixer=%s stream=%s OK reponse=%s\n", mixerHandle->uid, streamPcm->uid, json_object_get_string(streamJ));
+        AFB_ApiNotice(source->api, "LoopStreams: mixer=%s stream=%s OK reponse=%s\n", mixer->uid, streamPcm->uid, json_object_get_string(streamJ));
     }
 
     // save handle for further use
-    mixerHandle->streams = loopStream;
+    mixer->streams = loopStream;
     return 0;
 
 OnErrorExit:

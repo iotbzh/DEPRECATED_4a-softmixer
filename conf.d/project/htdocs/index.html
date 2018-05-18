@@ -1,36 +1,157 @@
 <html>
-<head>
-    <title>Simple COntroller Test</title>
-    <link rel="stylesheet" href="AudioBinding.css">
-    <script type="text/javascript" src="AFB-websock.js"></script>
-    <script type="text/javascript" src="AudioBinding.js"></script>
-</head>
+    <head>
+        <title>Simple COntroller Test</title>
+        <link rel="stylesheet" href="AudioBinding.css">
+        <script type="text/javascript" src="AFB-websock.js"></script>
+        <script type="text/javascript" src="AudioBinding.js"></script>
+        <script type="text/javascript">
 
-<body onload="init('hal_registry','alsacore', 'hallist')">
+            var frontend = {
+                "devices": {
+                    "playback": 0,
+                    "capture": 1
+                },
+                "ramps": [
+                    {
+                        "uid": "ramp-fast",
+                        "delay": 50,
+                        "up": 10,
+                        "down": 3
+                    },
+                    {
+                        "uid": "ramp-slow",
+                        "delay": 250,
+                        "up": 3,
+                        "down": 1
+                    },
+                    {
+                        "uid": "ramp-normal",
+                        "delay": 100,
+                        "up": 6,
+                        "down": 2
+                    }
+                ],
+                "subdevs": [
+                    {
+                        "subdev": 0,
+                        "numid": 51
+                    },
+                    {
+                        "subdev": 1,
+                        "numid": 57
+                    },
+                    {
+                        "subdev": 2,
+                        "numid": 63
+                    },
+                    {
+                        "subdev": 3,
+                        "numid": 69
+                    },
+                    {
+                        "subdev": 4,
+                        "numid": 75
+                    },
+                    {
+                        "subdev": 5,
+                        "numid": 81
+                    },
+                    {
+                        "subdev": 6,
+                        "numid": 87
+                    },
+                    {
+                        "subdev": 7,
+                        "numid": 93
+                    }
+                ]
+            };
+            var audio_defaults = {
+                "rate": 48000
+            };
+            var usb_yamaha = {
+                uid: "YAMAHA-APU70",
+                devpath: "/dev/snd/by-id/usb-YAMAHA_Corporation_YAMAHA_AP-U70_USB_Audio_00-00",
+                params: snd_params,
+                sink: [
+                    {uid: "front-right", port: 0},
+                    {uid: "front-left", port: 1}
+                ]
+            };
+            var zone_front = {
+                uid: "front-seats",
+                type: "playback",
+                mapping: [
+                    {target: "front-right", channel: 0},
+                    {target: "front-left", channel: 1}
+                ]
+            };
 
-    <h1>Simple Mixer Test</h1>
-    <button id="connected" onclick="init()">Binder WS Fail</button> 
-    <button id="mnitoring" onclick="window.open('/monitoring/monitor.html','_monitor_ctl')">Debug/Monitoring</a></button>
+            var stream_music = {
+                uid: "multimedia",
+                zone: "front-seats",
+                ramp: "ramp-slow",
+                volume: 60,
+                mute: false
+            };
+
+            var stream_navigation = {
+                uid: "navigation",
+                zone: "front-seats",
+                ramp: "ramp-normal",
+                volume: 70,
+                mute: false
+            };
+
+            var stream_emergency = {
+                uid: "emergency",
+                zone: "front-seats",
+                ramp: "ramp-fast",
+                volume: 80,
+                mute: false
+            };
+
+            var my_test_mixer = {
+               uid: 'simple_mixer',
+               backend: usb_yamaha,
+               frontend: frontend,
+               zones: zone_front,
+               streams: [stream_music, stream_navigation, stream_emergency]
+            };
+
+        </script>
+
+    </head>
+
+    <body onload="init('hal_registry', 'alsacore', 'hallist')">
+
+        <h1>Simple Mixer Test</h1>
+        <button id="connected" onclick="init()">Binder WS Fail</button> 
+        <button id="mnitoring" onclick="window.open('/monitoring/monitor.html', '_monitor_ctl')">Debug/Monitoring</a></button>
     <br><br>
 
     <h2>V3 API CALL</h2>
     <ol>
-    <li><button onclick="callbinder('softmixer','simple_mixer',{list:{streams:true}});">Streams List</button></li>
-    <br>
-    <li><button onclick="callbinder('softmixer','simple_mixer/multimedia',{toggle: true});">Stream Multimedia pause/resume</button></li>
-    <li><button onclick="callbinder('softmixer','simple_mixer/navigation',{toggle: true});">Stream Navigation pause/resume</button></li>
-    <br>
-    <li><button onclick="callbinder('softmixer','simple_mixer/multimedia',{volume: '+10'});">Stream Multimedia volume=+10"</button></li>
-    <li><button onclick="callbinder('softmixer','simple_mixer/multimedia',{volume: '-10'});">Stream Multimedia volume=-10"</button></li>
-    <br>
-    <li><button onclick="callbinder('softmixer','simple_mixer/multimedia',{ramp: 30});">Stream Multimedia ramp=30"</button></li>
-    <li><button onclick="callbinder('softmixer','simple_mixer/multimedia',{ramp: 80});">Stream Multimedia ramp=80"</button></li>
+        <li><button onclick="callbinder('softmixer', 'simple_mixer', {list: {streams: true}});">Streams List</button></li>
+        <br>
+        <li><button onclick="callbinder('softmixer', 'simple_mixer/multimedia', {toggle: true});">Stream Multimedia pause/resume</button></li>
+        <li><button onclick="callbinder('softmixer', 'simple_mixer/navigation', {toggle: true});">Stream Navigation pause/resume</button></li>
+        <br>
+        <li><button onclick="callbinder('softmixer', 'simple_mixer/multimedia', {volume: '+10'});">Stream Multimedia volume=+10"</button></li>
+        <li><button onclick="callbinder('softmixer', 'simple_mixer/multimedia', {volume: '-10'});">Stream Multimedia volume=-10"</button></li>
+        <br>
+        <li><button onclick="callbinder('softmixer', 'simple_mixer/multimedia', {ramp: 30});">Stream Multimedia ramp=30"</button></li>
+        <li><button onclick="callbinder('softmixer', 'simple_mixer/multimedia', {ramp: 80});">Stream Multimedia ramp=80"</button></li>
+        <br>
+        <li><button onclick="callbinder('softmixer', 'simple_mixer', {delete: true});">Close Mixer"</button></li>
+        <li><button onclick="callbinder('softmixer', 'create',my_test_mixer = {uid:'simple_mixer', backend: usb_yamaha, frontend: frontend,
+               zones: [zone_front],streams: [stream_music, stream_navigation, stream_emergency]});">New Mixer"</button></li>
     </ol>
 
     <div id="main" style="visibility:hidden">
-    <ol>
-    <li>Question <pre id="question"></pre>
-    <li>Response <pre id="output"></pre>
-    <li>Events: <pre id="outevt"></pre>
-    </ol>
+        <ol>
+            <li>Question <pre id="question"></pre>
+            <li>Response <pre id="output"></pre>
+            <li>Events: <pre id="outevt"></pre>
+        </ol>
     </div>

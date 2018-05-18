@@ -203,24 +203,24 @@ OnErrorExit:
 }
 
 PUBLIC int SndFrontend(CtlSourceT *source, json_object *argsJ) {
-    SoftMixerHandleT *mixerHandle = (SoftMixerHandleT*) source->context;
+    SoftMixerHandleT *mixer = (SoftMixerHandleT*) source->context;
     int error;
 
-    assert(mixerHandle);
+    assert(mixer);
 
-    if (mixerHandle->frontend) {
-        AFB_ApiError(source->api, "SndFrontend: mixer=%s SndFrontend already declared %s", mixerHandle->uid, json_object_get_string(argsJ));
+    if (mixer->frontend) {
+        AFB_ApiError(source->api, "SndFrontend: mixer=%s SndFrontend already declared %s", mixer->uid, json_object_get_string(argsJ));
         goto OnErrorExit;
     }
 
-    mixerHandle->frontend = calloc(1, sizeof (AlsaSndLoopT));
+    mixer->frontend = calloc(1, sizeof (AlsaSndLoopT));
 
     // or syntax purpose array is accepted but frontend should have a single driver entry
     json_type type = json_object_get_type(argsJ);
     if (type == json_type_array) {
         size_t count = json_object_array_length(argsJ);
         if (count != 1) {
-            AFB_ApiError(source->api, "SndFrontend: mixer=%s frontend only support on input driver args=%s", mixerHandle->uid, json_object_get_string(argsJ));
+            AFB_ApiError(source->api, "SndFrontend: mixer=%s frontend only support on input driver args=%s", mixer->uid, json_object_get_string(argsJ));
             goto OnErrorExit;
         }
         argsJ = json_object_array_get_idx(argsJ, 0);
@@ -228,13 +228,13 @@ PUBLIC int SndFrontend(CtlSourceT *source, json_object *argsJ) {
 
     type = json_object_get_type(argsJ);
     if (type != json_type_object) {
-        AFB_ApiError(source->api, "SndFrontend: mixer=%s invalid object type= %s", mixerHandle->uid, json_object_get_string(argsJ));
+        AFB_ApiError(source->api, "SndFrontend: mixer=%s invalid object type= %s", mixer->uid, json_object_get_string(argsJ));
         goto OnErrorExit;
     }
 
-    error = ProcessOneLoop(source, argsJ, mixerHandle->frontend);
+    error = ProcessOneLoop(source, argsJ, mixer->frontend);
     if (error) {
-        AFB_ApiError(source->api, "SndFrontend: mixer=%s invalid object= %s", mixerHandle->uid, json_object_get_string(argsJ));
+        AFB_ApiError(source->api, "SndFrontend: mixer=%s invalid object= %s", mixer->uid, json_object_get_string(argsJ));
         goto OnErrorExit;
     }
 
