@@ -38,6 +38,11 @@ function _mixer_simple_test_ (source, args)
     -- ================== Default Alsa snd-aloop numid and subdev config
     local aloop = {
         ["devices"] = {["playback"]=0,["capture"]=1},
+        ["ramps"] = {
+            {["uid"]="ramp-fast",   ["delay"]= 050, ["up"]=10,["down"]=3},
+            {["uid"]="ramp-slow",   ["delay"]= 250, ["up"]=03,["down"]=1},
+            {["uid"]="ramp-normal", ["delay"]= 100, ["up"]=06,["down"]=2},
+        },
         ["subdevs"] = {
             {["subdev"]= 0, ["numid"]= 51},
             {["subdev"]= 1, ["numid"]= 57},
@@ -61,6 +66,7 @@ function _mixer_simple_test_ (source, args)
         ["uid"]     = "Alsa-Loop",
         ["devpath"] = "/dev/snd/by-path/platform-snd_aloop.0",       
         ["params"]  = audio_defaults,
+        ["ramps"]   = aloop.ramps,
         ["devices"] = aloop.devices,
         ["subdevs"] = aloop.subdevs,
     }
@@ -72,8 +78,8 @@ function _mixer_simple_test_ (source, args)
         ["devpath"]= "/dev/snd/by-id/usb-YAMAHA_Corporation_YAMAHA_AP-U70_USB_Audio_00-00",
         ["params"] = snd_params,
         ["sink"] = {
-            [0]= {["uid"]= "front-right", ["port"]= 0},
-            [1]= {["uid"]= "front-left", ["port"]= 1},
+            {["uid"]= "front-right", ["port"]= 0},
+            {["uid"]= "front-left", ["port"]= 1},
         }
     }
 
@@ -82,8 +88,8 @@ function _mixer_simple_test_ (source, args)
         ["devpath"]= "/dev/snd/by-id/usb-0b0e_Jabra_SOLEMATE_v1.34.0-00",
         ["params"] = snd_params,
         ["sink"] = {
-            [0]= {["uid"]= "front-right", ["port"]= 0},
-            [1]= {["uid"]= "front-left", ["port"]= 1},
+            {["uid"]= "front-right", ["port"]= 0},
+            {["uid"]= "front-left", ["port"]= 1},
         }
     }
 
@@ -102,13 +108,23 @@ function _mixer_simple_test_ (source, args)
     local stream_music= {
         ["uid"]   = "multimedia",
         ["zone"]  = "front-seats",
-        ["volume"]= 70,
+        ["ramp"]  = "ramp-slow",
+        ["volume"]= 60,
         ["mute"]  = false,
     }
     
     local stream_navigation= {
         ["uid"]   = "navigation",
         ["zone"]  = "front-seats",
+        ["ramp"]  = "ramp-normal",
+        ["volume"]= 70,
+        ["mute"]  = false,
+    }
+
+    local stream_emergency= {
+        ["uid"]   = "emergency",
+        ["zone"]  = "front-seats",
+        ["ramp"]  = "ramp-fast",
         ["volume"]= 80,
         ["mute"]  = false,
     }
@@ -119,7 +135,7 @@ function _mixer_simple_test_ (source, args)
         ["backend"] = {snd_yamaha},
         ["frontend"]= {snd_aloop},
         ["zones"]   = {zone_front},
-        ["streams"] = {stream_music,stream_navigation},
+        ["streams"] = {stream_music,stream_navigation,stream_emergency},
     }
 
     local error,response= smix:_mixer_new_ (source, MyMixer)
@@ -132,11 +148,11 @@ function _mixer_simple_test_ (source, args)
 
   
     -- ================== Happy End =============================
-    AFB:notice (source, "--InLua-- _mixer_config_ done")
+    AFB:notice (source, "--InLua-- Test success")
     return 0 end 
 
     -- ================= Unhappy End ============================
     ::OnErrorExit::
-        AFB:error (source, "--InLua-- snd_attach fail")
+        AFB:error (source, "--InLua-- Test fail")
         return 1 -- unhappy end --
 end 

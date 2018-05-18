@@ -87,7 +87,7 @@ STATIC int CtrlLoadOneApi (void *cbdata, AFB_ApiT apiHandle) {
     // add static controls verbs
     int err = CtrlLoadStaticVerbs (apiHandle, CtrlApiVerbs);
     if (err) {
-        AFB_ApiError(apiHandle, "CtrlLoadSection fail to register static V2 verbs");
+        AFB_ApiError(apiHandle, "CtrlLoadSection fail to Registry static V2 verbs");
         goto OnErrorExit;
     }
 

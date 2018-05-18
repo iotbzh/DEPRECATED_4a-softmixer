@@ -24,7 +24,7 @@
 // Fulup need to be cleanup with new controller version
 extern Lua2cWrapperT Lua2cWrap;
 
-STATIC int ProcessOneChannel(CtlSourceT *source, const char* uid, json_object *channelJ, AlsaPcmChannels *channel) {
+STATIC int ProcessOneChannel(CtlSourceT *source, const char* uid, json_object *channelJ, AlsaPcmChannelT *channel) {
     const char*channelUid;
 
     int error = wrap_json_unpack(channelJ, "{ss,si,s?i !}", "target", &channelUid, "channel", &channel->port);
@@ -70,13 +70,13 @@ STATIC int ProcessOneZone(CtlSourceT *source, json_object *zoneJ, AlsaSndZoneT *
     switch (json_object_get_type(mappingJ)) {
         case json_type_object:
             count = 1;
-            zone->channels = calloc(count + 1, sizeof (AlsaPcmChannels));
+            zone->channels = calloc(count + 1, sizeof (AlsaPcmChannelT));
             error = ProcessOneChannel(source, zone->uid, mappingJ, &zone->channels[0]);
             if (error) goto OnErrorExit;
             break;
         case json_type_array:
             count = json_object_array_length(mappingJ);
-            zone->channels = calloc(count + 1, sizeof (AlsaPcmChannels));
+            zone->channels = calloc(count + 1, sizeof (AlsaPcmChannelT));
             for (int idx = 0; idx < count; idx++) {
                 json_object *channelJ = json_object_array_get_idx(mappingJ, idx);
                 error = ProcessOneChannel(source, zone->uid, channelJ, &zone->channels[idx]);
@@ -103,7 +103,7 @@ PUBLIC int SndZones(CtlSourceT *source, json_object *argsJ) {
     assert(mixerHandle);
 
     if (mixerHandle->routes) {
-        AFB_ApiError(source->api, "SndZones: mixer=%s Zones already registered %s", mixerHandle->uid, json_object_get_string(argsJ));
+        AFB_ApiError(source->api, "SndZones: mixer=%s Zones already Registryed %s", mixerHandle->uid, json_object_get_string(argsJ));
         goto OnErrorExit;
     }
 
@@ -135,7 +135,7 @@ PUBLIC int SndZones(CtlSourceT *source, json_object *argsJ) {
             goto OnErrorExit;
     }
 
-    // register routed into global softmixer handle
+    // Registry routed into global softmixer handle
     mixerHandle->routes= calloc(count + 1, sizeof (AlsaPcmInfoT*));
 
     // instantiate one route PCM per zone with multi plugin as slave

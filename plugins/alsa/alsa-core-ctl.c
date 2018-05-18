@@ -36,20 +36,8 @@ typedef struct {
     char* info;
     snd_ctl_t *ctlDev;
     sd_event *sdLoop;
+    RegistryHandleT *registry;
 } SubscribeHandleT;
-
-typedef struct {
-    AlsaPcmInfoT *pcm;
-    int numid;
-} SubStreamT;
-
-typedef struct {
-    SubStreamT stream[MAX_AUDIO_STREAMS + 1];
-    int count;
-    snd_ctl_t *ctlDev;
-} AudioStreamHandleT;
-
-static AudioStreamHandleT AudioStreamHandle;
 
 
 PUBLIC snd_ctl_elem_id_t *AlsaCtlGetNumidElemId(CtlSourceT *source, snd_ctl_t* ctlDev, int numid) {
@@ -513,18 +501,30 @@ STATIC int CtlSubscribeEventCB(sd_event_source* src, int fd, uint32_t revents, v
     error = CtlElemIdGetNumid(subscribeHandle->api, subscribeHandle->ctlDev, elemId, &numid);
     if (error) goto OnErrorExit;
 
-    for (idx = 0; idx < AudioStreamHandle.count; idx++) {
-        if (AudioStreamHandle.stream[idx].numid == numid) {
-            const char *pcmName = AudioStreamHandle.stream[idx].pcm->cardid;
-            snd_pcm_pause(AudioStreamHandle.stream[idx].pcm->handle, !value);
-            AFB_ApiNotice(subscribeHandle->api, "CtlSubscribeEventCB:%s/%d pcm=%s pause=%d numid=%d", subscribeHandle->info, subscribeHandle->tid, pcmName, !value, numid);
+    for (idx = 0; idx < subscribeHandle->registry->count; idx++) {
+        if (subscribeHandle->registry->stream[idx].numid == numid) {
+            const char *pcmName = subscribeHandle->registry->stream[idx].pcm->cardid;
+            
+            switch (subscribeHandle->registry->stream[idx].type) {
+                case FONTEND_NUMID_RUN:    
+                    snd_pcm_pause(subscribeHandle->registry->stream[idx].pcm->handle, (int)(!value));
+                    AFB_ApiNotice(subscribeHandle->api, "CtlSubscribeEventCB:%s/%d pcm=%s numid=%d active=%ld", subscribeHandle->info, subscribeHandle->tid, pcmName, numid, value);
+                    break;
+                case  FONTEND_NUMID_PAUSE:
+                    AFB_ApiNotice(subscribeHandle->api, "CtlSubscribeEventCB:%s/%d pcm=%s numid=%d pause=%ld", subscribeHandle->info, subscribeHandle->tid, pcmName, numid, value);
+                    snd_pcm_pause(subscribeHandle->registry->stream[idx].pcm->handle, (int)value);
+                    break;
+                case FONTEND_NUMID_IGNORE:
+                default:    
+                    AFB_ApiInfo(subscribeHandle->api, "CtlSubscribeEventCB:%s/%d pcm=%s numid=%d ignored=%ld", subscribeHandle->info, subscribeHandle->tid, pcmName, numid, value);
+            }
             break;
         }
     }
-    if (idx == AudioStreamHandle.count) {
+    if (idx == subscribeHandle->registry->count) {
         char cardName[32];
         ALSA_CTL_UID(subscribeHandle->ctlDev, cardName);
-        AFB_ApiNotice(subscribeHandle->api, "CtlSubscribeEventCB:%s/%d card=%s numid=%d (ignored)", subscribeHandle->info, subscribeHandle->tid, cardName, numid);
+        AFB_ApiNotice(subscribeHandle->api, "CtlSubscribeEventCB:%s/%d card=%s numid=%d (unknown)", subscribeHandle->info, subscribeHandle->tid, cardName, numid);
     }
 
 OnSuccessExit:
@@ -577,7 +577,7 @@ OnErrorExit:
     return NULL;
 }
 
-PUBLIC int AlsaCtlSubscribe(CtlSourceT *source, snd_ctl_t * ctlDev) {
+PUBLIC int AlsaCtlSubscribe(CtlSourceT *source, snd_ctl_t * ctlDev,  RegistryHandleT *registry) {
     int error;
     char string [32];
     struct pollfd pfds;
@@ -586,6 +586,7 @@ PUBLIC int AlsaCtlSubscribe(CtlSourceT *source, snd_ctl_t * ctlDev) {
     subscribeHandle->api = source->api;
     subscribeHandle->ctlDev = ctlDev;
     subscribeHandle->info = "ctlEvt";
+    subscribeHandle->registry= registry;
 
     // subscribe for sndctl events attached to cardid
     if ((error = snd_ctl_subscribe_events(ctlDev, 1)) < 0) {
@@ -606,7 +607,7 @@ PUBLIC int AlsaCtlSubscribe(CtlSourceT *source, snd_ctl_t * ctlDev) {
         goto OnErrorExit;
     }
 
-    // register sound event to binder main loop
+    // Registry sound event to binder main loop
     if ((error = sd_event_add_io(subscribeHandle->sdLoop, &subscribeHandle->evtsrc, pfds.fd, EPOLLIN, CtlSubscribeEventCB, subscribeHandle)) < 0) {
         AFB_ApiError(source->api, "AlsaCtlSubscribe: Fail sndcard=%s adding mainloop", ALSA_CTL_UID(ctlDev, string));
         goto OnErrorExit;
@@ -624,30 +625,32 @@ OnErrorExit:
     return -1;
 }
 
-PUBLIC int AlsaCtlRegister(CtlSourceT *source, AlsaPcmInfoT *pcm, int numid) {
+PUBLIC int AlsaCtlRegister(CtlSourceT *source, SoftMixerHandleT *mixer, AlsaPcmInfoT *pcm, RegistryNumidT type, int numid) {
 
+    RegistryHandleT *registry= mixer->frontend->registry;
 
-    int count = AudioStreamHandle.count;
+    int count = registry->count;
     if (count > MAX_AUDIO_STREAMS) {
         AFB_ApiError(source->api, "AlsaCtlRegister [pcm=%s] to many audio stream max=%d", pcm->cardid, MAX_AUDIO_STREAMS);
         goto OnErrorExit;
     }
 
     // If 1st registration then open a dev control channel to recieve events
-    if (!AudioStreamHandle.ctlDev) {
+    if (!registry->ctlDev) {
         snd_ctl_t* ctlDev = AlsaCrlFromPcm(source, pcm->handle);
         if (!ctlDev) {
             AFB_ApiError(source->api, "AlsaCtlRegister [pcm=%s] fail attache sndcard", pcm->cardid);
             goto OnErrorExit;
         }
 
-        AlsaCtlSubscribe(source, ctlDev);
+        AlsaCtlSubscribe(source, ctlDev, registry);
     }
 
     // store PCM in order to pause/resume depending on event
-    AudioStreamHandle.stream[count].pcm = pcm;
-    AudioStreamHandle.stream[count].numid = numid;
-    AudioStreamHandle.count++;
+    registry->stream[count].pcm = pcm;
+    registry->stream[count].numid = numid;
+    registry->stream[count].type = type;
+    registry->count++;
 
     return 0;
 

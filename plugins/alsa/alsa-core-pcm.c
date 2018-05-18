@@ -27,22 +27,7 @@ for the specific language governing permissions and
 #include "alsa-softmixer.h"
 #include <pthread.h>
 #include <sys/syscall.h>
-
-
-typedef struct {
-    snd_pcm_t *pcmIn;
-    snd_pcm_t *pcmOut;
-    AFB_ApiT api;
-    sd_event_source* evtsrc;
-    void* buffer;
-    size_t frameSize;
-    unsigned int frameCount;
-    unsigned int channels;
-    sd_event *sdLoop;
-    pthread_t thread;
-    int tid;
-    char* info;
-} AlsaPcmCopyHandleT;
+#include <sched.h>
 
 STATIC int AlsaPeriodSize(snd_pcm_format_t pcmFormat) {
     int pcmSampleSize;
@@ -243,7 +228,7 @@ STATIC int AlsaPcmReadCB(sd_event_source* src, int fd, uint32_t revents, void* u
         AFB_ApiNotice(pcmCopyHandle->api, "AlsaPcmReadCB PCM=%s Loosing frames=%ld", ALSA_PCM_UID(pcmCopyHandle->pcmOut, string), (framesIn - framesOut));
         goto ExitOnSuccess;
     }
-
+    
     return 0;
 
     // Cannot handle error in callback
@@ -275,7 +260,7 @@ static void *LoopInThread(void *handle) {
     pthread_exit(0);
 }
 
-PUBLIC int AlsaPcmCopy(CtlSourceT *source, AlsaPcmInfoT *pcmIn, AlsaPcmInfoT *pcmOut, AlsaPcmHwInfoT * opts) {
+PUBLIC int AlsaPcmCopy(CtlSourceT *source, AlsaLoopStreamT *loopStream, AlsaPcmInfoT *pcmIn, AlsaPcmInfoT *pcmOut, AlsaPcmHwInfoT * opts) {
     char string[32];
     struct pollfd *pcmInFds; 
     int error;
@@ -300,7 +285,7 @@ PUBLIC int AlsaPcmCopy(CtlSourceT *source, AlsaPcmInfoT *pcmIn, AlsaPcmInfoT *pc
         goto OnErrorExit;
     };
     
-    AlsaPcmCopyHandleT *pcmCopyHandle = malloc(sizeof (AlsaPcmCopyHandleT));
+    AlsaPcmCopyHandleT *pcmCopyHandle = &loopStream->copy;
     pcmCopyHandle->info = "pcmCpy";
     pcmCopyHandle->pcmIn = pcmIn->handle;
     pcmCopyHandle->pcmOut = pcmOut->handle;
@@ -309,6 +294,7 @@ PUBLIC int AlsaPcmCopy(CtlSourceT *source, AlsaPcmInfoT *pcmIn, AlsaPcmInfoT *pc
     pcmCopyHandle->frameSize = opts->channels * opts->sampleSize;
     pcmCopyHandle->frameCount = ALSA_BUFFER_FRAMES_COUNT;
     pcmCopyHandle->buffer = malloc(pcmCopyHandle->frameCount * pcmCopyHandle->frameSize);
+    
 
     // get FD poll descriptor for capture PCM
     int pcmInCount = snd_pcm_poll_descriptors_count(pcmCopyHandle->pcmIn);
@@ -340,6 +326,14 @@ PUBLIC int AlsaPcmCopy(CtlSourceT *source, AlsaPcmInfoT *pcmIn, AlsaPcmInfoT *pc
     if ((error = pthread_create(&pcmCopyHandle->thread, NULL, &LoopInThread, pcmCopyHandle)) < 0) {
         AFB_ApiError(source->api, "AlsaPcmCopy: Fail create waiting thread pcmIn=%s err=%d", ALSA_PCM_UID(pcmIn->handle, string), error);
         goto OnErrorExit;
+    }
+    
+    // request a higher priority for each audio stream thread
+    struct sched_param params;
+    params.sched_priority = sched_get_priority_max(SCHED_FIFO);
+    error= pthread_setschedparam(pcmCopyHandle->thread, SCHED_FIFO, &params);
+    if (error) {
+        AFB_ApiWarning(source->api, "AlsaPcmCopy: Fail create increase stream thread priority pcmIn=%s err=%s", ALSA_PCM_UID(pcmIn->handle, string), strerror(error));        
     }
 
     return 0;

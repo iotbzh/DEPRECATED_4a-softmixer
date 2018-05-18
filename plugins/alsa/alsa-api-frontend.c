@@ -24,9 +24,29 @@
 // Fulup need to be cleanup with new controller version
 extern Lua2cWrapperT Lua2cWrap;
 
-STATIC int ProcessOneSubdev(CtlSourceT *source, AlsaSndLoopT *loop,  json_object *subdevJ, AlsaPcmHwInfoT *loopDefParams,AlsaPcmInfoT *subdev) {
+STATIC int ProcessOneRamp(CtlSourceT *source, const char* uid, json_object *rampJ, AlsaVolRampT *ramp) {
+    const char*rampUid;
+
+    int error = wrap_json_unpack(rampJ, "{ss,si,si,si !}"
+            , "uid", &rampUid
+            , "delay", &ramp->delay
+            , "up", &ramp->stepUp
+            , "down", &ramp->stepDown
+            );
+    if (error) goto OnErrorExit;
+
+    ramp->delay=ramp->delay*100; // move from ms to us
+    ramp->uid = strdup(rampUid);
+    return 0;
+
+OnErrorExit:
+    AFB_ApiError(source->api, "ProcessOneRamp: sndcard=%s ramps: missing (uid||delay|up|down) json=%s", uid, json_object_get_string(rampJ));
+    return -1;
+}
+
+STATIC int ProcessOneSubdev(CtlSourceT *source, AlsaSndLoopT *loop, json_object *subdevJ, AlsaPcmHwInfoT *loopDefParams, AlsaPcmInfoT *subdev) {
     json_object *paramsJ = NULL;
-    
+
     int error = wrap_json_unpack(subdevJ, "{si,si,s?o !}", "subdev", &subdev->subdev, "numid", &subdev->numid, "params", &paramsJ);
     if (error) {
         AFB_ApiError(source->api, "ProcessOneSubdev: loop=%s missing (uid|subdev|numid) json=%s", loop->uid, json_object_get_string(subdevJ));
@@ -41,7 +61,7 @@ STATIC int ProcessOneSubdev(CtlSourceT *source, AlsaSndLoopT *loop,  json_object
         }
     } else {
         // use global loop params definition as default
-        memcpy (&subdev->params, loopDefParams, sizeof(AlsaPcmHwInfoT));
+        memcpy(&subdev->params, loopDefParams, sizeof (AlsaPcmHwInfoT));
     }
     // create a fake uid and complete subdev info from loop handle
     char subuid[30];
@@ -66,17 +86,25 @@ OnErrorExit:
 }
 
 STATIC int ProcessOneLoop(CtlSourceT *source, json_object *loopJ, AlsaSndLoopT *loop) {
-    json_object *subdevsJ = NULL, *devicesJ = NULL, *paramsJ = NULL;
+    json_object *subdevsJ = NULL, *devicesJ = NULL, *paramsJ = NULL, *rampsJ = NULL;
     int error;
 
-    error = wrap_json_unpack(loopJ, "{ss,s?s,s?s,s?i,s?o,so,s?o !}", "uid", &loop->uid, "devpath", &loop->devpath, "cardid", &loop->cardid
-            , "cardidx", &loop->cardidx, "devices", &devicesJ, "subdevs", &subdevsJ, "params", &paramsJ);
+    error = wrap_json_unpack(loopJ, "{ss,s?s,s?s,s?i,s?o,so,s?o,s?o !}"
+            , "uid", &loop->uid
+            , "devpath", &loop->devpath
+            , "cardid", &loop->cardid
+            , "cardidx", &loop->cardidx
+            , "devices", &devicesJ
+            , "subdevs", &subdevsJ
+            , "params", &paramsJ
+            , "ramps", &rampsJ
+            );
     if (error || !loop->uid || !subdevsJ || (!loop->devpath && !loop->cardid && loop->cardidx)) {
         AFB_ApiNotice(source->api, "ProcessOneLoop missing 'uid|devpath|cardid|cardidx|devices|subdevs' loop=%s", json_object_get_string(loopJ));
         goto OnErrorExit;
     }
 
-    AlsaPcmHwInfoT *loopDefParams =alloca(sizeof(AlsaPcmHwInfoT));
+    AlsaPcmHwInfoT *loopDefParams = alloca(sizeof (AlsaPcmHwInfoT));
     if (paramsJ) {
         error = ProcessSndParams(source, loop->uid, paramsJ, loopDefParams);
         if (error) {
@@ -85,11 +113,11 @@ STATIC int ProcessOneLoop(CtlSourceT *source, json_object *loopJ, AlsaSndLoopT *
         }
     } else {
         loopDefParams->rate = ALSA_DEFAULT_PCM_RATE;
-        loopDefParams->rate= ALSA_DEFAULT_PCM_RATE;
-        loopDefParams->access=SND_PCM_ACCESS_RW_INTERLEAVED;
-        loopDefParams->format=SND_PCM_FORMAT_S16_LE;
-        loopDefParams->channels=2; 
-        loopDefParams->sampleSize=0;
+        loopDefParams->rate = ALSA_DEFAULT_PCM_RATE;
+        loopDefParams->access = SND_PCM_ACCESS_RW_INTERLEAVED;
+        loopDefParams->format = SND_PCM_FORMAT_S16_LE;
+        loopDefParams->channels = 2;
+        loopDefParams->sampleSize = 0;
     }
 
     // Fake a sound card to check if loop is a valid Alsa snd driver
@@ -104,11 +132,36 @@ STATIC int ProcessOneLoop(CtlSourceT *source, json_object *loopJ, AlsaSndLoopT *
         AFB_ApiError(source->api, "ProcessOneLoop: loop=%s not found config=%s", loop->uid, json_object_get_string(loopJ));
         goto OnErrorExit;
     }
-    loop->uid= sndLoop.uid;
-    loop->devpath= sndLoop.devpath;
-    loop->cardid=sndLoop.cardid;
-    loop->cardidx=sndLoop.cardidx;
+    loop->uid = sndLoop.uid;
+    loop->devpath = sndLoop.devpath;
+    loop->cardid = sndLoop.cardid;
+    loop->cardidx = sndLoop.cardidx;
+    loop->registry= calloc (1,sizeof(RegistryHandleT));
 
+    // process volume ramps
+    if (rampsJ) {
+        int rcount;
+        switch (json_object_get_type(rampsJ)) {
+            case json_type_object:
+                rcount = 1;
+                loop->ramps = calloc(rcount+1, sizeof (AlsaVolRampT));
+                error = ProcessOneRamp(source, loop->uid, rampsJ, &loop->ramps[0]);
+                if (error) goto OnErrorExit;
+                break;
+            case json_type_array:
+                rcount = (int) json_object_array_length(rampsJ);
+                loop->ramps = calloc(rcount+1, sizeof (AlsaVolRampT));
+                for (int idx = 0; idx < rcount; idx++) {
+                    json_object *rampJ = json_object_array_get_idx(rampsJ, idx);
+                    error = ProcessOneRamp(source, loop->uid, rampJ, &loop->ramps[idx]);
+                    if (error) goto OnErrorExit;
+                }
+                break;
+            default:
+                AFB_ApiError(source->api, "ProcessOneLoop:%s invalid ramps=%s", loop->uid, json_object_get_string(rampsJ));
+                goto OnErrorExit;
+        }
+    }
 
     // Default devices is payback=0 capture=1
     if (!devicesJ) {
@@ -149,37 +202,37 @@ OnErrorExit:
     return -1;
 }
 
-PUBLIC int SndFrontend (CtlSourceT *source, json_object *argsJ) {
+PUBLIC int SndFrontend(CtlSourceT *source, json_object *argsJ) {
     SoftMixerHandleT *mixerHandle = (SoftMixerHandleT*) source->context;
     int error;
-    
-    assert (mixerHandle);  
-    
-    if (mixerHandle->loop) {
+
+    assert(mixerHandle);
+
+    if (mixerHandle->frontend) {
         AFB_ApiError(source->api, "SndFrontend: mixer=%s SndFrontend already declared %s", mixerHandle->uid, json_object_get_string(argsJ));
-        goto OnErrorExit;     
+        goto OnErrorExit;
     }
-    
-    mixerHandle->loop= calloc(1, sizeof (AlsaSndLoopT));
-    
+
+    mixerHandle->frontend = calloc(1, sizeof (AlsaSndLoopT));
+
     // or syntax purpose array is accepted but frontend should have a single driver entry
-    json_type type= json_object_get_type(argsJ);
+    json_type type = json_object_get_type(argsJ);
     if (type == json_type_array) {
-        size_t count= json_object_array_length(argsJ);
+        size_t count = json_object_array_length(argsJ);
         if (count != 1) {
             AFB_ApiError(source->api, "SndFrontend: mixer=%s frontend only support on input driver args=%s", mixerHandle->uid, json_object_get_string(argsJ));
-            goto OnErrorExit;            
+            goto OnErrorExit;
         }
-        argsJ= json_object_array_get_idx(argsJ,0);
-    } 
-    
-    type= json_object_get_type(argsJ);
+        argsJ = json_object_array_get_idx(argsJ, 0);
+    }
+
+    type = json_object_get_type(argsJ);
     if (type != json_type_object) {
         AFB_ApiError(source->api, "SndFrontend: mixer=%s invalid object type= %s", mixerHandle->uid, json_object_get_string(argsJ));
         goto OnErrorExit;
     }
 
-    error = ProcessOneLoop(source, argsJ, mixerHandle->loop);
+    error = ProcessOneLoop(source, argsJ, mixerHandle->frontend);
     if (error) {
         AFB_ApiError(source->api, "SndFrontend: mixer=%s invalid object= %s", mixerHandle->uid, json_object_get_string(argsJ));
         goto OnErrorExit;

@@ -79,7 +79,7 @@ static void MixerApiVerbCB(AFB_ReqT request) {
         if (streams) {
             streamsJ = json_object_new_array();
 
-            AlsaSndStreamT *streams = mixerHandle->streams;
+            AlsaLoopStreamT *streams = mixerHandle->streams;
             for (int idx = 0; streams[idx].uid; idx++) {
                 if (quiet) {
                     json_object_array_add(streamsJ, json_object_new_string(streams[idx].uid));
@@ -126,7 +126,7 @@ static void MixerApiVerbCB(AFB_ReqT request) {
     }
 
     if (streamsJ) {
-        error = SndStreams(source, streamsJ, &responseJ);
+        error = LoopStreams(source, streamsJ, &responseJ);
         if (error) goto OnErrorExit;
     }
 
@@ -168,7 +168,7 @@ CTLP_LUA2C(_mixer_new_, source, argsJ, responseJ) {
     // create mixer verb within API.
     error = afb_dynapi_add_verb(source->api, mixerHandle->uid, mixerHandle->info, MixerApiVerbCB, mixerHandle, NULL, 0);
     if (error) {
-        AFB_ApiError(source->api, "_mixer_new_ mixer=%s fail to register API verb", mixerHandle->uid);
+        AFB_ApiError(source->api, "_mixer_new_ mixer=%s fail to Registry API verb", mixerHandle->uid);
         return -1;
     }
 
@@ -191,7 +191,7 @@ CTLP_LUA2C(_mixer_new_, source, argsJ, responseJ) {
     }
 
     if (streamsJ) {
-        error = SndStreams(source, streamsJ, responseJ);
+        error = LoopStreams(source, streamsJ, responseJ);
         if (error) goto OnErrorExit;
     }
 

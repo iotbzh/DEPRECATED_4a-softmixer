@@ -48,6 +48,7 @@
 #define ALSA_CARDID_MAX_LEN 64
 
 
+
 #define ALSA_PLUG_PROTO(plugin) \
     int _snd_pcm_ ## plugin ## _open(snd_pcm_t **pcmp, const char *name, snd_config_t *root, snd_config_t *conf, snd_pcm_stream_t stream, int mode)
 
@@ -58,12 +59,39 @@
 #define STATIC static
 #endif
 
-// alsa-utils-bypath.c
+
+typedef enum {
+    FONTEND_NUMID_IGNORE,
+    FONTEND_NUMID_PAUSE,
+    FONTEND_NUMID_RUN
+} RegistryNumidT;
+
+typedef struct {
+    snd_pcm_t *pcmIn;
+    snd_pcm_t *pcmOut;
+    AFB_ApiT api;
+    sd_event_source* evtsrc;
+    void* buffer;
+    size_t frameSize;
+    unsigned int frameCount;
+    unsigned int channels;
+    sd_event *sdLoop;
+    pthread_t thread;
+    int tid;
+    char* info;
+} AlsaPcmCopyHandleT;
+
+typedef struct {
+    const char *uid;
+    int delay; // delay between volset in us
+    int stepDown; // linear %
+    int stepUp; // linear %
+} AlsaVolRampT;
 
 typedef struct {
     const char*uid;
     int port;
-} AlsaPcmChannels;
+} AlsaPcmChannelT;
 
 typedef struct {
     unsigned int rate;
@@ -83,16 +111,30 @@ typedef struct {
     int numid;
     int ccount;
     snd_pcm_t *handle;
-    AlsaPcmChannels *channels;
+    AlsaPcmChannelT *channels;
     AlsaPcmHwInfoT params;
 } AlsaPcmInfoT;
 
 typedef struct {
     const char *uid;
     snd_pcm_stream_t type;
-    AlsaPcmChannels *channels;
+    AlsaPcmChannelT *channels;
     AlsaPcmInfoT *pcm;
 } AlsaSndZoneT;
+
+
+typedef struct {
+    AlsaPcmInfoT *pcm;
+    int numid;
+    RegistryNumidT type;
+} RegistryStreamT;
+
+typedef struct {
+    RegistryStreamT stream[MAX_AUDIO_STREAMS + 1];
+    int count;
+    snd_ctl_t *ctlDev;
+} RegistryHandleT;
+
 
 typedef struct {
     const char *uid;
@@ -103,26 +145,30 @@ typedef struct {
     int capture;
     int scount;
     AlsaPcmInfoT *subdevs;
+    AlsaVolRampT *ramps;
+    RegistryHandleT *registry;
 } AlsaSndLoopT;
 
 typedef struct { 
     const char *uid;
     const char *info;
     const char *zone;
+    const char *ramp;
     int volume;
     int mute;
     AlsaPcmInfoT *pcm;
     AlsaPcmHwInfoT params;
-} AlsaSndStreamT;
+    AlsaPcmCopyHandleT copy;
+} AlsaLoopStreamT;
 
 typedef struct {
     const char *uid;
     const char *info;
-    AlsaSndLoopT *loop;
+    AlsaSndLoopT *frontend;
     AlsaPcmInfoT *backend;
     AlsaPcmInfoT *multiPcm;
     AlsaPcmInfoT **routes;
-    AlsaSndStreamT *streams;
+    AlsaLoopStreamT *streams;
 } SoftMixerHandleT; 
 
 // alsa-utils-bypath.c
@@ -147,8 +193,8 @@ PUBLIC char *AlsaDumpCtlUid(snd_ctl_t *ctlHandle, char *buffer, size_t len);
 PUBLIC snd_ctl_card_info_t *AlsaCtlGetInfo(CtlSourceT *source, const char *cardid);
 PUBLIC snd_ctl_t *AlsaCtlOpenCtl(CtlSourceT *source, const char *cardid);
 PUBLIC snd_ctl_t* AlsaCrlFromPcm(CtlSourceT *source, snd_pcm_t *pcm);
-PUBLIC int AlsaCtlSubscribe(CtlSourceT *source, snd_ctl_t *ctlDev);
-PUBLIC int AlsaCtlRegister(CtlSourceT *source, AlsaPcmInfoT *pcm, int numid);
+PUBLIC int AlsaCtlSubscribe(CtlSourceT *source, snd_ctl_t * ctlDev,  RegistryHandleT *registry);
+PUBLIC int AlsaCtlRegister(CtlSourceT *source, SoftMixerHandleT *mixer, AlsaPcmInfoT *pcm, RegistryNumidT type, int numid);
 PUBLIC int AlsaCtlNumidGetLong(CtlSourceT *source, snd_ctl_t* ctlDev, int numid, long* value);
 PUBLIC int AlsaCtlNumidSetLong(CtlSourceT *source, snd_ctl_t* ctlDev, int numid, long value);
 PUBLIC int AlsaCtlNameGetLong(CtlSourceT *source, snd_ctl_t* ctlDev, const char *ctlName, long* value);
@@ -160,13 +206,13 @@ PUBLIC int CtlElemIdGetLong(AFB_ApiT api, snd_ctl_t *ctlDev, snd_ctl_elem_id_t *
 
 // alsa-core-pcm.c
 PUBLIC int AlsaPcmConf(CtlSourceT *source, AlsaPcmInfoT *pcm, AlsaPcmHwInfoT *opts);
-PUBLIC int AlsaPcmCopy(CtlSourceT *source, AlsaPcmInfoT *pcmIn, AlsaPcmInfoT *pcmOut, AlsaPcmHwInfoT *opts);
+PUBLIC int AlsaPcmCopy(CtlSourceT *source, AlsaLoopStreamT *loopStream, AlsaPcmInfoT *pcmIn, AlsaPcmInfoT *pcmOut, AlsaPcmHwInfoT * opts);
 
 // alsa-plug-*.c _snd_pcm_PLUGIN_open_ see macro ALSA_PLUG_PROTO(plugin)
 PUBLIC AlsaPcmInfoT* AlsaCreateDmix(CtlSourceT *source, const char* pcmName, AlsaPcmInfoT *pcmSlave, int open);
 PUBLIC AlsaPcmInfoT* AlsaCreateMulti(CtlSourceT *source, const char *pcmName, int open);
 PUBLIC AlsaPcmInfoT* AlsaCreateRoute(CtlSourceT *source, AlsaSndZoneT *zone, int open);
-PUBLIC AlsaPcmInfoT* AlsaCreateSoftvol(CtlSourceT *source, AlsaSndStreamT *stream, AlsaPcmInfoT *ctlControl, const char* ctlName, int max, int open);
+PUBLIC AlsaPcmInfoT* AlsaCreateSoftvol(CtlSourceT *source, AlsaLoopStreamT *stream, AlsaPcmInfoT *ctlControl, const char* ctlName, int max, int open);
 PUBLIC AlsaPcmInfoT* AlsaCreateRate(CtlSourceT *source, const char* pcmName, AlsaPcmInfoT *pcmSlave, int open);
 
 // alsa-api-*
@@ -174,6 +220,9 @@ PUBLIC int ProcessSndParams(CtlSourceT *source, const char* uid, json_object *pa
 PUBLIC int SndFrontend (CtlSourceT *source, json_object *argsJ);
 PUBLIC int SndBackend (CtlSourceT *source, json_object *argsJ);
 PUBLIC int SndZones (CtlSourceT *source, json_object *argsJ);
-PUBLIC int SndStreams(CtlSourceT *source, json_object *argsJ, json_object **responseJ);
+PUBLIC int LoopStreams(CtlSourceT *source, json_object *argsJ, json_object **responseJ);
+
+// alsa-effect-ramp.c
+PUBLIC int AlsaVolRampApply(CtlSourceT *source, AlsaSndLoopT *frontend, AlsaLoopStreamT *stream, AlsaVolRampT *ramp, json_object *volumeJ);
 
 #endif

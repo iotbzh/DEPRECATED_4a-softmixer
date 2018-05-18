@@ -25,7 +25,7 @@ ALSA_PLUG_PROTO(softvol); // stream uses solftvol plugin
 STATIC AlsaPcmInfoT* SlaveZoneByUid(CtlSourceT *source,  AlsaPcmInfoT **pcmZones, const char *uid) {
     AlsaPcmInfoT *slaveZone= NULL;
 
-    // Loop on every registered zone pcm and extract (cardid) from (uid)
+    // Loop on every Registryed zone pcm and extract (cardid) from (uid)
     for (int idx = 0; pcmZones[idx] != NULL; idx++) {
         if (!strcasecmp (pcmZones[idx]->uid, uid)) {
            slaveZone= pcmZones[idx];
@@ -36,7 +36,7 @@ STATIC AlsaPcmInfoT* SlaveZoneByUid(CtlSourceT *source,  AlsaPcmInfoT **pcmZones
     return NULL;
 }
 
-PUBLIC AlsaPcmInfoT* AlsaCreateSoftvol(CtlSourceT *source, AlsaSndStreamT *stream, AlsaPcmInfoT *ctlControl, const char* ctlName, int max, int open) {
+PUBLIC AlsaPcmInfoT* AlsaCreateSoftvol(CtlSourceT *source, AlsaLoopStreamT *stream, AlsaPcmInfoT *ctlControl, const char* ctlName, int max, int open) {
     SoftMixerHandleT *mixerHandle = (SoftMixerHandleT*) source->context;
     snd_config_t *streamConfig, *elemConfig, *slaveConfig, *controlConfig,*pcmConfig;
     int error = 0;
@@ -45,16 +45,16 @@ PUBLIC AlsaPcmInfoT* AlsaCreateSoftvol(CtlSourceT *source, AlsaSndStreamT *strea
     assert (mixerHandle);
 
     // assert static/global softmixer handle get requited info
-    AlsaSndLoopT *ctlLoop = mixerHandle->loop;
+    AlsaSndLoopT *ctlLoop = mixerHandle->frontend;
     if (!ctlLoop) {
-        AFB_ApiError(source->api, "AlsaCreateSoftvol:%s(stream) No Loop found [should register snd_loop first]",stream->uid);
+        AFB_ApiError(source->api, "AlsaCreateSoftvol:%s(stream) No Loop found [should Registry snd_loop first]",stream->uid);
         goto OnErrorExit;
     }
 
     // assert static/global softmixer handle get requited info
     AlsaPcmInfoT **pcmZones = mixerHandle->routes;
     if (!pcmZones) {
-        AFB_ApiError(source->api, "AlsaCreateSoftvol:%s(stream) No Zone found [should register snd_zones first]", stream->uid);
+        AFB_ApiError(source->api, "AlsaCreateSoftvol:%s(stream) No Zone found [should Registry snd_zones first]", stream->uid);
         goto OnErrorExit;
     }
     

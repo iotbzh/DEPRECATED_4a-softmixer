@@ -28,7 +28,7 @@ STATIC int CardChannelByUid(CtlSourceT *source, AlsaPcmInfoT *pcmBackend, const 
     // search for channel within all sound card backend (channel port target is computed by order)
     int targetIdx=0;
     for (int cardIdx = 0; pcmBackend[cardIdx].uid != NULL; cardIdx++) {
-        AlsaPcmChannels *channels = pcmBackend[cardIdx].channels;
+        AlsaPcmChannelT *channels = pcmBackend[cardIdx].channels;
         if (!channels) {
             AFB_ApiError(source->api, "CardChannelByUid: No Backend card=%s [should declare channels]", pcmBackend[cardIdx].uid);
             goto OnErrorExit;
@@ -60,7 +60,7 @@ PUBLIC AlsaPcmInfoT* AlsaCreateRoute(CtlSourceT *source, AlsaSndZoneT *zone, int
     AlsaPcmInfoT *pcmBackend = mixerHandle->backend;
     AlsaPcmInfoT* pcmSlave=mixerHandle->multiPcm;
     if (!pcmBackend || !pcmSlave) {
-        AFB_ApiError(source->api, "AlsaCreateRoute: mixer=%s zone(%s)(zone) No Sound Card Ctl find [should register snd_cards first]"
+        AFB_ApiError(source->api, "AlsaCreateRoute: mixer=%s zone(%s)(zone) No Sound Card Ctl find [should Registry snd_cards first]"
                 , mixerHandle->uid, zone->uid);
         goto OnErrorExit;
     }

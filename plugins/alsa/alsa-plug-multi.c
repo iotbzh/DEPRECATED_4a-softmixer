@@ -34,7 +34,7 @@ PUBLIC AlsaPcmInfoT* AlsaCreateMulti(CtlSourceT *source, const char *pcmUid, int
     
     AlsaPcmInfoT* pcmSlaves=mixerHandle->backend;
     if (!pcmSlaves) {
-        AFB_ApiError(source->api, "AlsaCreateMulti: No Sound Card find [should register snd_cards first]");
+        AFB_ApiError(source->api, "AlsaCreateMulti: No Sound Card find [should Registry snd_cards first]");
         goto OnErrorExit;
     }
 
@@ -52,7 +52,7 @@ PUBLIC AlsaPcmInfoT* AlsaCreateMulti(CtlSourceT *source, const char *pcmUid, int
     // loop on sound card to include into multi
     for (int idx = 0; pcmSlaves[idx].uid != NULL; idx++) {
         AlsaPcmInfoT* sndcard=&pcmSlaves[idx];
-        AlsaPcmChannels *channels = sndcard->channels;
+        AlsaPcmChannelT *channels = sndcard->channels;
                 
         for (channelIdx=0; channels[channelIdx].uid != NULL; channelIdx++) {
             char idxS[4]; // 999 channel should be more than enough

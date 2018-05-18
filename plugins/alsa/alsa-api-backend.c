@@ -23,7 +23,9 @@
 // Fulup need to be cleanup with new controller version
 extern Lua2cWrapperT Lua2cWrap;
 
-STATIC int ProcessOneChannel(CtlSourceT *source, const char* uid, json_object *channelJ, AlsaPcmChannels *channel) {
+
+
+STATIC int ProcessOneChannel(CtlSourceT *source, const char* uid, json_object *channelJ, AlsaPcmChannelT *channel) {
     const char*channelUid;
 
     int error = wrap_json_unpack(channelJ, "{ss,si !}", "uid", &channelUid, "port", &channel->port);
@@ -141,13 +143,13 @@ STATIC int ProcessOneSndCard(CtlSourceT *source, json_object *sndcardJ, AlsaPcmI
     switch (json_object_get_type(sinkJ)) {
         case json_type_object:
             snd->ccount = 1;
-            snd->channels = calloc(snd->ccount + 1, sizeof (AlsaPcmChannels));
+            snd->channels = calloc(snd->ccount + 1, sizeof (AlsaPcmChannelT));
             error = ProcessOneChannel(source, snd->uid, sndcardJ, &snd->channels[0]);
             if (error) goto OnErrorExit;
             break;
         case json_type_array:
             snd->ccount = (int) json_object_array_length(sinkJ);
-            snd->channels = calloc(snd->ccount + 1, sizeof (AlsaPcmChannels));
+            snd->channels = calloc(snd->ccount + 1, sizeof (AlsaPcmChannelT));
             for (int idx = 0; idx < snd->ccount; idx++) {
                 json_object *channelJ = json_object_array_get_idx(sinkJ, idx);
                 error = ProcessOneChannel(source, snd->uid, channelJ, &snd->channels[idx]);
@@ -204,7 +206,7 @@ PUBLIC int SndBackend(CtlSourceT *source, json_object *argsJ) {
         mixerHandle->multiPcm = &mixerHandle->backend[0];
 
     } else {
-        
+
         // instantiate an alsa multi plugin
         mixerHandle->multiPcm = AlsaCreateMulti(source, "PcmMulti", 0);
         if (!mixerHandle->multiPcm) goto OnErrorExit;
