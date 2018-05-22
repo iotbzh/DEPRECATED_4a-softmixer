@@ -59,7 +59,7 @@ static void MixerApiVerbCB(AFB_ReqT request) {
 
     // Free attached resources and free mixer
     if (delete) {
-        for (int idx; mixer->streams[idx].uid; idx++) {
+        for (int idx = 0; mixer->streams[idx].uid; idx++) {
             AlsaLoopStreamT *stream = &mixer->streams[idx];
 
             AFB_ApiNotice(source->api, "cleaning mixer=%s stream=%s", mixer->uid, stream->uid);

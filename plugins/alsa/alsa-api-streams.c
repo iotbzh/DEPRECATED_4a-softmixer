@@ -225,7 +225,7 @@ PUBLIC int LoopStreams(CtlSourceT *source, json_object *argsJ, json_object **res
     AlsaLoopStreamT *loopStream;
     int error;
     long value;
-    size_t count;
+    int count;
 
     assert(mixer);
 

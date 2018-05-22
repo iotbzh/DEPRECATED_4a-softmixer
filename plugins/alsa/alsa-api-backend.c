@@ -148,7 +148,7 @@ STATIC int ProcessOneSndCard(CtlSourceT *source, json_object *sndcardJ, AlsaPcmI
             if (error) goto OnErrorExit;
             break;
         case json_type_array:
-            snd->ccount = (int) json_object_array_length(sinkJ);
+            snd->ccount = json_object_array_length(sinkJ);
             snd->channels = calloc(snd->ccount + 1, sizeof (AlsaPcmChannelT));
             for (int idx = 0; idx < snd->ccount; idx++) {
                 json_object *channelJ = json_object_array_get_idx(sinkJ, idx);

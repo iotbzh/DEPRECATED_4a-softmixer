@@ -149,7 +149,7 @@ STATIC int ProcessOneLoop(CtlSourceT *source, json_object *loopJ, AlsaSndLoopT *
                 if (error) goto OnErrorExit;
                 break;
             case json_type_array:
-                rcount = (int) json_object_array_length(rampsJ);
+                rcount = json_object_array_length(rampsJ);
                 loop->ramps = calloc(rcount+1, sizeof (AlsaVolRampT));
                 for (int idx = 0; idx < rcount; idx++) {
                     json_object *rampJ = json_object_array_get_idx(rampsJ, idx);
@@ -218,7 +218,7 @@ PUBLIC int SndFrontend(CtlSourceT *source, json_object *argsJ) {
     // or syntax purpose array is accepted but frontend should have a single driver entry
     json_type type = json_object_get_type(argsJ);
     if (type == json_type_array) {
-        size_t count = json_object_array_length(argsJ);
+        int count = json_object_array_length(argsJ);
         if (count != 1) {
             AFB_ApiError(source->api, "SndFrontend: mixer=%s frontend only support on input driver args=%s", mixer->uid, json_object_get_string(argsJ));
             goto OnErrorExit;

@@ -98,7 +98,7 @@ PUBLIC int SndZones(CtlSourceT *source, json_object *argsJ) {
     SoftMixerHandleT *mixerHandle = (SoftMixerHandleT*) source->context;
     AlsaSndZoneT *zones=NULL;
     int error;
-    size_t count;
+    int count;
 
     assert(mixerHandle);
 
