@@ -16,8 +16,20 @@ Softmixer controller for 4A (AGL Advance Audio Architecture).
 
 ## Install Alsa Loopback
 
+You must have snd-aloop enabled a a module in you kernel.
+Check that this way on target:
+
 ```
-    sudo modprobe alsa-aloop
+	zcat /proc/config.gz | grep CONFIG_SND_ALOOP
+	CONFIG_SND_ALOOP=m
+```
+
+If it not the case, run menuconfig and enable it under
+> Device Drivers > Sound card support > Advanced Linux Sound Architecture > Generic sound device
+
+
+```
+    sudo modprobe snd-aloop
 ```
 
 ## Assert LUA config file match your config 
