@@ -75,6 +75,7 @@ set (PKG_REQUIRED_LIST
 	libmicrohttpd>=0.9.55
 	uuid
 	alsa>=1.1.2
+	lua
 )
 
 # Prefix path where will be installed the files
