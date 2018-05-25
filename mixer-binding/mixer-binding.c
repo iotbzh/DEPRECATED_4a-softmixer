@@ -115,9 +115,12 @@ PUBLIC int afbBindingVdyn(afb_dynapi *apiHandle) {
     AFB_ApiNotice (apiHandle, "Controller in afbBindingVdyn");
 
     const char *dirList= getenv("CONTROL_CONFIG_PATH");
+
+    AFB_DEBUG("%s: env CONTROL_PLUGIN_PATH=%s\n", __func__, dirList);
+
     if (!dirList) dirList=CONTROL_CONFIG_PATH;
 
-    const char *configPath = CtlConfigSearch(apiHandle, dirList, "4a-");
+    const char *configPath = CtlConfigSearch(apiHandle, dirList, "4a");
     if (!configPath) {
         AFB_ApiError(apiHandle, "CtlPreInit: No 4a-%s-* config found in %s ", GetBinderName(), dirList);
         goto OnErrorExit;
