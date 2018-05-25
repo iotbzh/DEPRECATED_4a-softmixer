@@ -27,10 +27,11 @@ extern Lua2cWrapperT Lua2cWrap;
 STATIC int ProcessOneChannel(CtlSourceT *source, const char* uid, json_object *channelJ, AlsaPcmChannelT *channel) {
     const char*channelUid;
 
-    int error = wrap_json_unpack(channelJ, "{ss,si,s?i !}", "target", &channelUid, "channel", &channel->port);
+    int error = wrap_json_unpack(channelJ, "{ss,si !}", "target", &channelUid, "channel", &channel->port);
     if (error) goto OnErrorExit;
 
     channel->uid = strdup(channelUid);
+
     return 0;
 
 OnErrorExit:
