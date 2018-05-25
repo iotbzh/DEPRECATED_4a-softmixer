@@ -28,7 +28,7 @@ As a result, declaring three USB stereo sound card is equivalent to declare one 
     --     ["device"] = N, (default 0)
     --     ["subdev"] = N, (default 0)
     --
-    -- * Mandotory List of sink channels attached to the card
+    -- * Mandatory List of sink channels attached to the card
     --     ["sink"] = {
     --         [0]= {["uid"]= "front-right", ["port"]= 0},
     --         [1]= {["uid"]= "front-left", ["port"]= 1},
