@@ -90,7 +90,7 @@ PUBLIC AlsaPcmInfoT* AlsaCreateMulti(CtlSourceT *source, const char *pcmUid, int
     error += snd_config_search(snd_config, "pcm", &pcmConfig);
     error += snd_config_add(pcmConfig, multiConfig);
     if (error) {
-        AFB_ApiError(source->api, "AlsaCreateDmix: fail to add configDMIX=%s", pcmPlug->cardid);
+        AFB_ApiError(source->api, "%s: fail to add configDMIX=%s", __func__, pcmPlug->cardid);
         goto OnErrorExit;
     }
 

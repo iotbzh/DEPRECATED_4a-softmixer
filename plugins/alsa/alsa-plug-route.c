@@ -19,6 +19,7 @@
 #define _GNU_SOURCE  // needed for vasprintf
 
 #include "alsa-softmixer.h"
+#include "afb-helpers-utils.h"
 
 ALSA_PLUG_PROTO(route);
 
@@ -81,7 +82,7 @@ PUBLIC AlsaPcmInfoT* AlsaCreateRoute(CtlSourceT *source, AlsaSndZoneT *zone, int
     error += snd_config_add(routeConfig, tableConfig);
     if (error) goto OnErrorExit;
 
-    // tempry store to unable multiple channel to route to the same port
+    // temporary store to unable multiple channel to route to the same port
     snd_config_t **cports;
     cports = alloca(sizeof (snd_config_t*)*(pcmSlave->ccount + 1));
     memset(cports, 0, (sizeof (snd_config_t*)*(pcmSlave->ccount + 1)));
@@ -108,7 +109,7 @@ PUBLIC AlsaPcmInfoT* AlsaCreateRoute(CtlSourceT *source, AlsaSndZoneT *zone, int
         }
 
         // ttable require target port as a table and volume as a value
-        char targetS[4];
+        char targetS[INT_STR_MAX]; // max size of printed int is 10 chars
         snprintf(targetS, sizeof (targetS), "%d", target);
         error += snd_config_imake_real(&elemConfig, targetS, volume);
         error += snd_config_add(cports[channel], elemConfig);
