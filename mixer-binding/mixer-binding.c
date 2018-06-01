@@ -120,7 +120,7 @@ PUBLIC int afbBindingVdyn(afb_dynapi *apiHandle) {
 
     if (!dirList) dirList=CONTROL_CONFIG_PATH;
 
-    const char *configPath = CtlConfigSearch(apiHandle, dirList, "4a");
+    const char *configPath = CtlConfigSearch(apiHandle, dirList, "softmixer");
     if (!configPath) {
         AFB_ApiError(apiHandle, "CtlPreInit: No 4a-%s-* config found in %s ", GetBinderName(), dirList);
         goto OnErrorExit;

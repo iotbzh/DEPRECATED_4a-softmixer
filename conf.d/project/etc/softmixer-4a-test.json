@@ -10,7 +10,7 @@
         {
             "uid": "softmixer",
             "info": "Map alsa-loop subdevices to 4A HAL streams",
-            "spath": "./lib/plugins:./var",
+            "spath": "./plugins/alsa:../conf.d/project/lua.d",
             "libs": ["alsa-softmixer.ctlso", "softmixer-simple-test.lua"],
             "lua": {
                 "prefix": "smix",
@@ -18,15 +18,18 @@
             }
         }
     ],
-
     "onload": [
         {
             "uid": "init-soft-mixer",
             "info": "Initialise Audio Router",
-            "action": "lua://softmixer#_mixer_simple_test_"
+            "action": "lua://softmixer#_AlsaPingCB_"
         }
     ],
     "controls": [
+        {
+            "uid": "ping",
+            "action": "lua://softmixer#_AlsaPingCB_"
+        },
         {
             "uid": "create",
             "action": "plugin://softmixer#mixer_new"
