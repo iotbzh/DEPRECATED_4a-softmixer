@@ -197,17 +197,16 @@ STATIC int ProcessOneStream(CtlSourceT *source, json_object *streamJ, AlsaLoopSt
         goto OnErrorExit;
     }
 
-    if (paramsJ) error = ProcessSndParams(source, stream->uid, paramsJ, &stream->params);
-    if (error) {
+    stream->params.rate = ALSA_DEFAULT_PCM_RATE;
+    stream->params.rate = ALSA_DEFAULT_PCM_RATE;
+    stream->params.access = SND_PCM_ACCESS_RW_INTERLEAVED;
+    stream->params.format = SND_PCM_FORMAT_S16_LE;
+    stream->params.channels = 2;
+    stream->params.sampleSize = 0;
+
+    if (paramsJ && ProcessSndParams(source, stream->uid, paramsJ, &stream->params)) {
         AFB_ApiError(source->api, "ProcessOneSndCard: sndcard=%s invalid params=%s", stream->uid, json_object_get_string(paramsJ));
         goto OnErrorExit;
-    } else {
-        stream->params.rate = ALSA_DEFAULT_PCM_RATE;
-        stream->params.rate = ALSA_DEFAULT_PCM_RATE;
-        stream->params.access = SND_PCM_ACCESS_RW_INTERLEAVED;
-        stream->params.format = SND_PCM_FORMAT_S16_LE;
-        stream->params.channels = 2;
-        stream->params.sampleSize = 0;
     }
 
     // make sure remain valid even when json object is removed
