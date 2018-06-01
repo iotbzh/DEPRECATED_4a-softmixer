@@ -194,8 +194,9 @@ CTLP_LUA2C(_mixer_new_, source, argsJ, responseJ) {
         goto OnErrorExit;
     }
 
-    error = wrap_json_unpack(argsJ, "{ss,s?s,s?o,s?o,s?o,s?o !}"
+    error = wrap_json_unpack(argsJ, "{ss,s?o,s?s,s?o,s?o,s?o,s?o !}"
             , "uid", &mixer->uid
+            , "mixerapi", NULL
             , "info", &mixer->info
             , "backend", &backendJ
             , "frontend", &frontendJ
