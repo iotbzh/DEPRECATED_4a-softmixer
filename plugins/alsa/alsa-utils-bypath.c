@@ -35,7 +35,7 @@
 
 // Clone of AlsaLib snd_card_load2 static function
 
-PUBLIC snd_ctl_card_info_t *AlsaByPathInfo(CtlSourceT *source, const char *devpath) {
+PUBLIC snd_ctl_card_info_t *AlsaByPathInfo(SoftMixerT *mixer, const char *devpath) {
     int open_dev;
     snd_ctl_card_info_t *cardInfo = malloc(snd_ctl_card_info_sizeof());
 
@@ -54,104 +54,72 @@ PUBLIC snd_ctl_card_info_t *AlsaByPathInfo(CtlSourceT *source, const char *devpa
     return cardInfo;
 
 OnErrorExit:
-    AFB_ApiError(source->api, "AlsaCardInfoByPath: fail to find sndcard by path= %s", devpath);
+    AFB_ApiError(mixer->api, "AlsaCardInfoByPath: fail to find sndcard by path= %s", devpath);
     return NULL;
 }
 
-PUBLIC int AlsaByPathDevid(CtlSourceT *source, AlsaPcmInfoT *dev) {
-
-    // get card info from /dev/snd/xxx if not use hw:x,x,x
-    snd_ctl_card_info_t *cardInfo = NULL;
-    if (dev->devpath) {
-        cardInfo = AlsaByPathInfo(source, dev->devpath);
-        dev->cardid=NULL;
-    }
-    else if (dev->cardid) {
-        dev->cardid= strdup(dev->cardid);
-        cardInfo = AlsaCtlGetInfo(source, dev->cardid);
-    }
-    else {
-        dev->cardid=malloc(ALSA_CARDID_MAX_LEN);
-        snprintf((char*)dev->cardid, ALSA_CARDID_MAX_LEN, "hw:%i", dev->cardidx);
-        cardInfo = AlsaCtlGetInfo(source, dev->cardid);
-    }
-
-    if (!cardInfo) {
-        AFB_ApiWarning(source->api, "AlsaByPathOpenPcm: fail to find sndcard by path=%s id=%s", dev->devpath, dev->cardid);
-        goto OnErrorExit;
-    }
-
-    // extract useful info from cardInfo handle
-    dev->cardidx = snd_ctl_card_info_get_card(cardInfo);
-
-    // if not provided build a valid PCM cardid 
-    if (!dev->cardid) {
-        dev->cardid=malloc(ALSA_CARDID_MAX_LEN);  
-        if (dev->subdev) snprintf((char*)dev->cardid, ALSA_CARDID_MAX_LEN, "hw:%i,%i,%i", dev->cardidx, dev->device, dev->subdev);
-        else if (dev->device) snprintf((char*)dev->cardid, ALSA_CARDID_MAX_LEN, "hw:%i,%i", dev->cardidx, dev->device);
-        else snprintf((char*)dev->cardid, ALSA_CARDID_MAX_LEN, "hw:%i", dev->cardidx);
-    }
-    
-    // make sure UID will cannot be removed
-    dev->uid= strdup(dev->uid);
-    return 0;
-
-OnErrorExit:
-    return -1;
-}
-
-PUBLIC AlsaPcmInfoT* AlsaByPathOpenPcm(CtlSourceT *source, AlsaPcmInfoT *dev, snd_pcm_stream_t direction) {
+PUBLIC AlsaPcmCtlT *AlsaByPathOpenPcm(SoftMixerT *mixer, AlsaDevInfoT *pcmDev, snd_pcm_stream_t direction) {
     int error;
-    
-    // duplicate dev structure to allow caller to free dev
-    AlsaPcmInfoT* pcm=malloc(sizeof(AlsaPcmInfoT));
-    memcpy (pcm, dev, sizeof(AlsaPcmInfoT));
-    
-    
-    error = AlsaByPathDevid(source, pcm);
-    if (error) goto OnErrorExit;
+    AlsaPcmCtlT *pcmCtl = calloc(1, sizeof (AlsaPcmCtlT));
 
-    error = snd_pcm_open(&pcm->handle, pcm->cardid, direction, SND_PCM_NONBLOCK);
+    if (!pcmDev->cardid) {
+        char *cardid;
+        if (pcmDev->subdev) (void)asprintf(&cardid, "hw:%i,%i,%i", pcmDev->cardidx, pcmDev->device, pcmDev->subdev);
+        else if (pcmDev->device) (void) asprintf(&cardid, "hw:%i,%i", pcmDev->cardidx, pcmDev->device);
+        else (void) asprintf(&cardid, "hw:%i", pcmDev->cardidx);
+        pcmDev->cardid= (const char*)cardid;
+    }
+
+    // inherit CID fropm pcmDev
+    pcmCtl->cid.cardid = pcmDev->cardid;
+    pcmCtl->cid.cardidx = pcmDev->cardidx;
+    pcmCtl->cid.device = pcmDev->device;
+    pcmCtl->cid.subdev = pcmDev->subdev;
+    pcmCtl->cid.name=NULL;
+    pcmCtl->cid.longname=NULL;
+
+    error = snd_pcm_open(&pcmCtl->handle, pcmCtl->cid.cardid, direction, SND_PCM_NONBLOCK);
     if (error) {
-        AFB_ApiError(source->api, "AlsaByPathOpenPcm: fail openpcm (cardid=%s idxdev=%i subdev=%d): %s"
-                , pcm->cardid, pcm->device, pcm->subdev, snd_strerror(error));
+        AFB_ApiError(mixer->api, "AlsaByPathOpenPcm: fail openpcm cardid=%s error=%s", pcmCtl->cid.cardid, snd_strerror(error));
         goto OnErrorExit;
     }
 
-    return (pcm);
+    return pcmCtl;
 
 OnErrorExit:
+    free(pcmCtl);
     return NULL;
 }
 
-PUBLIC snd_ctl_t *AlsaByPathOpenCtl(CtlSourceT *source, AlsaPcmInfoT *dev) {
+PUBLIC snd_ctl_t *AlsaByPathOpenCtl(SoftMixerT *mixer, const char *uid, AlsaSndCtlT *dev) {
     int err;
-    char cardid[32];
     snd_ctl_t *handle;
 
     // get card info from /dev/snd/xxx if not use hw:x,x,x
     snd_ctl_card_info_t *cardInfo = NULL;
-    if (dev->devpath) cardInfo = AlsaByPathInfo(source, dev->devpath);
-    else if (dev->cardid) cardInfo = AlsaCtlGetInfo(source, dev->cardid);
+    if (dev->cid.devpath) cardInfo = AlsaByPathInfo(mixer, dev->cid.devpath);
+    else if (dev->cid.cardid) cardInfo = AlsaCtlGetInfo(mixer, dev->cid.cardid);
 
     if (!cardInfo) {
-        AFB_ApiError(source->api, "AlsaByPathOpenCtl: fail to find sndcard by path=%s id=%s", dev->devpath, dev->cardid);
+        AFB_ApiError(mixer->api, "AlsaByPathOpenCtl: uid=%s fail to find sndcard by path=%s id=%s", uid, dev->cid.devpath, dev->cid.cardid);
         goto OnErrorExit;
     }
 
     // extract useful info from cardInfo handle
-    int cardIndex = snd_ctl_card_info_get_card(cardInfo);
-    const char *cardId = snd_ctl_card_info_get_id(cardInfo);
-    const char *cardName = snd_ctl_card_info_get_name(cardInfo);
+    dev->cid.devpath = NULL;
+    dev->cid.cardidx = snd_ctl_card_info_get_card(cardInfo);
+    dev->cid.name = strdup(snd_ctl_card_info_get_name(cardInfo));
+    dev->cid.longname = strdup(snd_ctl_card_info_get_longname(cardInfo));
 
     // build a valid name and open sndcard
-    snprintf(cardid, sizeof (cardid), "hw:%i", cardIndex);
-    if ((err = snd_ctl_open(&handle, cardid, 0)) < 0) {
-        AFB_ApiError(source->api, "control open (hw:%d -> %s): %s", cardIndex, cardName, snd_strerror(err));
+    (void) asprintf((char**) &dev->cid.cardid, "hw:%i", dev->cid.cardidx);
+
+    if ((err = snd_ctl_open(&handle, dev->cid.cardid, 0)) < 0) {
+        AFB_ApiError(mixer->api, "AlsaByPathOpenCtl uid=%s sndcard open fail cardid=%s longname=%s error=%s", uid, dev->cid.cardid, dev->cid.longname, snd_strerror(err));
         goto OnErrorExit;
     }
 
-    AFB_ApiNotice(source->api, "AlsaCtlOpenByPath: sndcard hw:%d id=%s name=%s", cardIndex, cardId, cardName);
+    AFB_ApiNotice(mixer->api, "AlsaCtlOpenByPath: uid=%s cardid=%s cardname=%s", uid, dev->cid.cardid, dev->cid.longname);
     free(cardInfo);
     return handle;
 

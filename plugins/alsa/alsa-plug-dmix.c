@@ -25,19 +25,16 @@ static int uniqueIpcIndex = 1024;
 ALSA_PLUG_PROTO(dmix);
 
 
-PUBLIC AlsaPcmInfoT* AlsaCreateDmix(CtlSourceT *source, const char* pcmName, AlsaPcmInfoT *pcmSlave, int open) {
+PUBLIC AlsaPcmCtlT* AlsaCreateDmix(SoftMixerT *mixer, const char* pcmName, AlsaSndPcmT *pcmSlave, int open) {
    
     snd_config_t *dmixConfig, *slaveConfig, *elemConfig, *pcmConfig;
-    AlsaPcmInfoT *pcmPlug= calloc(1,sizeof(AlsaPcmInfoT));
-    pcmPlug->uid= strdup(pcmName);
-    pcmPlug->cardid=pcmPlug->uid;
-
+    AlsaPcmCtlT *pcmPlug= calloc(1,sizeof(AlsaPcmCtlT));
+    AlsaSndCtlT *sndSlave=pcmSlave->sndcard;
+    pcmPlug->cid.cardid=pcmName;
     int error=0;
 
-    // refresh global alsalib config and create PCM top config
-    snd_config_update();
     error += snd_config_top(&dmixConfig);
-    error += snd_config_set_id (dmixConfig, pcmPlug->cardid);
+    error += snd_config_set_id (dmixConfig, pcmPlug->cid.cardid);
     error += snd_config_imake_string(&elemConfig, "type", "dmix");
     error += snd_config_add(dmixConfig, elemConfig);
     error += snd_config_imake_integer(&elemConfig, "ipc_key", uniqueIpcIndex++);
@@ -45,10 +42,10 @@ PUBLIC AlsaPcmInfoT* AlsaCreateDmix(CtlSourceT *source, const char* pcmName, Als
     if (error) goto OnErrorExit;
 
     error += snd_config_make_compound(&slaveConfig, "slave", 0);
-    error += snd_config_imake_string(&elemConfig, "pcm", pcmSlave->cardid);
-    if (pcmSlave->params.rate) {
+    error += snd_config_imake_string(&elemConfig, "pcm", sndSlave->cid.cardid);
+    if (sndSlave->params->rate) {
         error += snd_config_add(slaveConfig, elemConfig);
-        error += snd_config_imake_integer(&elemConfig, "rate", pcmSlave->params.rate);
+        error += snd_config_imake_integer(&elemConfig, "rate", sndSlave->params->rate);
     }
     error += snd_config_add(slaveConfig, elemConfig);
     if (error) goto OnErrorExit;
@@ -57,26 +54,28 @@ PUBLIC AlsaPcmInfoT* AlsaCreateDmix(CtlSourceT *source, const char* pcmName, Als
     error += snd_config_add(dmixConfig, slaveConfig);
     if (error) goto OnErrorExit;
        
-    if (open) error = _snd_pcm_dmix_open(&pcmPlug->handle, pcmPlug->cardid, snd_config, dmixConfig, SND_PCM_STREAM_PLAYBACK , SND_PCM_NONBLOCK); 
+    if (open) error = _snd_pcm_dmix_open(&pcmPlug->handle, pcmPlug->cid.cardid, snd_config, dmixConfig, SND_PCM_STREAM_PLAYBACK , SND_PCM_NONBLOCK); 
     if (error) {
-        AFB_ApiError(source->api, "AlsaCreateDmix: fail to create Dmix=%s Slave=%s Error=%s", pcmPlug->cardid, pcmSlave->cardid, snd_strerror(error));
+        AFB_ApiError(mixer->api, "AlsaCreateDmix: fail to create Dmix=%s Slave=%s Error=%s", sndSlave->cid.cardid, sndSlave->cid.cardid, snd_strerror(error));
         goto OnErrorExit;
     }
     
+    snd_config_update();
     error += snd_config_search(snd_config, "pcm", &pcmConfig);    
     error += snd_config_add(pcmConfig, dmixConfig);
     if (error) {
-        AFB_ApiError(source->api, "AlsaCreateDmix: fail to add configDMIX=%s", pcmPlug->cardid);
+        AFB_ApiError(mixer->api, "AlsaCreateDmix: fail to add configDMIX=%s", pcmPlug->cid.cardid);
         goto OnErrorExit;
     }
     
     // Debug config & pcm
-    //AlsaDumpCtlConfig (source, "plug-dmix", dmixConfig, 1);
-    AFB_ApiNotice(source->api, "AlsaCreateDmix: %s done\n", pcmPlug->cardid);
+    //AlsaDumpCtlConfig (mixer, "plug-dmix", dmixConfig, 1);
+    AFB_ApiNotice(mixer->api, "AlsaCreateDmix: %s done\n", pcmPlug->cid.cardid);
     return pcmPlug;
 
 OnErrorExit:
-    AlsaDumpCtlConfig(source, "plug-dmix", dmixConfig, 1);
-    AFB_ApiNotice(source->api, "AlsaCreateDmix: OnErrorExit\n");
+    AlsaDumpCtlConfig(mixer, "plug-pcm", pcmConfig, 1);
+    AlsaDumpCtlConfig(mixer, "plug-dmix", dmixConfig, 1);
+    AFB_ApiNotice(mixer->api, "AlsaCreateDmix: OnErrorExit\n");
     return NULL;
 }

@@ -22,122 +22,163 @@
 
 ALSA_PLUG_PROTO(route);
 
-STATIC int CardChannelByUid(CtlSourceT *source, AlsaPcmInfoT *pcmBackend, const char *uid) {
-    int channelIdx = -1;
+typedef struct {
+    const char *uid;
+    const char *cardid;
+    int cardidx;
+    int ccount;
+    int port;
+} ChannelCardPortT;
 
-    // search for channel within all sound card backend (channel port target is computed by order)
-    int targetIdx=0;
-    for (int cardIdx = 0; pcmBackend[cardIdx].uid != NULL; cardIdx++) {
-        AlsaPcmChannelT *channels = pcmBackend[cardIdx].channels;
+STATIC int CardChannelByUid(SoftMixerT *mixer, const char *uid, ChannelCardPortT *response) {
+
+    // search for channel within all sound card sink (channel port target is computed by order)
+    for (int idx = 0; mixer->sinks[idx]; idx++) {
+        int jdx;
+
+        AlsaPcmChannelT **channels = mixer->sinks[idx]->channels;
         if (!channels) {
-            AFB_ApiError(source->api, "CardChannelByUid: No Backend card=%s [should declare channels]", pcmBackend[cardIdx].uid);
+            AFB_ApiError(mixer->api, "CardChannelByUid: No Sink card=%s [should declare channels]", mixer->sinks[idx]->uid);
             goto OnErrorExit;
         }
 
-        for (int idx = 0; channels[idx].uid != NULL; idx++) {
-            if (!strcmp(channels[idx].uid, uid)) return targetIdx;
-            targetIdx++;
+        for (jdx = 0; jdx < mixer->sinks[idx]->ccount; jdx++) {
+            if (!strcasecmp(channels[jdx]->uid, uid)) {
+                response->port = channels[jdx]->port;
+                response->uid = mixer->sinks[idx]->uid;
+                response->ccount = mixer->sinks[idx]->ccount;
+                response->cardid = mixer->sinks[idx]->sndcard->cid.cardid;
+                response->cardidx = mixer->sinks[idx]->sndcard->cid.cardidx;
+                break;
+            }
+        }
+
+        if (jdx == mixer->sinks[idx]->ccount) {
+            AFB_ApiError(mixer->api, "CardChannelByUid: No Channel with uid=%s [should declare channels]", uid);
+            goto OnErrorExit;
         }
     }
 
-    // this is OnErrorExit
-    return channelIdx;
+    return 0;
 
 OnErrorExit:
     return -1;
 }
 
-PUBLIC AlsaPcmInfoT* AlsaCreateRoute(CtlSourceT *source, AlsaSndZoneT *zone, int open) {
-    SoftMixerHandleT *mixerHandle = (SoftMixerHandleT*) source->context;
+PUBLIC AlsaPcmCtlT* AlsaCreateRoute(SoftMixerT *mixer, AlsaSndZoneT *zone, int open) {
     snd_config_t *routeConfig, *elemConfig, *slaveConfig, *tableConfig, *pcmConfig;
-    int error = 0;
-    AlsaPcmInfoT *pcmPlug = calloc(1, sizeof (AlsaPcmInfoT));
-    pcmPlug->uid    = zone->uid;
-    pcmPlug->cardid = zone->uid;
-    
-    assert(mixerHandle);
+    int scount=0, error = 0;
+    ChannelCardPortT slave, channel;
+    AlsaPcmCtlT *pcmRoute = calloc(1, sizeof (AlsaPcmCtlT));
 
-    AlsaPcmInfoT *pcmBackend = mixerHandle->backend;
-    AlsaPcmInfoT* pcmSlave=mixerHandle->multiPcm;
-    if (!pcmBackend || !pcmSlave) {
-        AFB_ApiError(source->api, "AlsaCreateRoute: mixer=%s zone(%s)(zone) No Sound Card Ctl find [should Registry snd_cards first]"
-                , mixerHandle->uid, zone->uid);
+    if (!mixer->sinks) {
+        AFB_ApiError(mixer->api, "AlsaCreateRoute: mixer=%s zone(%s)(zone) No sink found [should Registry sound card first]", mixer->uid, zone->uid);
         goto OnErrorExit;
     }
 
-    // refresh global alsalib config and create PCM top config
-    snd_config_update();
-    error += snd_config_top(&routeConfig);
-    error += snd_config_set_id(routeConfig, pcmPlug->cardid);
-    error += snd_config_imake_string(&elemConfig, "type", "route");
-    error += snd_config_add(routeConfig, elemConfig);
-    error += snd_config_make_compound(&slaveConfig, "slave", 0);
-    error += snd_config_imake_string(&elemConfig, "pcm", pcmSlave->cardid);
-    error += snd_config_add(slaveConfig, elemConfig);
-    error += snd_config_imake_integer(&elemConfig, "channels", pcmSlave->ccount);
-    error += snd_config_add(slaveConfig, elemConfig);
-    error += snd_config_add(routeConfig, slaveConfig);
-    error += snd_config_make_compound(&tableConfig, "ttable", 0);
-    error += snd_config_add(routeConfig, tableConfig);
-    if (error) goto OnErrorExit;
+    char *cardid;
+    (void) asprintf(&cardid, "route-%s", zone->uid);
+    pcmRoute->cid.cardid = (const char *) cardid;
+    
+    pcmRoute->params = ApiSinkGetParamsByZone(mixer, zone->uid);
+    zone->params=pcmRoute->params;
+    
+    // use 1st zone channel to retrieve sound card name + channel count. 
+    error = CardChannelByUid(mixer, zone->sinks[0]->uid, &slave);
+    if (error) {
+        AFB_ApiError(mixer->api, "AlsaCreateRoute:zone(%s) fail to find channel=%s", zone->uid, zone->sinks[0]->uid);
+        goto OnErrorExit;
+    }
+    
+    // move from hardware to DMIX attach to sndcard
+    char *dmixUid;
+    (void) asprintf(&dmixUid, "dmix-%s", slave.uid);
 
-    // tempry store to unable multiple channel to route to the same port
-    snd_config_t **cports;
-    cports = alloca(sizeof (snd_config_t*)*(pcmSlave->ccount + 1));
-    memset(cports, 0, (sizeof (snd_config_t*)*(pcmSlave->ccount + 1)));
+    // temporary store to unable multiple channel to route to the same port
+    snd_config_t **cports = alloca(slave.ccount * sizeof (void*));
+    memset(cports, 0, slave.ccount * sizeof (void*));
+    int zcount = 0;
 
-    // loop on sound card to include into multi
-    for (int idx = 0; zone->channels[idx].uid != NULL; idx++) {
+    // We create 1st ttable to retrieve sndcard slave and channel count
+    (void)snd_config_make_compound(&tableConfig, "ttable", 0);
 
-        int target = CardChannelByUid(source, pcmBackend, zone->channels[idx].uid);
-        if (target < 0) {
-            AFB_ApiError(source->api, "AlsaCreateRoute:zone(%s) fail to find channel=%s", zone->uid, zone->channels[idx].uid);
+    for (scount = 0; zone->sinks[scount] != NULL; scount++) {
+
+        error = CardChannelByUid(mixer, zone->sinks[scount]->uid, &channel);
+        if (error) {
+            AFB_ApiError(mixer->api, "AlsaCreateRoute:zone(%s) fail to find channel=%s", zone->uid, zone->sinks[scount]->uid);
             goto OnErrorExit;
         }
-        
-        int channel = zone->channels[idx].port;
+
+        if (slave.cardidx != channel.cardidx) {
+            AFB_ApiError(mixer->api, "AlsaCreateRoute:zone(%s) cannot span over multiple sound card %s != %s ", zone->uid, slave.cardid, channel.cardid);
+            goto OnErrorExit;
+        }
+
+        int port = zone->sinks[scount]->port;
+        int target = channel.port;
         double volume = 1.0; // currently only support 100%
 
         // if channel entry does not exit into ttable create it now 
-        if (!cports[channel]) {
-            pcmPlug->ccount++;
+        if (!cports[port]) { 
+            zcount++;
             char channelS[4]; // 999 channel should be more than enough
-            snprintf(channelS, sizeof (channelS), "%d", channel);
-            error += snd_config_make_compound(&cports[channel], channelS, 0);
-            error += snd_config_add(tableConfig, cports[channel]);
+            snprintf(channelS, sizeof (channelS), "%d", port);
+            error += snd_config_make_compound(&cports[port], channelS, 0);
+            error += snd_config_add(tableConfig, cports[port]);
         }
 
         // ttable require target port as a table and volume as a value
         char targetS[4];
         snprintf(targetS, sizeof (targetS), "%d", target);
         error += snd_config_imake_real(&elemConfig, targetS, volume);
-        error += snd_config_add(cports[channel], elemConfig);
+        error += snd_config_add(cports[port], elemConfig);
         if (error) goto OnErrorExit;
     }
+    if (error) goto OnErrorExit;
 
-    // update top config to access previous plugin PCM
+    // update zone with route channel count and sndcard params
+    pcmRoute->ccount = zcount;
+    zone->ccount=zcount;
+
+    // refresh global alsalib config and create PCM top config
     snd_config_update();
+    error += snd_config_top(&routeConfig);
+    error += snd_config_set_id(routeConfig, cardid);
+    error += snd_config_imake_string(&elemConfig, "type", "route");
+    error += snd_config_add(routeConfig, elemConfig);
+    error += snd_config_make_compound(&slaveConfig, "slave", 0);
+    error += snd_config_imake_string(&elemConfig, "pcm", dmixUid);
+    error += snd_config_add(slaveConfig, elemConfig);
+//    error += snd_config_imake_integer(&elemConfig, "channels", scount);
+//    error += snd_config_add(slaveConfig, elemConfig);
+    error += snd_config_add(routeConfig, slaveConfig);
+    error += snd_config_add(routeConfig, tableConfig);
+    if (error) goto OnErrorExit;
 
-    if (open) error = _snd_pcm_route_open(&pcmPlug->handle, zone->uid, snd_config, routeConfig, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
+    if (open) error = _snd_pcm_route_open(&pcmRoute->handle, pcmRoute->cid.cardid, snd_config, routeConfig, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
     if (error) {
-        AFB_ApiError(source->api, "AlsaCreateRoute:zone(%s) fail to create Plug=%s error=%s", zone->uid, pcmPlug->cardid, snd_strerror(error));
+        AFB_ApiError(mixer->api, "AlsaCreateRoute:zone(%s) fail to create Plug=%s error=%s", zone->uid, pcmRoute->cid.cardid, snd_strerror(error));
         goto OnErrorExit;
     }
 
+    snd_config_update();
     error += snd_config_search(snd_config, "pcm", &pcmConfig);
     error += snd_config_add(pcmConfig, routeConfig);
     if (error) {
-        AFB_ApiError(source->api, "AlsaCreateDmix:%s fail to add configDMIX=%s", zone->uid, pcmPlug->cardid);
+        AFB_ApiError(mixer->api, "AlsaCreateDmix:%s fail to add config route=%s error=%s", zone->uid, pcmRoute->cid.cardid, snd_strerror(error));
         goto OnErrorExit;
     }
 
     // Debug config & pcm
-    //AlsaDumpCtlConfig(source, "plug-route", routeConfig, 1);
-    AFB_ApiNotice(source->api, "AlsaCreateRoute:zone(%s) done\n", zone->uid);
-    return pcmPlug;
+    AFB_ApiNotice(mixer->api, "AlsaCreateRoute:zone(%s) done", zone->uid);
+    AlsaDumpCtlConfig(mixer, "plug-route", routeConfig, 1);
+    return pcmRoute;
 
 OnErrorExit:
-    AlsaDumpCtlConfig(source, "plug-route", routeConfig, 1);
-    AFB_ApiNotice(source->api, "AlsaCreateRoute:zone(%s) OnErrorExit\n", zone->uid);
+    free(pcmRoute);
+    AlsaDumpCtlConfig(mixer, "plug-pcm", snd_config, 1);
+    AlsaDumpCtlConfig(mixer, "plug-route", routeConfig, 1);
+    AFB_ApiNotice(mixer->api, "AlsaCreateRoute:zone(%s) OnErrorExit\n", zone->uid);
     return NULL;
 }

@@ -22,61 +22,30 @@
 
 ALSA_PLUG_PROTO(softvol); // stream uses solftvol plugin
 
-STATIC AlsaPcmInfoT* SlaveZoneByUid(CtlSourceT *source,  AlsaPcmInfoT **pcmZones, const char *uid) {
-    AlsaPcmInfoT *slaveZone= NULL;
-
-    // Loop on every Registryed zone pcm and extract (cardid) from (uid)
-    for (int idx = 0; pcmZones[idx] != NULL; idx++) {
-        if (!strcasecmp (pcmZones[idx]->uid, uid)) {
-           slaveZone= pcmZones[idx];
-           return slaveZone;
-        }
-    }
-
-    return NULL;
-}
-
-PUBLIC AlsaPcmInfoT* AlsaCreateSoftvol(CtlSourceT *source, AlsaLoopStreamT *stream, AlsaPcmInfoT *ctlControl, const char* ctlName, int max, int open) {
-    SoftMixerHandleT *mixerHandle = (SoftMixerHandleT*) source->context;
+PUBLIC AlsaPcmCtlT* AlsaCreateSoftvol(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaSndZoneT *zone, AlsaSndCtlT *sndcard, char* ctlName, int max, int open) {
     snd_config_t *streamConfig, *elemConfig, *slaveConfig, *controlConfig,*pcmConfig;
+    AlsaPcmCtlT *pcmVol= calloc(1,sizeof(AlsaPcmCtlT));
     int error = 0;
-    AlsaPcmInfoT *pcmPlug= calloc(1,sizeof(AlsaPcmInfoT));
-
-    assert (mixerHandle);
 
     // assert static/global softmixer handle get requited info
-    AlsaSndLoopT *ctlLoop = mixerHandle->frontend;
-    if (!ctlLoop) {
-        AFB_ApiError(source->api, "AlsaCreateSoftvol:%s(stream) No Loop found [should Registry snd_loop first]",stream->uid);
-        goto OnErrorExit;
-    }
-
-    // assert static/global softmixer handle get requited info
-    AlsaPcmInfoT **pcmZones = mixerHandle->routes;
+    AlsaSndZoneT **pcmZones = mixer->zones;
     if (!pcmZones) {
-        AFB_ApiError(source->api, "AlsaCreateSoftvol:%s(stream) No Zone found [should Registry snd_zones first]", stream->uid);
+        AFB_ApiError(mixer->api, "AlsaCreateSoftvol:%s(stream) No Zone found [should Registry zones first]", stream->uid);
         goto OnErrorExit;
     }
-    
-    // search for target zone uid
-    AlsaPcmInfoT *pcmSlave= SlaveZoneByUid (source, pcmZones, stream->zone);
-    if (!pcmSlave || !pcmSlave->uid) {
-        AFB_ApiError(source->api, "AlsaCreateSoftvol:%s(stream) fail to find Zone=%s", stream->uid, stream->zone);
-        goto OnErrorExit;  
-    }
-    
-    // stream inherit from zone channel count
-    pcmPlug->uid= strdup(stream->uid);
-    pcmPlug->cardid= pcmPlug->uid;
-    pcmPlug->devpath=NULL;
-    pcmPlug->ccount= pcmSlave->ccount;
-    memcpy (&pcmPlug->params, &stream->params, sizeof(AlsaPcmHwInfoT));
-    pcmPlug->params.channels= pcmSlave->ccount;
        
+    char *cardid;
+    (void) asprintf(&cardid, "softvol-%s", stream->uid);
+    pcmVol->cid.cardid = (const char *) cardid;
+    
+    char *slaveid;
+    (void)asprintf(&slaveid, "route-%s", zone->uid);
+    // Fulup debug (void) asprintf(&slaveid, "dmix-%s", "8CH-USB");
+    
     // refresh global alsalib config and create PCM top config
     snd_config_update();
     error += snd_config_top(&streamConfig);
-    error += snd_config_set_id (streamConfig, pcmPlug->cardid);
+    error += snd_config_set_id (streamConfig, pcmVol->cid.cardid);
     error += snd_config_imake_string(&elemConfig, "type", "softvol");
     error += snd_config_add(streamConfig, elemConfig);
     error += snd_config_imake_integer(&elemConfig, "resolution", max+1); 
@@ -85,7 +54,7 @@ PUBLIC AlsaPcmInfoT* AlsaCreateSoftvol(CtlSourceT *source, AlsaLoopStreamT *stre
     
     // add slave leaf
     error += snd_config_make_compound(&slaveConfig, "slave", 0);
-    error += snd_config_imake_string(&elemConfig, "pcm", pcmSlave->cardid);
+    error += snd_config_imake_string(&elemConfig, "pcm", slaveid);
     error += snd_config_add(slaveConfig, elemConfig);
     error += snd_config_add(streamConfig, slaveConfig);
     if (error) goto OnErrorExit;
@@ -94,34 +63,36 @@ PUBLIC AlsaPcmInfoT* AlsaCreateSoftvol(CtlSourceT *source, AlsaLoopStreamT *stre
     error += snd_config_make_compound(&controlConfig, "control", 0);
     error += snd_config_imake_string(&elemConfig, "name", ctlName);
     error += snd_config_add(controlConfig, elemConfig);
-    error += snd_config_imake_integer(&elemConfig, "card", ctlControl->cardidx);
+    error += snd_config_imake_integer(&elemConfig, "card", sndcard->cid.cardidx);
     error += snd_config_add(controlConfig, elemConfig);
     error += snd_config_add(streamConfig, controlConfig);
     if (error) goto OnErrorExit; 
     
-    // update top config to access previous plugin PCM
-    snd_config_update();
-    
-    if (open) error = _snd_pcm_softvol_open(&pcmPlug->handle, stream->uid, snd_config, streamConfig, SND_PCM_STREAM_PLAYBACK , SND_PCM_NONBLOCK); 
+    if (open) error = _snd_pcm_softvol_open(&pcmVol->handle, stream->uid, snd_config, streamConfig, SND_PCM_STREAM_PLAYBACK , SND_PCM_NONBLOCK); 
     if (error) {
-        AFB_ApiError(source->api, "AlsaCreateSoftvol:%s(stream) fail to create Plug=%s Slave=%s error=%s", stream->uid, pcmPlug->cardid, pcmSlave->cardid, snd_strerror(error));
+        AFB_ApiError(mixer->api, "AlsaCreateSoftvol:%s(stream) fail to create Plug=%s Slave=%s error=%s", stream->uid, pcmVol->cid.cardid, sndcard->cid.cardid, snd_strerror(error));
         goto OnErrorExit;
     }
   
+    // update top config to access previous plugin PCM
+    snd_config_update();
+    
     error += snd_config_search(snd_config, "pcm", &pcmConfig);    
     error += snd_config_add(pcmConfig, streamConfig);
     if (error) {
-        AFB_ApiError(source->api, "AlsaCreateSoftvol:%s(stream) fail to add config", stream->uid);
+        AFB_ApiError(mixer->api, "AlsaCreateSoftvol:%s(stream) fail to add config error=%s", stream->uid, snd_strerror(error));
         goto OnErrorExit;
     }
     
     // Debug config & pcm
-    //AlsaDumpCtlConfig (source, "plug-stream", streamConfig, 1);
-    AFB_ApiNotice(source->api, "AlsaCreateSoftvol:%s(stream) done\n", stream->uid);
-    return pcmPlug;
+    //AlsaDumpCtlConfig (mixer, "plug-config", pcmConfig, 1);
+    //AlsaDumpCtlConfig(mixer, "plug-softvol", streamConfig, 1);
+    AFB_ApiNotice(mixer->api, "AlsaCreateSoftvol:%s(stream) done\n", stream->uid);
+    return pcmVol;
 
 OnErrorExit:
-    AlsaDumpCtlConfig(source, "plug-stream", streamConfig, 1);
-    AFB_ApiNotice(source->api, "AlsaCreateSoftvol:%s(stream) OnErrorExit\n", stream->uid);
+    AlsaDumpCtlConfig (mixer, "plug-config", pcmConfig, 1);
+    AlsaDumpCtlConfig(mixer, "plug-softvol", streamConfig, 1);
+    AFB_ApiNotice(mixer->api, "AlsaCreateSoftvol:%s(stream) OnErrorExit\n", stream->uid);
     return NULL;
 }

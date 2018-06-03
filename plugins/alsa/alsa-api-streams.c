@@ -30,37 +30,22 @@
 extern Lua2cWrapperT Lua2cWrap;
 
 typedef struct {
-    const char* verb;
-    AlsaLoopStreamT *stream;
-    SoftMixerHandleT *mixer;
+    AlsaStreamAudioT *stream;
+    SoftMixerT *mixer;
     AlsaVolRampT *ramp;
+    AlsaSndCtlT *sndcard;
+    snd_pcm_t *pcm;
 } apiHandleT;
 
-STATIC AlsaVolRampT* RampGetByUid(CtlSourceT *source, AlsaVolRampT *ramps, const char *uid) {
-    AlsaVolRampT *ramp = NULL;
-
-    // Loop on every Registryed zone pcm and extract (cardid) from (uid)
-    for (int idx = 0; ramps[idx].uid != NULL; idx++) {
-        if (!strcasecmp(ramps[idx].uid, uid)) {
-            ramp = &ramps[idx];
-            return ramp;
-        }
-    }
-    return NULL;
-}
-
 STATIC void StreamApiVerbCB(AFB_ReqT request) {
+    apiHandleT *handle = (apiHandleT*) afb_request_get_vcbdata(request);
     int error, doClose = 0, doQuiet = 0, doToggle = 0, doMute = -1;
     long mute, volume;
     json_object *responseJ, *volumeJ = NULL, *rampJ = NULL, *argsJ = afb_request_json(request);
-    apiHandleT *handle = (apiHandleT*) afb_request_get_vcbdata(request);
-    snd_ctl_t *ctlDev = NULL;
 
-    CtlSourceT *source = alloca(sizeof (CtlSourceT));
-    source->uid = handle->verb;
-    source->api = request->dynapi;
-    source->request = NULL;
-    source->context = NULL;
+    SoftMixerT *mixer = handle->mixer;
+    AlsaSndCtlT *sndcard = handle->sndcard;
+    assert(mixer && sndcard);
 
     error = wrap_json_unpack(argsJ, "{s?b s?b,s?b,s?b,s?o,s?o !}"
             , "quiet", &doQuiet
@@ -71,31 +56,25 @@ STATIC void StreamApiVerbCB(AFB_ReqT request) {
             , "ramp", &rampJ
             );
     if (error) {
-        AFB_ReqFailF(request, "StreamApiVerbCB", "Missing 'close|mute|volume|quiet' args=%s", json_object_get_string(argsJ));
-        goto OnErrorExit;
-    }
-
-    ctlDev = AlsaCtlOpenCtl(source, handle->mixer->frontend->cardid);
-    if (!ctlDev) {
-        AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to open sndcard=%s", handle->mixer->frontend->cardid);
+        AFB_ReqFailF(request, "syntax-error", "Missing 'close|mute|volume|quiet' args=%s", json_object_get_string(argsJ));
         goto OnErrorExit;
     }
 
     if (doClose) {
-        AFB_ReqFailF(request, "StreamApiVerbCB", "(Fulup) Close action still to be done mixer=%s", json_object_get_string(argsJ));
+        AFB_ReqFailF(request, "internal-error", "(Fulup) Close action still to be done mixer=%s stream=%s", mixer->uid, handle->stream->uid);
         goto OnErrorExit;
     }
 
     if (doToggle) {
-        error += AlsaCtlNumidGetLong(source, ctlDev, handle->stream->mute, &mute);
-        error += AlsaCtlNumidSetLong(source, ctlDev, handle->stream->mute, !mute);
+        error += AlsaCtlNumidGetLong(mixer, sndcard, handle->stream->mute, &mute);
+        error += AlsaCtlNumidSetLong(mixer, sndcard, handle->stream->mute, !mute);
     }
 
     if (volumeJ) {
         long curvol, newvol;
         const char*volString;
 
-        error = AlsaCtlNumidGetLong(source, ctlDev, handle->stream->volume, &curvol);
+        error = AlsaCtlNumidGetLong(mixer, handle->sndcard, handle->stream->volume, &curvol);
         if (error) {
             AFB_ReqFailF(request, "invalid-numid", "Fail to set volume numid=%d value=%ld", handle->stream->volume, volume);
             goto OnErrorExit;
@@ -129,15 +108,15 @@ STATIC void StreamApiVerbCB(AFB_ReqT request) {
 
         }
 
-        error = AlsaCtlNumidSetLong(source, ctlDev, handle->stream->volume, newvol);
+        error = AlsaCtlNumidSetLong(mixer, handle->sndcard, handle->stream->volume, newvol);
         if (error) {
             AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to set stream volume numid=%d value=%ld", handle->stream->volume, newvol);
             goto OnErrorExit;
         }
     }
 
-    if (rampJ) {       
-        error = AlsaVolRampApply(source, handle->mixer->frontend, handle->stream, handle->ramp, rampJ);
+    if (rampJ) {
+        error = AlsaVolRampApply(mixer, handle->sndcard, handle->stream, rampJ);
         if (error) {
             AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to set stream volram numid=%d value=%s", handle->stream->volume, json_object_get_string(rampJ));
             goto OnErrorExit;
@@ -145,7 +124,7 @@ STATIC void StreamApiVerbCB(AFB_ReqT request) {
     }
 
     if (doMute != -1) {
-        error = AlsaCtlNumidSetLong(source, ctlDev, handle->stream->mute, !mute);
+        error = AlsaCtlNumidSetLong(mixer, handle->sndcard, handle->stream->mute, !mute);
         if (error) {
             AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to set stream volume numid=%d value=%d", handle->stream->volume, !mute);
             goto OnErrorExit;
@@ -155,8 +134,8 @@ STATIC void StreamApiVerbCB(AFB_ReqT request) {
     // if not in quiet mode return effective selected control values
     if (doQuiet) responseJ = NULL;
     else {
-        error += AlsaCtlNumidGetLong(source, ctlDev, handle->stream->volume, &volume);
-        error += AlsaCtlNumidGetLong(source, ctlDev, handle->stream->mute, &mute);
+        error += AlsaCtlNumidGetLong(mixer, handle->sndcard, handle->stream->volume, &volume);
+        error += AlsaCtlNumidGetLong(mixer, handle->sndcard, handle->stream->mute, &mute);
         if (error) {
             AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to get stream numids volume=%ld mute=%ld", volume, mute);
             goto OnErrorExit;
@@ -164,17 +143,188 @@ STATIC void StreamApiVerbCB(AFB_ReqT request) {
         wrap_json_pack(&responseJ, "{si,sb}", "volume", volume, "mute", !mute);
     }
 
-    snd_ctl_close(ctlDev);
-    AFB_ReqSucess(request, responseJ, handle->verb);
+    AFB_ReqSucess(request, responseJ, NULL);
     return;
 
 OnErrorExit:
-    if (ctlDev) snd_ctl_close(ctlDev);
     return;
-
 }
 
-STATIC int ProcessOneStream(CtlSourceT *source, json_object *streamJ, AlsaLoopStreamT *stream) {
+PUBLIC json_object *CreateOneStream(SoftMixerT *mixer, AlsaStreamAudioT *stream) {
+    int error;
+    long value;
+    AlsaSndLoopT *loop=NULL;
+    AlsaPcmCtlT *streamPcm;
+    AlsaSndCtlT *captureCard;
+    AlsaDevInfoT *captureDev = alloca(sizeof (AlsaDevInfoT));
+    AlsaLoopSubdevT *loopDev;
+    char * captureName;
+
+    loopDev = ApiLoopFindSubdev(mixer, stream->uid, stream->source, &loop);
+    if (loopDev) {
+        // create a valid PCM reference and try to open it.
+        captureDev->devpath = NULL;
+        captureDev->cardid = NULL;
+        captureDev->cardidx = loop->sndcard->cid.cardidx;
+        captureDev->device = loop->capture;
+        captureDev->subdev = loopDev->index;
+        captureCard = loop->sndcard;
+    } else {
+        // if capture UID is not present in loop search on sources
+        AlsaSndCtlT *sourceDev = ApiSourceFindSubdev(mixer, stream->source);
+        if (sourceDev) {
+            captureDev->devpath = NULL;
+            captureDev->cardid = NULL;
+            captureDev->cardidx = sourceDev->cid.cardidx;
+            captureDev->device = sourceDev->cid.device;
+            captureDev->subdev = sourceDev->cid.subdev;
+            captureCard = sourceDev;
+        } else {
+            AFB_ApiError(mixer->api, "CreateOneStream: mixer=%s stream=%s not found in loops/sources", mixer->uid, stream->uid);
+            goto OnErrorExit;
+        }
+    }
+
+    // check PCM is valid and get its full name
+    AlsaPcmCtlT *capturePcm = AlsaByPathOpenPcm(mixer, captureDev, SND_PCM_STREAM_CAPTURE);
+    if (!capturePcm) goto OnErrorExit;
+    
+     // Registry capturePcm PCM for active/pause event
+    if (loopDev && loopDev->numid) {
+        error = AlsaCtlRegister(mixer, captureCard, capturePcm, FONTEND_NUMID_RUN, loopDev->numid);
+        if (error) goto OnErrorExit;
+    }
+
+    AlsaSndZoneT *zone = ApiZoneGetByUid(mixer, stream->sink);
+    if (!zone) {
+        AFB_ApiError(mixer->api, "CreateOneStream: mixer=%s stream=%s fail to find sink zone='%s'", mixer->uid, stream->uid, stream->sink);
+        goto OnErrorExit;
+    }
+
+    // retrieve channel count from route and push it to stream
+    stream->params->channels = zone->ccount;
+
+    // create mute control and Registry it as pause/resume ctl)
+    char *runName;
+    (void) asprintf(&runName, "pause-%s", stream->uid);
+    int pauseNumid = AlsaCtlCreateControl(mixer, captureCard, runName, 1, 0, 1, 1, stream->mute);
+    if (pauseNumid <= 0) goto OnErrorExit;
+
+    // Registry stop/play as a pause/resume control
+    error = AlsaCtlRegister(mixer, captureCard, capturePcm, FONTEND_NUMID_PAUSE, pauseNumid);
+    if (error) goto OnErrorExit;
+
+
+    char *volName;
+    (void) asprintf(&volName, "vol-%s", stream->uid);
+
+    // create stream and delay pcm opening until vol control is created
+    streamPcm = AlsaCreateSoftvol(mixer, stream, zone, captureCard, volName, VOL_CONTROL_MAX, 0);
+    if (!streamPcm) {
+        AFB_ApiError(mixer->api, "CreateOneStream: mixer=%s stream=%s fail to create stream", mixer->uid, stream->uid);
+        goto OnErrorExit;
+    }
+
+    // create volume control before softvol pcm is opened
+    int volNumid = AlsaCtlCreateControl(mixer, captureCard, volName, stream->params->channels, VOL_CONTROL_MIN, VOL_CONTROL_MAX, VOL_CONTROL_STEP, stream->volume);
+    if (volNumid <= 0) goto OnErrorExit;
+
+    if ((zone->params->rate != stream->params->rate) || (zone->params->format != stream->params->format)) {
+        char *rateName;
+        (void) asprintf(&rateName, "rate-%s", stream->uid);
+        streamPcm = AlsaCreateRate(mixer, rateName, streamPcm, zone->params, 0);
+        if (!streamPcm) {
+            AFB_ApiError(mixer->api, "StreamsAttach: mixer=%s stream=%s fail to create rate converter", mixer->uid, stream->uid);
+            goto OnErrorExit;
+        }
+        captureName=rateName;
+    } else {
+       captureName= (char*)streamPcm->cid.cardid;
+    }
+
+    // everything is not ready to open playback pcm
+    error = snd_pcm_open(&streamPcm->handle, captureName, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
+    if (error) {
+        AFB_ApiError(mixer->api, "CreateOneStream: mixer=%s stream=%s fail to open capturePcm=%s error=%s", mixer->uid, stream->uid, streamPcm->cid.cardid, snd_strerror(error));
+        goto OnErrorExit;
+    }
+
+    // start stream pcm copy (at this both capturePcm & sink pcm should be open, we use output params to configure both in+outPCM)
+    error = AlsaPcmCopy(mixer, stream, capturePcm, streamPcm, stream->params);
+    if (error) goto OnErrorExit;
+
+    error = AlsaCtlRegister(mixer, captureCard, capturePcm, FONTEND_NUMID_IGNORE, volNumid);
+    if (error) goto OnErrorExit;
+
+    // when using loopdev check if subdev is active or not to prevent thread from reading empty packet
+    if (loopDev && loopDev->numid) {
+        // retrieve active/pause control and set PCM status accordingly 
+        error = AlsaCtlNumidGetLong(mixer, captureCard, loopDev->numid, &value);
+        if (error) goto OnErrorExit;
+
+        // toggle pause/resume (should be done after pcm_start)
+        if ((error = snd_pcm_pause(capturePcm->handle, !value)) < 0) {
+            AFB_ApiWarning(mixer->api, "CreateOneStream: mixer=%s [capturePcm=%s] fail to pause error=%s", mixer->uid, captureDev->cardid, snd_strerror(error));
+        }
+    }
+
+    // prepare response for application
+    json_object *paramsJ, *streamJ;
+    char *appCardId = NULL;
+    
+    // return alsa URI only when loopback is used
+    if (loop) {
+        (void) asprintf(&appCardId, "hw:%d,%d,%d", captureDev->cardidx, loop->playback, capturePcm->cid.subdev);
+    } else {
+      appCardId="";  
+    }
+
+    error += wrap_json_pack(&paramsJ, "{si si si si}"
+            , "rate", stream->params->rate
+            , "channels", stream->params->channels
+            , "format", stream->params->format
+            , "access", stream->params->access
+            );
+    error += wrap_json_pack(&streamJ, "{ss ss si si so}", "uid"
+            , stream->uid, "alsa"
+            , appCardId
+            , "volid", volNumid
+            , "runid", pauseNumid
+            , "params", paramsJ
+            );
+    if (error) {
+        AFB_ApiError(mixer->api, "CreateOneStream: mixer=%s stream=%s fail to prepare response", mixer->uid, stream->uid);
+        goto OnErrorExit;
+    }
+
+    // create a dedicated verb for this stream 
+    apiHandleT *apiHandle = calloc(1, sizeof (apiHandleT));
+
+    apiHandle->mixer = mixer;
+    apiHandle->stream = stream;
+    apiHandle->sndcard =captureCard;
+    apiHandle->pcm = capturePcm->handle;
+
+    error = afb_dynapi_add_verb(mixer->api, stream->uid, stream->info, StreamApiVerbCB, apiHandle, NULL, 0);
+    if (error) {
+        AFB_ApiError(mixer->api, "CreateOneStream mixer=%s fail to Register API verb stream=%s", mixer->uid, stream->uid);
+        goto OnErrorExit;
+    }
+
+    // Debug Alsa Config 
+    //AlsaDumpElemConfig (source, "\n\nAlsa_Config\n------------\n", "pcm");
+    //AlsaDumpPcmInfo(source, "\n\nPcm_config\n-----------\n", streamPcm->handle);
+
+    AFB_ApiNotice(mixer->api, "CreateOneStream: mixer=%s stream=%s OK reponse=%s\n", mixer->uid, stream->uid, json_object_get_string(streamJ));
+
+    return streamJ;
+
+OnErrorExit:
+    return NULL;
+}
+
+STATIC AlsaStreamAudioT * AttachOneStream(SoftMixerT *mixer, const char *uid, json_object *streamJ, json_object **responseJ) {
+    AlsaStreamAudioT *stream = calloc(1, sizeof (AlsaStreamAudioT));
     int error;
     json_object *paramsJ = NULL;
 
@@ -183,242 +333,93 @@ STATIC int ProcessOneStream(CtlSourceT *source, json_object *streamJ, AlsaLoopSt
     stream->mute = 0;
     stream->info = NULL;
 
-    error = wrap_json_unpack(streamJ, "{ss,s?s,ss,s?i,s?b,s?o,s?s !}"
+    error = wrap_json_unpack(streamJ, "{ss,s?s,ss,s?s,s?i,s?b,s?o,s?s !}"
             , "uid", &stream->uid
             , "info", &stream->info
-            , "zone", &stream->zone
+            , "zone", &stream->sink
+            , "source", &stream->source
             , "volume", &stream->volume
             , "mute", stream->mute
             , "params", &paramsJ
             , "ramp", &stream->ramp
             );
     if (error) {
-        AFB_ApiNotice(source->api, "ProcessOneStream missing 'uid|[info]|zone|[volume]|[mute]|[params]' stream=%s", json_object_get_string(streamJ));
+        AFB_ApiNotice(mixer->api, "ProcessOneStream hal=%s missing 'uid|[info]|zone|source||[volume]|[mute]|[params]' error=%s stream=%s", uid, wrap_json_get_error_string(error), json_object_get_string(streamJ));
         goto OnErrorExit;
     }
 
-    if (paramsJ) error = ProcessSndParams(source, stream->uid, paramsJ, &stream->params);
-    if (error) {
-        AFB_ApiError(source->api, "ProcessOneSndCard: sndcard=%s invalid params=%s", stream->uid, json_object_get_string(paramsJ));
+    stream->params = ApiPcmSetParams(mixer, stream->uid, paramsJ);
+    if (!stream->params) {
+        AFB_ApiError(mixer->api, "ProcessOneSndCard: hal=%s stream=%s invalid params=%s", uid, stream->uid, json_object_get_string(paramsJ));
         goto OnErrorExit;
-    } else {
-        stream->params.rate = ALSA_DEFAULT_PCM_RATE;
-        stream->params.rate = ALSA_DEFAULT_PCM_RATE;
-        stream->params.access = SND_PCM_ACCESS_RW_INTERLEAVED;
-        stream->params.format = SND_PCM_FORMAT_S16_LE;
-        stream->params.channels = 2;
-        stream->params.sampleSize = 0;
     }
 
     // make sure remain valid even when json object is removed
     stream->uid = strdup(stream->uid);
-    stream->zone = strdup(stream->zone);
+    if (stream->sink)stream->sink = strdup(stream->sink);
+    if (stream->source)stream->source = strdup(stream->source);
 
-    return 0;
+    // implement stream PCM with corresponding thread and controls
+    *responseJ = CreateOneStream(mixer, stream);
+
+    return stream;
 
 OnErrorExit:
-    return -1;
+    return NULL;
 }
 
-PUBLIC int LoopStreams(CtlSourceT *source, json_object *argsJ, json_object **responseJ) {
-    SoftMixerHandleT *mixer = (SoftMixerHandleT*) source->context;
-    AlsaLoopStreamT *loopStream;
-    int error;
-    long value;
-    size_t count;
+PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, json_object * argsJ, json_object **responseJ) {
 
-    assert(mixer);
+    if (!mixer->loops) {
+        AFB_ApiError(mixer->api, "StreamsAttach: mixer=%s No Loop found [should Registry snd_loop first]", mixer->uid);
+        goto OnErrorExit;
+    }
 
-    // assert static/global softmixer handle get requited info
-    AlsaSndLoopT *ctlLoop = mixer->frontend;
-    if (!ctlLoop) {
-        AFB_ApiError(source->api, "LoopStreams: mixer=%s No Loop found [should Registry snd_loop first]", mixer->uid);
+    int index;
+    for (index = 0; index < mixer->max.streams; index++) {
+        if (!mixer->streams[index]) break;
+    }
+
+    if (index == mixer->max.streams) {
+        AFB_ReqFailF(request, "too-small", "mixer=%s max stream=%d argsJ= %s", mixer->uid, mixer->max.streams, json_object_get_string(argsJ));
         goto OnErrorExit;
     }
 
     switch (json_object_get_type(argsJ)) {
+            long count;
+
         case json_type_object:
-            count = 1;
-            loopStream = calloc(count + 1, sizeof (AlsaLoopStreamT));
-            error = ProcessOneStream(source, argsJ, &loopStream[0]);
-            if (error) {
-                AFB_ApiError(source->api, "LoopStreams: mixer=%s invalid stream= %s", mixer->uid, json_object_get_string(argsJ));
+            mixer->streams[index] = AttachOneStream(mixer, uid, argsJ, responseJ);
+            if (!mixer->streams[index]) {
+                AFB_ReqFailF(request, "invalid-syntax", "mixer=%s invalid stream= %s", mixer->uid, json_object_get_string(argsJ));
                 goto OnErrorExit;
             }
             break;
 
         case json_type_array:
+            *responseJ = json_object_new_array();
+            
             count = json_object_array_length(argsJ);
-            loopStream = calloc(count + 1, sizeof (AlsaLoopStreamT));
+            if (count > (mixer->max.streams - count)) {
+                AFB_ReqFailF(request, "too-small", "mixer=%s max stream=%d argsJ= %s", mixer->uid, mixer->max.streams, json_object_get_string(argsJ));
+                goto OnErrorExit;
+            }
+
             for (int idx = 0; idx < count; idx++) {
-                json_object *loopStreamJ = json_object_array_get_idx(argsJ, idx);
-                error = ProcessOneStream(source, loopStreamJ, &loopStream[idx]);
-                if (error) {
-                    AFB_ApiError(source->api, "loopstreams: mixer=%s invalid stream= %s", mixer->uid, json_object_get_string(loopStreamJ));
+                json_object *streamJ = json_object_array_get_idx(argsJ, idx);
+                mixer->streams[index + idx] = AttachOneStream(mixer, uid, streamJ, &streamJ);
+                if (!mixer->streams[index + idx]) {
+                    AFB_ReqFailF(request, "invalid-syntax", "mixer=%s invalid stream= %s", mixer->uid, json_object_get_string(streamJ));
                     goto OnErrorExit;
                 }
+                (void) json_object_array_add(*responseJ, streamJ);
             }
             break;
         default:
-            AFB_ApiError(source->api, "LoopStreams: mixer=%s invalid argsJ=  %s", mixer->uid, json_object_get_string(argsJ));
+            AFB_ReqFailF(request, "invalid-syntax", "mixer=%s streams invalid argsJ= %s", mixer->uid, json_object_get_string(argsJ));
             goto OnErrorExit;
     }
 
-
-    // return stream data to application as a json array
-    *responseJ = json_object_new_array();
-
-    for (int idx = 0; loopStream[idx].uid != NULL; idx++) {
-        json_object *streamJ, *paramsJ;
-
-        // Search for a free loop capture device
-        AFB_ApiNotice(source->api, "LoopStreams: mixer=%s stream=%s Start", mixer->uid, (char*) loopStream[idx].uid);
-        ctlLoop->scount--;
-        if (ctlLoop->scount < 0) {
-            AFB_ApiError(source->api, "LoopStreams: mixer=%s stream=%s no more subdev avaliable in loopback=%s", mixer->uid, loopStream[idx].uid, ctlLoop->uid);
-            goto OnErrorExit;
-        }
-
-        // Retrieve subdev loop device and open corresponding pcm
-        AlsaPcmInfoT *playbackDev = &ctlLoop->subdevs[ctlLoop->scount];
-
-        // capture use the same card/subdev as playback with a different device
-        playbackDev->device = ctlLoop->capture;
-        AlsaPcmInfoT *captureDev = AlsaByPathOpenPcm(source, playbackDev, SND_PCM_STREAM_CAPTURE);
-        if (!captureDev) goto OnErrorExit;
-
-        // configure with default loopback subdev params
-        error = AlsaPcmConf(source, captureDev, &playbackDev->params);
-        if (error) goto OnErrorExit;
-
-        // Registry capture PCM for active/pause event
-        if (captureDev->numid) {
-            error = AlsaCtlRegister(source, mixer, captureDev, FONTEND_NUMID_RUN, captureDev->numid);
-            if (error) goto OnErrorExit;
-        }
-
-        // Try to create/setup volume control.
-        snd_ctl_t* ctlDev = AlsaCrlFromPcm(source, captureDev->handle);
-        if (!ctlDev) {
-            AFB_ApiError(source->api, "LoopStreams: mixer=%s [pcm=%s] fail attache sndcard", mixer->uid, captureDev->cardid);
-            goto OnErrorExit;
-        }
-
-        // create mute control and Registry it as pause/resume ctl)
-        char runName[ALSA_CARDID_MAX_LEN];
-        snprintf(runName, sizeof (runName), "run-%s", loopStream[idx].uid);
-
-        // create a single boolean value control for pause/resume
-        int pauseNumid = AlsaCtlCreateControl(source, ctlDev, playbackDev, runName, 1, 0, 1, 1, loopStream[idx].mute);
-        if (pauseNumid <= 0) goto OnErrorExit;
-
-        // Registry mute/unmute as a pause/resume control
-        error = AlsaCtlRegister(source, mixer, captureDev, FONTEND_NUMID_PAUSE, pauseNumid);
-        if (error) goto OnErrorExit;
-
-        // create stream and delay pcm openning until vol control is created
-        char volName[ALSA_CARDID_MAX_LEN];
-        snprintf(volName, sizeof (volName), "vol-%s", loopStream[idx].uid);
-        AlsaPcmInfoT *streamPcm = AlsaCreateSoftvol(source, &loopStream[idx], captureDev, volName, VOL_CONTROL_MAX, 0);
-        if (!streamPcm) {
-            AFB_ApiError(source->api, "LoopStreams: mixer=%s%s(pcm) fail to create stream", mixer->uid, loopStream[idx].uid);
-            goto OnErrorExit;
-        }
-
-        // create volume control before softvol pcm is opened
-        int volNumid = AlsaCtlCreateControl(source, ctlDev, playbackDev, volName, streamPcm->params.channels, VOL_CONTROL_MIN, VOL_CONTROL_MAX, VOL_CONTROL_STEP, loopStream[idx].volume);
-        if (volNumid <= 0) goto OnErrorExit;
-
-        //        **** Fulup (would need some help to get automatic rate converter to work).         
-        //        // add a rate converter plugin to match stream params config
-        //        char rateName[ALSA_CARDID_MAX_LEN];
-        //        snprintf(rateName, sizeof (rateName), "rate-%s", loopStream[idx].uid);
-        //        AlsaPcmInfoT *ratePcm= AlsaCreateRate(source, rateName, streamPcm, 1);
-        //        if (!ratePcm) {
-        //            AFB_ApiError(source->api, "LoopStreams: mixer=%s%s(pcm) fail to create rate converter", loopStream[idx].uid);
-        //            goto OnErrorExit;
-        //        }
-
-        // everything is not ready to open capture pcm
-        error = snd_pcm_open(&streamPcm->handle, loopStream[idx].uid, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
-        if (error) {
-            AFB_ApiError(source->api, "LoopStreams: mixer=%s%s(pcm) fail to open capture", mixer->uid, loopStream[idx].uid);
-            goto OnErrorExit;
-        }
-
-        // capture stream inherit channel from targeted zone
-        captureDev->ccount = streamPcm->ccount;
-        streamPcm->params.channels = streamPcm->ccount;
-
-        // start stream pcm copy (at this both capture & sink pcm should be open, we use output params to configure both in+outPCM)
-        error = AlsaPcmCopy(source, &loopStream[idx], captureDev, streamPcm, &streamPcm->params);
-        if (error) goto OnErrorExit;
-
-        error = AlsaCtlRegister(source, mixer, captureDev, FONTEND_NUMID_IGNORE, volNumid);
-        if (error) goto OnErrorExit;
-        
-        // retrieve active/pause control and set PCM status accordingly 
-        error = AlsaCtlNumidGetLong(source, ctlDev, captureDev->numid, &value);
-        if (error) goto OnErrorExit;
-
-        // toggle pause/resume (should be done after pcm_start)
-        if ((error = snd_pcm_pause(captureDev->handle, !value)) < 0) {
-            AFB_ApiWarning(source->api, "LoopStreams: mixer=%s [capture=%s] fail to pause error=%s", mixer->uid, captureDev->cardid, snd_strerror(error));
-        }
-
-        // prepare response for application
-        playbackDev->device = ctlLoop->playback;
-        error = AlsaByPathDevid(source, playbackDev);
-
-        error += wrap_json_pack(&paramsJ, "{si si si si}", "rate", streamPcm->params.rate, "channels", streamPcm->params.channels, "format", streamPcm->params.format, "access", streamPcm->params.access);
-        error += wrap_json_pack(&streamJ, "{ss ss si si so}", "uid", streamPcm->uid, "alsa", playbackDev->cardid, "volid", volNumid, "runid", pauseNumid, "params", paramsJ);
-        error += json_object_array_add(*responseJ, streamJ);
-        if (error) {
-            AFB_ApiError(source->api, "LoopStreams: mixer=%s stream=%s fail to prepare response", mixer->uid, captureDev->cardid);
-            goto OnErrorExit;
-        }
-
-        // create a dedicated verb for this stream compose of mixeruid/streamuid
-        apiHandleT *apiHandle = calloc(1, sizeof (apiHandleT));
-        char apiVerb[128];
-        error = snprintf(apiVerb, sizeof (apiVerb), "%s/%s", mixer->uid, loopStream[idx].uid);
-        if (error == sizeof (apiVerb)) {
-            AFB_ApiError(source->api, "LoopStreams mixer=%s fail to Registry Stream API too long %s/%s", mixer->uid, mixer->uid, loopStream[idx].uid);
-            goto OnErrorExit;
-        }
-
-        // if set get stream attached volramp
-        if (loopStream->ramp) {
-            apiHandle->ramp = RampGetByUid(source, ctlLoop->ramps, loopStream->ramp);
-            if (!apiHandle->ramp) {
-                AFB_ApiError(source->api, "LoopStreams: mixer=%s%s(pcm) fail to find ramp=%s", mixer->uid, loopStream[idx].uid, loopStream->ramp);
-                goto OnErrorExit;
-            }         
-        }
-
-        apiHandle->mixer = mixer;
-        apiHandle->stream= &loopStream[idx];
-        apiHandle->verb = strdup(apiVerb);
-        error = afb_dynapi_add_verb(source->api, apiHandle->verb, loopStream[idx].info, StreamApiVerbCB, apiHandle, NULL, 0);
-        if (error) {
-            AFB_ApiError(source->api, "LoopStreams mixer=%s fail to Registry API verb=%s", mixer->uid, apiHandle->verb);
-            goto OnErrorExit;
-        }
-
-        // free temporary resources
-        snd_ctl_close(ctlDev);
-        loopStream[idx].volume = volNumid;
-        loopStream[idx].mute = pauseNumid;
-
-        // Debug Alsa Config 
-        //AlsaDumpElemConfig (source, "\n\nAlsa_Config\n------------\n", "pcm");
-        //AlsaDumpPcmInfo(source, "\n\nPcm_config\n-----------\n", streamPcm->handle);
-
-        AFB_ApiNotice(source->api, "LoopStreams: mixer=%s stream=%s OK reponse=%s\n", mixer->uid, streamPcm->uid, json_object_get_string(streamJ));
-    }
-
-    // save handle for further use
-    mixer->streams = loopStream;
     return 0;
 
 OnErrorExit:

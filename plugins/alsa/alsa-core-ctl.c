@@ -29,18 +29,14 @@ for the specific language governing permissions and
 #include <sys/syscall.h>
 
 typedef struct {
-    AFB_ApiT api;
+    SoftMixerT *mixer;
     sd_event_source* evtsrc;
-    pthread_t thread;
-    int tid;
-    char* info;
-    snd_ctl_t *ctlDev;
+    const char* uid;
+    AlsaSndCtlT *sndcard;
     sd_event *sdLoop;
-    RegistryHandleT *registry;
 } SubscribeHandleT;
 
-
-PUBLIC snd_ctl_elem_id_t *AlsaCtlGetNumidElemId(CtlSourceT *source, snd_ctl_t* ctlDev, int numid) {
+PUBLIC snd_ctl_elem_id_t *AlsaCtlGetNumidElemId(SoftMixerT *mixer, AlsaSndCtlT *sndcard, int numid) {
     char string[32];
     int error;
     int index;
@@ -49,19 +45,19 @@ PUBLIC snd_ctl_elem_id_t *AlsaCtlGetNumidElemId(CtlSourceT *source, snd_ctl_t* c
 
     snd_ctl_elem_list_alloca(&ctlList);
 
-    if ((error = snd_ctl_elem_list(ctlDev, ctlList)) < 0) {
-        AFB_ApiError(source->api, "AlsaCtlGetNumidElemId [%s] fail retrieve controls", ALSA_CTL_UID(ctlDev, string));
+    if ((error = snd_ctl_elem_list(sndcard->ctl, ctlList)) < 0) {
+        AFB_ApiError(mixer->api, "AlsaCtlGetNumidElemId [%s] fail retrieve controls", ALSA_CTL_UID(sndcard->ctl, string));
         goto OnErrorExit;
     }
 
     if ((error = snd_ctl_elem_list_alloc_space(ctlList, snd_ctl_elem_list_get_count(ctlList))) < 0) {
-        AFB_ApiError(source->api, "AlsaCtlGetNumidElemId [%s] fail retrieve count", ALSA_CTL_UID(ctlDev, string));
+        AFB_ApiError(mixer->api, "AlsaCtlGetNumidElemId [%s] fail retrieve count", ALSA_CTL_UID(sndcard->ctl, string));
         goto OnErrorExit;
     }
 
     // Fulup: do not understand why snd_ctl_elem_list should be call twice to get a valid ctlCount
-    if ((error = snd_ctl_elem_list(ctlDev, ctlList)) < 0) {
-        AFB_ApiError(source->api, "AlsaCtlGetNumidElemId [%s] fail retrieve controls", ALSA_CTL_UID(ctlDev, string));
+    if ((error = snd_ctl_elem_list(sndcard->ctl, ctlList)) < 0) {
+        AFB_ApiError(mixer->api, "AlsaCtlGetNumidElemId [%s] fail retrieve controls", ALSA_CTL_UID(sndcard->ctl, string));
         goto OnErrorExit;
     }
 
@@ -77,7 +73,7 @@ PUBLIC snd_ctl_elem_id_t *AlsaCtlGetNumidElemId(CtlSourceT *source, snd_ctl_t* c
     }
 
     if (index == ctlCount) {
-        AFB_ApiNotice(source->api, "AlsaCtlGetNumidElemId [%s] fail get numid=%i count", ALSA_CTL_UID(ctlDev, string), numid);
+        AFB_ApiNotice(mixer->api, "AlsaCtlGetNumidElemId [%s] fail get numid=%i count", ALSA_CTL_UID(sndcard->ctl, string), numid);
         goto OnErrorExit;
     }
 
@@ -90,8 +86,7 @@ OnErrorExit:
     return NULL;
 }
 
-PUBLIC snd_ctl_elem_id_t *AlsaCtlGetNameElemId(CtlSourceT *source, snd_ctl_t* ctlDev, const char *ctlName) {
-    char string[32];
+PUBLIC snd_ctl_elem_id_t *AlsaCtlGetNameElemId(SoftMixerT *mixer, AlsaSndCtlT *sndcard, const char *ctlName) {
     int error;
     int index;
     snd_ctl_elem_list_t *ctlList = NULL;
@@ -99,19 +94,19 @@ PUBLIC snd_ctl_elem_id_t *AlsaCtlGetNameElemId(CtlSourceT *source, snd_ctl_t* ct
 
     snd_ctl_elem_list_alloca(&ctlList);
 
-    if ((error = snd_ctl_elem_list(ctlDev, ctlList)) < 0) {
-        AFB_ApiError(source->api, "AlsaCtlGetNameElemId [%s] fail retrieve controls", ALSA_CTL_UID(ctlDev, string));
+    if ((error = snd_ctl_elem_list(sndcard->ctl, ctlList)) < 0) {
+        AFB_ApiError(mixer->api, "AlsaCtlGetNameElemId cardid='%s' cardname='%s' fail retrieve controls", sndcard->cid.cardid, sndcard->cid.name);
         goto OnErrorExit;
     }
 
     if ((error = snd_ctl_elem_list_alloc_space(ctlList, snd_ctl_elem_list_get_count(ctlList))) < 0) {
-        AFB_ApiError(source->api, "AlsaCtlGetNameElemId [%s] fail retrieve count", ALSA_CTL_UID(ctlDev, string));
+        AFB_ApiError(mixer->api, "AlsaCtlGetNameElemId cardid='%s' cardname='%s' fail retrieve count", sndcard->cid.cardid, sndcard->cid.name);
         goto OnErrorExit;
     }
 
     // Fulup: do not understand why snd_ctl_elem_list should be call twice to get a valid ctlCount
-    if ((error = snd_ctl_elem_list(ctlDev, ctlList)) < 0) {
-        AFB_ApiError(source->api, "AlsaCtlGetNameElemId [%s] fail retrieve controls", ALSA_CTL_UID(ctlDev, string));
+    if ((error = snd_ctl_elem_list(sndcard->ctl, ctlList)) < 0) {
+        AFB_ApiError(mixer->api, "AlsaCtlGetNameElemId cardid='%s' cardname='%s' fail retrieve controls", sndcard->cid.cardid, sndcard->cid.name);
         goto OnErrorExit;
     }
 
@@ -119,7 +114,7 @@ PUBLIC snd_ctl_elem_id_t *AlsaCtlGetNameElemId(CtlSourceT *source, snd_ctl_t* ct
     int ctlCount = snd_ctl_elem_list_get_used(ctlList);
     for (index = 0; index < ctlCount; index++) {
 
-        if (!strcasecmp(ctlName, snd_ctl_elem_list_get_name(ctlList, index))) {
+        if (strcasestr(snd_ctl_elem_list_get_name(ctlList, index), ctlName)) {
             snd_ctl_elem_id_malloc(&elemId);
             snd_ctl_elem_list_get_id(ctlList, index, elemId);
             break;
@@ -127,7 +122,7 @@ PUBLIC snd_ctl_elem_id_t *AlsaCtlGetNameElemId(CtlSourceT *source, snd_ctl_t* ct
     }
 
     if (index == ctlCount) {
-        AFB_ApiNotice(source->api, "AlsaCtlGetNameElemId [%s] ctl not found name=%s", ALSA_CTL_UID(ctlDev, string), ctlName);
+        AFB_ApiNotice(mixer->api, "AlsaCtlGetNameElemId cardid='%s' cardname='%s' ctl not found name=%s", sndcard->cid.cardid, sndcard->cid.name, ctlName);
         goto OnErrorExit;
     }
 
@@ -140,42 +135,26 @@ OnErrorExit:
     return NULL;
 }
 
-PUBLIC snd_ctl_t *AlsaCtlOpenCtl(CtlSourceT *source, const char *cardid) {
+PUBLIC snd_ctl_t *AlsaCtlOpenCtl(SoftMixerT *mixer, const char *cardid) {
     int error;
-    snd_ctl_t *ctlDev;
+    snd_ctl_t *ctl;
 
     if (!cardid) goto OnErrorExit;
 
-    if ((error = snd_ctl_open(&ctlDev, cardid, SND_CTL_READONLY)) < 0) {
+    if ((error = snd_ctl_open(&ctl, cardid, SND_CTL_READONLY)) < 0) {
         cardid = "Not Defined";
         goto OnErrorExit;
     }
 
-    return ctlDev;
+    return ctl;
 
 OnErrorExit:
-    AFB_ApiError(source->api, "AlsaCtlOpenCtl: fail to find sndcard by id= %s", cardid);
+    AFB_ApiError(mixer->api, "AlsaCtlOpenCtl: fail to find sndcard by id= %s", cardid);
     return NULL;
 }
 
 
-STATIC int CtlElemIdGetNumid(AFB_ApiT api, snd_ctl_t *ctlDev, snd_ctl_elem_id_t *elemId, int *numid) {
-    snd_ctl_elem_info_t *elemInfo;
-
-    snd_ctl_elem_info_alloca(&elemInfo);
-    snd_ctl_elem_info_set_id(elemInfo, elemId);
-    if (snd_ctl_elem_info(ctlDev, elemInfo) < 0) goto OnErrorExit;
-    if (!snd_ctl_elem_info_is_readable(elemInfo)) goto OnErrorExit;
-
-    *numid = snd_ctl_elem_info_get_numid(elemInfo);
-
-    return 0;
-
-OnErrorExit:
-    return -1;
-}
-
-STATIC void CtlElemIdDisplay(AFB_ApiT api, snd_ctl_elem_info_t *elemInfo, snd_ctl_elem_value_t *elemData) {
+STATIC void CtlElemIdDisplay(SoftMixerT *mixer, snd_ctl_elem_info_t *elemInfo, snd_ctl_elem_value_t *elemData) {
 
     int numid = snd_ctl_elem_info_get_numid(elemInfo);
     int count = snd_ctl_elem_info_get_count(elemInfo);
@@ -184,7 +163,7 @@ STATIC void CtlElemIdDisplay(AFB_ApiT api, snd_ctl_elem_info_t *elemInfo, snd_ct
 
 
     if (!elemData) {
-        AFB_ApiWarning(api, "CtlElemIdDisplay: numid=%d name=%s value=unreadable", numid, name);
+        AFB_ApiWarning(mixer->api, "CtlElemIdDisplay: numid=%d name=%s value=unreadable", numid, name);
     } else
         for (int idx = 0; idx < count; idx++) {
             long valueL;
@@ -192,55 +171,51 @@ STATIC void CtlElemIdDisplay(AFB_ApiT api, snd_ctl_elem_info_t *elemInfo, snd_ct
             switch (elemType) {
                 case SND_CTL_ELEM_TYPE_BOOLEAN:
                     valueL = snd_ctl_elem_value_get_boolean(elemData, idx);
-                    AFB_ApiWarning(api, "CtlElemIdDisplay: numid=%d name=%s value=%ld", numid, name, valueL);
+                    AFB_ApiWarning(mixer->api, "CtlElemIdDisplay: numid=%d name=%s value=%ld", numid, name, valueL);
                     break;
                 case SND_CTL_ELEM_TYPE_INTEGER:
                     valueL = snd_ctl_elem_value_get_integer(elemData, idx);
-                    AFB_ApiWarning(api, "CtlElemIdDisplay: numid=%d name=%s value=%ld", numid, name, valueL);
+                    AFB_ApiWarning(mixer->api, "CtlElemIdDisplay: numid=%d name=%s value=%ld", numid, name, valueL);
                     break;
                 case SND_CTL_ELEM_TYPE_INTEGER64:
                     valueL = snd_ctl_elem_value_get_integer64(elemData, idx);
-                    AFB_ApiWarning(api, "CtlElemIdDisplay: numid=%d name=%s value=%ld", numid, name, valueL);
+                    AFB_ApiWarning(mixer->api, "CtlElemIdDisplay: numid=%d name=%s value=%ld", numid, name, valueL);
                     break;
                 case SND_CTL_ELEM_TYPE_ENUMERATED:
                     valueL = snd_ctl_elem_value_get_enumerated(elemData, idx);
-                    AFB_ApiWarning(api, "CtlElemIdDisplay: numid=%d name=%s value=%ld", numid, name, valueL);
+                    AFB_ApiWarning(mixer->api, "CtlElemIdDisplay: numid=%d name=%s value=%ld", numid, name, valueL);
                     break;
                 case SND_CTL_ELEM_TYPE_BYTES:
                     valueL = snd_ctl_elem_value_get_byte(elemData, idx);
-                    AFB_ApiWarning(api, "CtlElemIdDisplay: numid=%d name=%s value=%ld", numid, name, valueL);
+                    AFB_ApiWarning(mixer->api, "CtlElemIdDisplay: numid=%d name=%s value=%ld", numid, name, valueL);
                     break;
                 case SND_CTL_ELEM_TYPE_IEC958:
                 default:
-                    AFB_ApiWarning(api, "CtlElemIdDisplay: numid=%d name=%s Unsupported type=%d", numid, name, elemType);
+                    AFB_ApiWarning(mixer->api, "CtlElemIdDisplay: numid=%d name=%s Unsupported type=%d", numid, name, elemType);
                     break;
             }
         }
 }
 
-PUBLIC int CtlElemIdGetLong(AFB_ApiT api, snd_ctl_t *ctlDev, snd_ctl_elem_id_t *elemId, long *value) {
+PUBLIC int CtlElemIdGetLong(SoftMixerT *mixer, AlsaSndCtlT *sndcard, snd_ctl_elem_id_t *elemId, long *value) {
     int error;
     snd_ctl_elem_value_t *elemData;
     snd_ctl_elem_info_t *elemInfo;
 
     snd_ctl_elem_info_alloca(&elemInfo);
     snd_ctl_elem_info_set_id(elemInfo, elemId);
-    if (snd_ctl_elem_info(ctlDev, elemInfo) < 0) goto OnErrorExit;
+    if (snd_ctl_elem_info(sndcard->ctl, elemInfo) < 0) goto OnErrorExit;
     if (!snd_ctl_elem_info_is_readable(elemInfo)) goto OnErrorExit;
 
     // as we have static rate/channel we should have only one boolean as value
 
     snd_ctl_elem_value_alloca(&elemData);
     snd_ctl_elem_value_set_id(elemData, elemId);
-    error = snd_ctl_elem_read(ctlDev, elemData);
+    error = snd_ctl_elem_read(sndcard->ctl, elemData);
     if (error) {
         elemData = NULL;
         goto OnErrorExit;
     }
-
-    // warning multi channel are always view as grouped
-    //int count = snd_ctl_elem_info_get_count(elemInfo);
-    //if (count != 1) goto OnErrorExit;
 
     // value=1 when active and 0 when not active
     *value = (int) snd_ctl_elem_value_get_integer(elemData, 0);
@@ -248,11 +223,11 @@ PUBLIC int CtlElemIdGetLong(AFB_ApiT api, snd_ctl_t *ctlDev, snd_ctl_elem_id_t *
     return 0;
 
 OnErrorExit:
-    CtlElemIdDisplay(api, elemInfo, elemData);
+    CtlElemIdDisplay(mixer, elemInfo, elemData);
     return -1;
 }
 
-PUBLIC int CtlElemIdSetLong(AFB_ApiT api, snd_ctl_t *ctlDev, snd_ctl_elem_id_t *elemId, long value) {
+PUBLIC int CtlElemIdSetLong(SoftMixerT *mixer, AlsaSndCtlT *sndcard, snd_ctl_elem_id_t *elemId, long value) {
     snd_ctl_elem_value_t *elemData;
     snd_ctl_elem_info_t *elemInfo;
     const char* name;
@@ -260,7 +235,7 @@ PUBLIC int CtlElemIdSetLong(AFB_ApiT api, snd_ctl_t *ctlDev, snd_ctl_elem_id_t *
 
     snd_ctl_elem_info_alloca(&elemInfo);
     snd_ctl_elem_info_set_id(elemInfo, elemId);
-    if (snd_ctl_elem_info(ctlDev, elemInfo) < 0) goto OnErrorExit;
+    if (snd_ctl_elem_info(sndcard->ctl, elemInfo) < 0) goto OnErrorExit;
 
     if (!snd_ctl_elem_info_is_writable(elemInfo)) goto OnErrorExit;
 
@@ -269,15 +244,14 @@ PUBLIC int CtlElemIdSetLong(AFB_ApiT api, snd_ctl_t *ctlDev, snd_ctl_elem_id_t *
 
     snd_ctl_elem_value_alloca(&elemData);
     snd_ctl_elem_value_set_id(elemData, elemId);
-    error = snd_ctl_elem_read(ctlDev, elemData);
+    error = snd_ctl_elem_read(sndcard->ctl, elemData);
     if (error) goto OnErrorExit;
-
 
     for (int index = 0; index < count; index++) {
         snd_ctl_elem_value_set_integer(elemData, index, value);
     }
 
-    error = snd_ctl_elem_write(ctlDev, elemData);
+    error = snd_ctl_elem_write(sndcard->ctl, elemData);
     if (error) goto OnErrorExit;
 
     return 0;
@@ -285,45 +259,43 @@ PUBLIC int CtlElemIdSetLong(AFB_ApiT api, snd_ctl_t *ctlDev, snd_ctl_elem_id_t *
 OnErrorExit:
     numid = snd_ctl_elem_info_get_numid(elemInfo);
     name = snd_ctl_elem_info_get_name(elemInfo);
-    AFB_ApiError(api, "CtlElemIdSetInt: numid=%d name=%s not writable", numid, name);
+    AFB_ApiError(mixer->api, "CtlElemIdSetInt: numid=%d name=%s not writable", numid, name);
     return -1;
 }
 
 // Clone of AlsaLib snd_card_load2 static function
 
-PUBLIC snd_ctl_card_info_t *AlsaCtlGetInfo(CtlSourceT *source, const char *cardid) {
+PUBLIC snd_ctl_card_info_t *AlsaCtlGetInfo(SoftMixerT *mixer, const char *cardid) {
     int error;
-    snd_ctl_t *ctlDev;
+    snd_ctl_t *ctl;
 
-    if (cardid) goto OnErrorExit;
-
-    if ((error = snd_ctl_open(&ctlDev, cardid, SND_CTL_READONLY)) < 0) {
+    if ((error = snd_ctl_open(&ctl, cardid, SND_CTL_READONLY)) < 0) {
         cardid = "Not Defined";
         goto OnErrorExit;
     }
 
     snd_ctl_card_info_t *cardInfo = malloc(snd_ctl_card_info_sizeof());
-    if ((error = snd_ctl_card_info(ctlDev, cardInfo)) < 0) {
+    if ((error = snd_ctl_card_info(ctl, cardInfo)) < 0) {
         goto OnErrorExit;
     }
     return cardInfo;
 
 OnErrorExit:
-    AFB_ApiError(source->api, "AlsaCtlGetInfo: fail to find sndcard by id= %s", cardid);
+    AFB_ApiError(mixer->api, "AlsaCtlGetInfo: fail to find sndcard by id= %s", cardid);
     return NULL;
 }
 
-PUBLIC int AlsaCtlNumidSetLong(CtlSourceT *source, snd_ctl_t* ctlDev, int numid, long value) {
+PUBLIC int AlsaCtlNumidSetLong(SoftMixerT *mixer, AlsaSndCtlT *sndcard, int numid, long value) {
 
-    snd_ctl_elem_id_t *elemId = AlsaCtlGetNumidElemId(source, ctlDev, numid);
+    snd_ctl_elem_id_t *elemId = AlsaCtlGetNumidElemId(mixer, sndcard, numid);
     if (!elemId) {
-        AFB_ApiError(source->api, "AlsaCtlNumidSetLong [sndcard=%s] fail to find numid=%d", snd_ctl_name(ctlDev), numid);
+        AFB_ApiError(mixer->api, "AlsaCtlNumidSetLong cardid=%s cardname=%s fail to find numid=%d", sndcard->cid.cardid, sndcard->cid.longname, numid);
         goto OnErrorExit;
     }
 
-    int error = CtlElemIdSetLong(source->api, ctlDev, elemId, value);
+    int error = CtlElemIdSetLong(mixer, sndcard, elemId, value);
     if (error) {
-        AFB_ApiError(source->api, "AlsaCtlNumidSetLong [sndcard=%s] fail to set numid=%d value=%ld", snd_ctl_name(ctlDev), numid, value);
+        AFB_ApiError(mixer->api, "AlsaCtlNumidSetLong cardid=%s cardname=%s fail to set numid=%d value=%ld", sndcard->cid.cardid, sndcard->cid.longname, numid, value);
         goto OnErrorExit;
     }
 
@@ -332,17 +304,17 @@ OnErrorExit:
     return -1;
 }
 
-PUBLIC int AlsaCtlNumidGetLong(CtlSourceT *source, snd_ctl_t* ctlDev, int numid, long* value) {
+PUBLIC int AlsaCtlNumidGetLong(SoftMixerT *mixer, AlsaSndCtlT *sndcard, int numid, long* value) {
 
-    snd_ctl_elem_id_t *elemId = AlsaCtlGetNumidElemId(source, ctlDev, numid);
+    snd_ctl_elem_id_t *elemId = AlsaCtlGetNumidElemId(mixer, sndcard, numid);
     if (!elemId) {
-        AFB_ApiError(source->api, "AlsaCtlNumidGetLong [sndcard=%s] fail to find numid=%d", snd_ctl_name(ctlDev), numid);
+        AFB_ApiError(mixer->api, "AlsaCtlNumidGetLong cardid=%s cardname=%s fail to find numid=%d", sndcard->cid.cardid, sndcard->cid.longname, numid);
         goto OnErrorExit;
     }
 
-    int error = CtlElemIdGetLong(source->api, ctlDev, elemId, value);
+    int error = CtlElemIdGetLong(mixer, sndcard, elemId, value);
     if (error) {
-        AFB_ApiError(source->api, "AlsaCtlNumidGetLong [sndcard=%s] fail to get numid=%d value", snd_ctl_name(ctlDev), numid);
+        AFB_ApiError(mixer->api, "AlsaCtlNumidGetLong cardid=%s cardname=%s fail to get numid=%d value", sndcard->cid.cardid, sndcard->cid.longname, numid);
         goto OnErrorExit;
     }
 
@@ -351,17 +323,17 @@ OnErrorExit:
     return -1;
 }
 
-PUBLIC int AlsaCtlNameSetLong(CtlSourceT *source, snd_ctl_t* ctlDev, const char *ctlName, long value) {
+PUBLIC int AlsaCtlNameSetLong(SoftMixerT *mixer, AlsaSndCtlT *sndcard, const char *ctlName, long value) {
 
-    snd_ctl_elem_id_t *elemId = AlsaCtlGetNameElemId(source, ctlDev, ctlName);
+    snd_ctl_elem_id_t *elemId = AlsaCtlGetNameElemId(mixer, sndcard, ctlName);
     if (!elemId) {
-        AFB_ApiError(source->api, "AlsaCtlNameSetLong [sndcard=%s] fail to find crlName=%s", snd_ctl_name(ctlDev), ctlName);
+        AFB_ApiError(mixer->api, "AlsaCtlNameSetLong cardid=%s cardname=%s fail to find crlName=%s", sndcard->cid.cardid, sndcard->cid.longname, ctlName);
         goto OnErrorExit;
     }
 
-    int error = CtlElemIdSetLong(source->api, ctlDev, elemId, value);
+    int error = CtlElemIdSetLong(mixer, sndcard, elemId, value);
     if (error) {
-        AFB_ApiError(source->api, "AlsaCtlNameSetLong [sndcard=%s] fail to set crlName=%s value=%ld", snd_ctl_name(ctlDev), ctlName, value);
+        AFB_ApiError(mixer->api, "AlsaCtlNameSetLong cardid=%s cardname=%s fail to set crlName=%s value=%ld", sndcard->cid.cardid, sndcard->cid.longname, ctlName, value);
         goto OnErrorExit;
     }
 
@@ -370,18 +342,17 @@ OnErrorExit:
     return -1;
 }
 
+PUBLIC int AlsaCtlNameGetLong(SoftMixerT *mixer, AlsaSndCtlT *sndcard, const char *ctlName, long* value) {
 
-PUBLIC int AlsaCtlNameGetLong(CtlSourceT *source, snd_ctl_t* ctlDev, const char *ctlName, long* value) {
-
-    snd_ctl_elem_id_t *elemId = AlsaCtlGetNameElemId(source, ctlDev, ctlName);
+    snd_ctl_elem_id_t *elemId = AlsaCtlGetNameElemId(mixer, sndcard, ctlName);
     if (!elemId) {
-        AFB_ApiError(source->api, "AlsaCtlNameGetLong [sndcard=%s] fail to find crlName=%s", snd_ctl_name(ctlDev), ctlName);
+        AFB_ApiError(mixer->api, "AlsaCtlNameGetLong cardid=%s cardname=%s fail to find crlName=%s", sndcard->cid.cardid, sndcard->cid.longname, ctlName);
         goto OnErrorExit;
     }
 
-    int error = CtlElemIdGetLong(source->api, ctlDev, elemId, value);
+    int error = CtlElemIdGetLong(mixer, sndcard, elemId, value);
     if (error) {
-        AFB_ApiError(source->api, "AlsaCtlNameGetLong [sndcard=%s] fail to get crlName=%s value", snd_ctl_name(ctlDev), ctlName);
+        AFB_ApiError(mixer->api, "AlsaCtlNameGetLong cardid=%s cardname=%s fail to get crlName=%s value", sndcard->cid.cardid, sndcard->cid.longname, ctlName);
         goto OnErrorExit;
     }
 
@@ -390,7 +361,7 @@ OnErrorExit:
     return -1;
 }
 
-STATIC int AlsaCtlMakeControl(CtlSourceT *source, snd_ctl_t* ctlDev, AlsaPcmInfoT *subdev, const char *ctlName, int ctlCount, int ctlMin, int ctlMax, int ctlStep) {
+STATIC int AlsaCtlMakeControl(SoftMixerT *mixer, AlsaSndCtlT *sndcard, const char *ctlName, int ctlCount, int ctlMin, int ctlMax, int ctlStep) {
     snd_ctl_elem_type_t ctlType;
     snd_ctl_elem_info_t *elemInfo;
     int error;
@@ -398,11 +369,11 @@ STATIC int AlsaCtlMakeControl(CtlSourceT *source, snd_ctl_t* ctlDev, AlsaPcmInfo
     snd_ctl_elem_info_alloca(&elemInfo);
     if (ctlName) snd_ctl_elem_info_set_name(elemInfo, ctlName);
     snd_ctl_elem_info_set_interface(elemInfo, SND_CTL_ELEM_IFACE_MIXER);
-    snd_ctl_elem_info(ctlDev, elemInfo);
-    
+    snd_ctl_elem_info(sndcard->ctl, elemInfo);
+
     // map volume to sndcard device+subdev=0
-    snd_ctl_elem_info_set_device(elemInfo, subdev->device);
-    snd_ctl_elem_info_set_subdevice(elemInfo, subdev->subdev);
+    snd_ctl_elem_info_set_device(elemInfo, sndcard->cid.device);
+    snd_ctl_elem_info_set_subdevice(elemInfo, sndcard->cid.subdev);
     snd_ctl_elem_info_set_device(elemInfo, 0);
     snd_ctl_elem_info_set_subdevice(elemInfo, 0);
 
@@ -412,17 +383,17 @@ STATIC int AlsaCtlMakeControl(CtlSourceT *source, snd_ctl_t* ctlDev, AlsaPcmInfo
 
     switch (ctlType) {
         case SND_CTL_ELEM_TYPE_BOOLEAN:
-            error = snd_ctl_add_boolean_elem_set(ctlDev, elemInfo, 1, ctlCount);
+            error = snd_ctl_add_boolean_elem_set(sndcard->ctl, elemInfo, 1, ctlCount);
             if (error) goto OnErrorExit;
             break;
 
         case SND_CTL_ELEM_TYPE_INTEGER:
-            error = snd_ctl_add_integer_elem_set(ctlDev, elemInfo, 1, ctlCount, ctlMin, ctlMax, ctlStep);
+            error = snd_ctl_add_integer_elem_set(sndcard->ctl, elemInfo, 1, ctlCount, ctlMin, ctlMax, ctlStep);
             if (error) goto OnErrorExit;
             break;
 
         default:
-            AFB_ApiError(source->api, "AlsaCtlMakeControl:%s(subdev) fail to create %s(control)", subdev->uid, ctlName);
+            AFB_ApiError(mixer->api, "AlsaCtlMakeControl: mixer=%s cardid=%s cardname=%s fail to create %s(control)", mixer->uid, sndcard->cid.cardid, sndcard->cid.longname, ctlName);
             goto OnErrorExit;
     }
 
@@ -434,46 +405,48 @@ OnErrorExit:
     return -1;
 }
 
-PUBLIC int AlsaCtlCreateControl(CtlSourceT *source, snd_ctl_t* ctlDev, AlsaPcmInfoT *subdevs, char* ctlName, int ctlCount, int ctlMin, int ctlMax, int ctlStep, long value) {
+PUBLIC int AlsaCtlCreateControl(SoftMixerT *mixer, AlsaSndCtlT *sndcard, char* ctlName, int ctlCount, int ctlMin, int ctlMax, int ctlStep, long value) {
     int numid = -1;
 
     // if control does not exist then create
-    snd_ctl_elem_id_t *elemId = AlsaCtlGetNameElemId(source, ctlDev, ctlName);
+    snd_ctl_elem_id_t *elemId = AlsaCtlGetNameElemId(mixer, sndcard, ctlName);
     if (elemId) {
         numid = snd_ctl_elem_id_get_numid(elemId);
     } else {
         // create or get numid control when already exist
-        numid = AlsaCtlMakeControl(source, ctlDev, subdevs, ctlName, ctlCount, ctlMin, ctlMax, ctlStep);
+        numid = AlsaCtlMakeControl(mixer, sndcard, ctlName, ctlCount, ctlMin, ctlMax, ctlStep);
         if (numid <= 0) {
-            AFB_ApiError(source->api, "AlsaCtlCreateControl [sndcard=%s] fail to create ctlName=%s", snd_ctl_name(ctlDev), ctlName);
+            AFB_ApiError(mixer->api, "AlsaCtlCreateControl cardid=%s cardname=%s fail to create ctlName=%s", sndcard->cid.cardid, sndcard->cid.longname, ctlName);
             goto OnErrorExit;
         }
 
-        elemId = AlsaCtlGetNumidElemId(source, ctlDev, numid);
+        elemId = AlsaCtlGetNumidElemId(mixer, sndcard, numid);
     }
 
-    int error = CtlElemIdSetLong(source->api, ctlDev, elemId, value);
+    int error = CtlElemIdSetLong(mixer, sndcard, elemId, value);
     if (error) {
-        AFB_ApiError(source->api, "AlsaCtlCreateControl [sndcard=%s] fail to set ctlName=%s Numid=%d", snd_ctl_name(ctlDev), ctlName, numid); 
+        AFB_ApiError(mixer->api, "AlsaCtlCreateControl cardid=%s cardname=%s fail to set ctlName=%s Numid=%d", sndcard->cid.cardid, sndcard->cid.longname, ctlName, numid);
         goto OnErrorExit;
     }
 
-    AFB_ApiNotice(source->api, "AlsaCtlCreateControl [sndcard=%s] ctl create name=%s numid=%d value=%ld", snd_ctl_name(ctlDev), ctlName, numid, value);
+    AFB_ApiNotice(mixer->api, "AlsaCtlCreateControl cardid=%s cardname=%s ctl create name=%s numid=%d value=%ld", sndcard->cid.cardid, sndcard->cid.longname, ctlName, numid, value);
     return numid;
 OnErrorExit:
     return -1;
 }
 
 STATIC int CtlSubscribeEventCB(sd_event_source* src, int fd, uint32_t revents, void* userData) {
-    int error, numid;
-    SubscribeHandleT *subscribeHandle = (SubscribeHandleT*) userData;
+    int error;
+    SubscribeHandleT *sHandle = (SubscribeHandleT*) userData;
+    AlsaSndCtlT *sndcard = sHandle->sndcard;
+    SoftMixerT *mixer = sHandle->mixer;
     snd_ctl_event_t *eventId;
     snd_ctl_elem_id_t *elemId;
     long value;
-    int idx;
+    int index;
 
     if ((revents & EPOLLHUP) != 0) {
-        AFB_ApiNotice(subscribeHandle->api, "CtlSubscribeEventCB hanghup [card:%s disconnected]", subscribeHandle->info);
+        AFB_ApiNotice(mixer->api, "CtlSubscribeEventCB hanghup [card:%s disconnected]", sHandle->uid);
         goto OnSuccessExit;
     }
 
@@ -483,7 +456,7 @@ STATIC int CtlSubscribeEventCB(sd_event_source* src, int fd, uint32_t revents, v
     snd_ctl_event_alloca(&eventId);
     snd_ctl_elem_id_alloca(&elemId);
 
-    error = snd_ctl_read(subscribeHandle->ctlDev, eventId);
+    error = snd_ctl_read(sndcard->ctl, eventId);
     if (error < 0) goto OnErrorExit;
 
     // we only process sndctrl element
@@ -495,73 +468,52 @@ STATIC int CtlSubscribeEventCB(sd_event_source* src, int fd, uint32_t revents, v
 
     // extract element from event and get value    
     snd_ctl_event_elem_get_id(eventId, elemId);
-    error = CtlElemIdGetLong(subscribeHandle->api, subscribeHandle->ctlDev, elemId, &value);
+    error = CtlElemIdGetLong(mixer, sHandle->sndcard, elemId, &value);
     if (error) goto OnErrorExit;
+    
+    // get numdid and name from elemId
+    snd_ctl_elem_info_t *elemInfo;
+    snd_ctl_elem_info_alloca(&elemInfo);
+    snd_ctl_elem_info_set_id(elemInfo, elemId);
+    if (snd_ctl_elem_info(sndcard->ctl, elemInfo) < 0) goto OnErrorExit;
+    int numid = snd_ctl_elem_info_get_numid(elemInfo);
+    const char *name= snd_ctl_elem_info_get_name(elemInfo);
 
-    error = CtlElemIdGetNumid(subscribeHandle->api, subscribeHandle->ctlDev, elemId, &numid);
-    if (error) goto OnErrorExit;
+    for (index = 0; sndcard->registry[index]; index++) {
+        if (sndcard->registry[index]->numid == numid) {
 
-    for (idx = 0; idx < subscribeHandle->registry->count; idx++) {
-        if (subscribeHandle->registry->stream[idx].numid == numid) {
-            const char *pcmName = subscribeHandle->registry->stream[idx].pcm->cardid;
-            
-            switch (subscribeHandle->registry->stream[idx].type) {
-                case FONTEND_NUMID_RUN:    
-                    snd_pcm_pause(subscribeHandle->registry->stream[idx].pcm->handle, (int)(!value));
-                    AFB_ApiNotice(subscribeHandle->api, "CtlSubscribeEventCB:%s/%d pcm=%s numid=%d active=%ld", subscribeHandle->info, subscribeHandle->tid, pcmName, numid, value);
+            switch (sndcard->registry[index]->type) {
+                case FONTEND_NUMID_RUN:
+                    (void) snd_pcm_pause(sndcard->registry[index]->pcm->handle, (int) (!value));
+                    AFB_ApiNotice(mixer->api, "CtlSubscribeEventCB:%s numid=%d name=%s active=%ld", sHandle->uid, numid, name, value);
                     break;
-                case  FONTEND_NUMID_PAUSE:
-                    AFB_ApiNotice(subscribeHandle->api, "CtlSubscribeEventCB:%s/%d pcm=%s numid=%d pause=%ld", subscribeHandle->info, subscribeHandle->tid, pcmName, numid, value);
-                    snd_pcm_pause(subscribeHandle->registry->stream[idx].pcm->handle, (int)value);
+                case FONTEND_NUMID_PAUSE:
+                    AFB_ApiNotice(mixer->api, "CtlSubscribeEventCB:%s numid=%d name=%s pause=%ld", sHandle->uid, numid, name, value);
+                    (void) snd_pcm_pause(sndcard->registry[index]->pcm->handle, (int) value);
                     break;
                 case FONTEND_NUMID_IGNORE:
-                default:    
-                    AFB_ApiInfo(subscribeHandle->api, "CtlSubscribeEventCB:%s/%d pcm=%s numid=%d ignored=%ld", subscribeHandle->info, subscribeHandle->tid, pcmName, numid, value);
+                default:
+                    AFB_ApiInfo(mixer->api, "CtlSubscribeEventCB:%s numid=%d name=%s ignored=%ld", sHandle->uid, numid, name, value);
             }
             break;
         }
     }
-    if (idx == subscribeHandle->registry->count) {
-        char cardName[32];
-        ALSA_CTL_UID(subscribeHandle->ctlDev, cardName);
-        AFB_ApiNotice(subscribeHandle->api, "CtlSubscribeEventCB:%s/%d card=%s numid=%d (unknown)", subscribeHandle->info, subscribeHandle->tid, cardName, numid);
+    if (index == sndcard->rcount) {
+        AFB_ApiNotice(mixer->api, "CtlSubscribeEventCB:%s numid=%d (unknown)", sHandle->uid, numid);
     }
 
 OnSuccessExit:
     return 0;
 
 OnErrorExit:
-    AFB_ApiInfo(subscribeHandle->api, "CtlSubscribeEventCB: ignored unsupported event");
+    AFB_ApiInfo(mixer->api, "CtlSubscribeEventCB: ignored unsupported event");
     return 0;
 }
 
-static void *LoopInThread(void *handle) {
-    SubscribeHandleT *subscribeHandle = (SubscribeHandleT*) handle;
-    int count = 0;
-    int watchdog = MAINLOOP_WATCHDOG * 1000;
-    subscribeHandle->tid = (int) syscall(SYS_gettid);
-
-    AFB_ApiNotice(subscribeHandle->api, "LoopInThread:%s/%d Started", subscribeHandle->info, subscribeHandle->tid);
-
-    /* loop until end */
-    for (;;) {
-        int res = sd_event_run(subscribeHandle->sdLoop, watchdog);
-        if (res == 0) {
-            AFB_ApiInfo(subscribeHandle->api, "LoopInThread:%s/%d Idle count=%d", subscribeHandle->info, subscribeHandle->tid, count++);
-            continue;
-        }
-        if (res < 0) {
-            AFB_ApiError(subscribeHandle->api, "LoopInThread:%s/%d ERROR=%i Exit errno=%s", subscribeHandle->info, subscribeHandle->tid, res, strerror(res));
-            break;
-        }
-    }
-    pthread_exit(0);
-}
-
-PUBLIC snd_ctl_t* AlsaCrlFromPcm(CtlSourceT *source, snd_pcm_t *pcm) {
+PUBLIC snd_ctl_t* AlsaCrlFromPcm(SoftMixerT *mixer, snd_pcm_t *pcm) {
     char buffer[32];
     int error;
-    snd_ctl_t *ctlDev;
+    snd_ctl_t *ctl;
     snd_pcm_info_t *pcmInfo;
 
     snd_pcm_info_alloca(&pcmInfo);
@@ -569,53 +521,40 @@ PUBLIC snd_ctl_t* AlsaCrlFromPcm(CtlSourceT *source, snd_pcm_t *pcm) {
 
     int pcmCard = snd_pcm_info_get_card(pcmInfo);
     snprintf(buffer, sizeof (buffer), "hw:%i", pcmCard);
-    if ((error = snd_ctl_open(&ctlDev, buffer, SND_CTL_READONLY)) < 0) goto OnErrorExit;
+    if ((error = snd_ctl_open(&ctl, buffer, SND_CTL_READONLY)) < 0) goto OnErrorExit;
 
-    return ctlDev;
+    return ctl;
 
 OnErrorExit:
     return NULL;
 }
 
-PUBLIC int AlsaCtlSubscribe(CtlSourceT *source, snd_ctl_t * ctlDev,  RegistryHandleT *registry) {
+PUBLIC int AlsaCtlSubscribe(SoftMixerT *mixer, const char *uid, AlsaSndCtlT *sndcard) {
     int error;
     char string [32];
     struct pollfd pfds;
-    SubscribeHandleT *subscribeHandle = malloc(sizeof (SubscribeHandleT));
+    SubscribeHandleT *handle = malloc(sizeof (SubscribeHandleT));
 
-    subscribeHandle->api = source->api;
-    subscribeHandle->ctlDev = ctlDev;
-    subscribeHandle->info = "ctlEvt";
-    subscribeHandle->registry= registry;
+    handle->mixer = mixer;
+    handle->sndcard = sndcard;
+    handle->uid = uid;
 
     // subscribe for sndctl events attached to cardid
-    if ((error = snd_ctl_subscribe_events(ctlDev, 1)) < 0) {
-        AFB_ApiError(source->api, "AlsaCtlSubscribe: fail sndcard=%s to subscribe events", ALSA_CTL_UID(ctlDev, string));
+    if ((error = snd_ctl_subscribe_events(handle->sndcard->ctl, 1)) < 0) {
+        AFB_ApiError(mixer->api, "AlsaCtlSubscribe: fail sndcard=%s to subscribe events", ALSA_CTL_UID(handle->sndcard->ctl, string));
         goto OnErrorExit;
     }
 
     // get pollfd attach to this sound board
-    int count = snd_ctl_poll_descriptors(ctlDev, &pfds, 1);
+    int count = snd_ctl_poll_descriptors(handle->sndcard->ctl, &pfds, 1);
     if (count != 1) {
-        AFB_ApiError(source->api, "AlsaCtlSubscribe: fail sndcard=%s get poll descriptors", ALSA_CTL_UID(ctlDev, string));
-        goto OnErrorExit;
-    }
-
-    // add poll descriptor to AGL systemd mainloop 
-    if ((error = sd_event_new(&subscribeHandle->sdLoop)) < 0) {
-        fprintf(stderr, "AlsaCtlSubscribe: fail  sndcard=%s creating a new loop", ALSA_CTL_UID(ctlDev, string));
+        AFB_ApiError(mixer->api, "AlsaCtlSubscribe: fail sndcard=%s get poll descriptors", ALSA_CTL_UID(handle->sndcard->ctl, string));
         goto OnErrorExit;
     }
 
     // Registry sound event to binder main loop
-    if ((error = sd_event_add_io(subscribeHandle->sdLoop, &subscribeHandle->evtsrc, pfds.fd, EPOLLIN, CtlSubscribeEventCB, subscribeHandle)) < 0) {
-        AFB_ApiError(source->api, "AlsaCtlSubscribe: Fail sndcard=%s adding mainloop", ALSA_CTL_UID(ctlDev, string));
-        goto OnErrorExit;
-    }
-
-    // start a thread with a mainloop to monitor Audio-Agent
-    if ((error = pthread_create(&subscribeHandle->thread, NULL, &LoopInThread, subscribeHandle)) < 0) {
-        AFB_ApiError(source->api, "AlsaCtlSubscribe: Fail  sndcard=%s create waiting thread err=%d", ALSA_CTL_UID(ctlDev, string), error);
+    if ((error = sd_event_add_io(mixer->sdLoop, &handle->evtsrc, pfds.fd, EPOLLIN, CtlSubscribeEventCB, handle)) < 0) {
+        AFB_ApiError(mixer->api, "AlsaCtlSubscribe: Fail sndcard=%s adding mainloop", ALSA_CTL_UID(handle->sndcard->ctl, string));
         goto OnErrorExit;
     }
 
@@ -625,32 +564,29 @@ OnErrorExit:
     return -1;
 }
 
-PUBLIC int AlsaCtlRegister(CtlSourceT *source, SoftMixerHandleT *mixer, AlsaPcmInfoT *pcm, RegistryNumidT type, int numid) {
+PUBLIC int AlsaCtlRegister(SoftMixerT *mixer, AlsaSndCtlT *sndcard, AlsaPcmCtlT *pcmdev, RegistryNumidT type, int numid) {
+    int index;
 
-    RegistryHandleT *registry= mixer->frontend->registry;
+    for (index = 0; index < sndcard->rcount; index++) {
+        if (!sndcard->registry[index]) break;
+    }
 
-    int count = registry->count;
-    if (count > MAX_AUDIO_STREAMS) {
-        AFB_ApiError(source->api, "AlsaCtlRegister [pcm=%s] to many audio stream max=%d", pcm->cardid, MAX_AUDIO_STREAMS);
+    if (index == sndcard->rcount) {
+        AFB_ApiError(mixer->api, "AlsaCtlRegister cardid=%s cardname=%s to many audio stream max=%ld", sndcard->cid.cardid, sndcard->cid.longname, sndcard->rcount);
         goto OnErrorExit;
     }
 
-    // If 1st registration then open a dev control channel to recieve events
-    if (!registry->ctlDev) {
-        snd_ctl_t* ctlDev = AlsaCrlFromPcm(source, pcm->handle);
-        if (!ctlDev) {
-            AFB_ApiError(source->api, "AlsaCtlRegister [pcm=%s] fail attache sndcard", pcm->cardid);
-            goto OnErrorExit;
-        }
-
-        AlsaCtlSubscribe(source, ctlDev, registry);
+    // If 1st registration then register to card event
+    if (index == 0) {
+        AlsaCtlSubscribe(mixer, sndcard->cid.cardid, sndcard);
     }
 
     // store PCM in order to pause/resume depending on event
-    registry->stream[count].pcm = pcm;
-    registry->stream[count].numid = numid;
-    registry->stream[count].type = type;
-    registry->count++;
+    RegistryEntryPcmT *entry = calloc(1, sizeof (RegistryEntryPcmT));
+    sndcard->registry[index] = entry;
+    entry->pcm = pcmdev;
+    entry->numid = numid;
+    entry->type = type;
 
     return 0;
 

@@ -57,7 +57,7 @@ Alsa snd-aloop impose '0' as playback device. Soft mixer will start from last su
 
 Current version does not handle audio rate conversion, using gstreamer or equivalent to match with audio hardware params is mandatory.
 ```
-    gst123 --audio-output alsa=hw:XXX,0,7 $PROJECT_ROOT/conf.d/project/sounds/trio-divi-alkazabach.wav
+    gst123 --audio-output alsa=hw:Loopback,0,0 $PROJECT_ROOT/conf.d/project/sounds/trio-divi-alkazabach.mp3
 
     gst123 --audio-output alsa=hw:XXX,0,??? other sound file
 
@@ -74,3 +74,10 @@ In case of doubt check with folling command that you start from a clear green fi
 ```
 rmmod snd-aloop && modprobe --first-time  snd-aloop && amixer -D hw:Loopback controls | grep vol
 ```
+
+
+Work in Progress 
+
+  mise en place control pour master sur la carte playback/source
+  integration du cas d'un stream avec source non loop
+  test du rate converter

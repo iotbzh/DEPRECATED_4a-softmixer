@@ -24,118 +24,152 @@ for the specific language governing permissions and
 
 #define _GNU_SOURCE  // needed for vasprintf
 
-#include "alsa-softmixer.h"
 #include <pthread.h>
 #include <sys/syscall.h>
 
+#include "alsa-softmixer.h"
+
 typedef struct {
     const char *uid;
-    long current; 
-    long target; 
+    long current;
+    long target;
     int numid;
-    snd_ctl_t *ctlDev;
-    AlsaVolRampT *params;
-    sd_event_source *evtsrc; 
-    CtlSourceT *source;
+    AlsaSndCtlT *sndcard;
+    AlsaVolRampT *ramp;
+    sd_event_source *evtsrc;
+    SoftMixerT *mixer;
     sd_event *sdLoop;
 } VolRampHandleT;
 
 STATIC int VolRampTimerCB(sd_event_source* source, uint64_t timer, void* handle) {
-    VolRampHandleT *rampHandle = (VolRampHandleT*) handle;
+    VolRampHandleT *rHandle = (VolRampHandleT*)handle;
     int error;
     uint64_t usec;
 
     // RampDown
-    if (rampHandle->current > rampHandle->target) {
-        rampHandle->current = rampHandle->current - rampHandle->params->stepDown;
-        if (rampHandle->current < rampHandle->target) rampHandle->current = rampHandle->target;
+    if (rHandle->current > rHandle->target) {
+        rHandle->current = rHandle->current - rHandle->ramp->stepDown;
+        if (rHandle->current < rHandle->target) rHandle->current = rHandle->target;
     }
 
     // RampUp
-    if (rampHandle->current < rampHandle->target) {
-        rampHandle->current = rampHandle->current + rampHandle->params->stepUp;
-        if (rampHandle->current > rampHandle->target) rampHandle->current = rampHandle->target;
+    if (rHandle->current < rHandle->target) {
+        rHandle->current = rHandle->current + rHandle->ramp->stepUp;
+        if (rHandle->current > rHandle->target) rHandle->current = rHandle->target;
     }
-    
-    error = AlsaCtlNumidSetLong(rampHandle->source, rampHandle->ctlDev, rampHandle->numid, rampHandle->current);
+
+    error = AlsaCtlNumidSetLong(rHandle->mixer, rHandle->sndcard, rHandle->numid, rHandle->current);
     if (error) goto OnErrorExit;
 
     // we reach target stop volram event
-    if (rampHandle->current == rampHandle->target) {
-        sd_event_source_unref(rampHandle->evtsrc);
-        snd_ctl_close (rampHandle->ctlDev);
-        free (rampHandle);
-    }
-    else {
+    if (rHandle->current == rHandle->target) {
+        sd_event_source_unref(rHandle->evtsrc);
+        free(rHandle);
+    } else {
         // otherwise validate timer for a new run
-        sd_event_now(rampHandle->sdLoop, CLOCK_MONOTONIC, &usec);
-        sd_event_source_set_enabled(rampHandle->evtsrc, SD_EVENT_ONESHOT);
-        error = sd_event_source_set_time(rampHandle->evtsrc, usec + rampHandle->params->delay);
+        sd_event_now(rHandle->sdLoop, CLOCK_MONOTONIC, &usec);
+        sd_event_source_set_enabled(rHandle->evtsrc, SD_EVENT_ONESHOT);
+        error = sd_event_source_set_time(rHandle->evtsrc, usec + rHandle->ramp->delay);
     }
 
     return 0;
 
 OnErrorExit:
-    AFB_ApiWarning(rampHandle->source->api, "VolRampTimerCB stream=%s numid=%d value=%ld", rampHandle->uid, rampHandle->numid, rampHandle->current);
+    AFB_ApiWarning(rHandle->mixer->api, "VolRampTimerCB stream=%s numid=%d value=%ld", rHandle->uid, rHandle->numid, rHandle->current);
     sd_event_source_unref(source); // abandon volRamp
     return -1;
 }
 
-PUBLIC int AlsaVolRampApply(CtlSourceT *source, AlsaSndLoopT *frontend, AlsaLoopStreamT *stream, AlsaVolRampT *ramp, json_object *volumeJ) {
+PUBLIC int AlsaVolRampApply(SoftMixerT *mixer, AlsaSndCtlT *sndcard, AlsaStreamAudioT *stream, json_object *rampJ) {
     long curvol, newvol;
-    const char*volString;
-    int error;
+    const char *uid, *volS;
+    json_object *volJ;
+    int error, index;
     uint64_t usec;
-    
-    snd_ctl_t *ctlDev =AlsaCtlOpenCtl(source, frontend->cardid);
-    if (!ctlDev) goto OnErrorExit;
-            
-    error = AlsaCtlNumidGetLong(source, ctlDev, stream->volume, &curvol);
+
+    error = wrap_json_unpack(rampJ, "{ss so !}"
+            , "uid", &uid
+            , "vol", &volJ
+            );
     if (error) {
-        AFB_ApiError(source->api,"AlsaVolRampApply:%s(stream) Fail to get volume numid=%d", stream->uid, stream->volume);
+        AFB_ApiError(mixer->api, "AlsaVolRampApply:mixer=%s stream=%s invalid-json should {uid:ramp, vol:[+,-,=]value} ramp=%s", mixer->uid, stream->uid, json_object_get_string(rampJ));
         goto OnErrorExit;
     }
 
-    switch (json_object_get_type(volumeJ)) {
+    switch (json_object_get_type(volJ)) {
+        int count;
+        
         case json_type_string:
-            volString = json_object_get_string(volumeJ);
-            switch (volString[0]) {
+            volS = json_object_get_string(volJ);
+
+            switch (volS[0]) {
                 case '+':
-                    sscanf(&volString[1], "%ld", &newvol);
+                    count= sscanf(&volS[1], "%ld", &newvol);
                     newvol = curvol + newvol;
                     break;
 
                 case '-':
-                    sscanf(&volString[1], "%ld", &newvol);
+                    count= sscanf(&volS[1], "%ld", &newvol);
                     newvol = curvol - newvol;
                     break;
+
+                case '=':
+                    count= sscanf(&volS[1], "%ld", &newvol);
+                    break;
+
                 default:
-                    AFB_ApiError(source->api,"AlsaVolRampApply:%s(stream) relative volume should start by '+|-' value=%s", stream->uid, json_object_get_string(volumeJ));
-                    goto OnErrorExit;
+                    // hope for int as a string and force it as relative
+                    sscanf(&volS[0], "%ld", &newvol);
+                    if (newvol < 0) newvol = curvol - newvol;
+                    else newvol = curvol + newvol;
+            }
+            
+            if (count != 1) {
+                AFB_ApiError(mixer->api, "AlsaVolRampApply:mixer=%s stream=%s invalid-numeric expect {uid:%s, vol:[+,-,=]value} get vol:%s", mixer->uid, stream->uid, uid, json_object_get_string(volJ));
+                goto OnErrorExit;                
             }
             break;
         case json_type_int:
-            newvol = json_object_get_int(volumeJ);
+            newvol = json_object_get_int(volJ);
             break;
+
         default:
-            AFB_ApiError(source->api,"AlsaVolRampApply:%s(stream) volume should be string or integer value=%s", stream->uid, json_object_get_string(volumeJ));
+            AFB_ApiError(mixer->api, "AlsaVolRampApply:mixer=%s stream=%s invalid-type expect {uid:%s, vol:[+,-,=]value} get vol:%s", mixer->uid, stream->uid, uid, json_object_get_string(volJ));
             goto OnErrorExit;
 
     }
 
-    VolRampHandleT *rampHandle = calloc(1, sizeof (VolRampHandleT));
-    rampHandle->uid= stream->uid;
-    rampHandle->numid= stream->volume;
-    rampHandle->ctlDev= ctlDev;
-    rampHandle->source = source;
-    rampHandle->params = ramp;
-    rampHandle->target = newvol;
-    rampHandle->current= curvol;
-    rampHandle->sdLoop= stream->copy.sdLoop;
+    error = AlsaCtlNumidGetLong(mixer, sndcard, stream->volume, &curvol);
+    if (error) {
+        AFB_ApiError(mixer->api, "AlsaVolRampApply:mixer=%s stream=%s ramp=%s Fail to get volume from numid=%d", mixer->uid, stream->uid, uid, stream->volume);
+        goto OnErrorExit;
+    }
     
+    // search for ramp uid in mixer
+    for (index=0; index<= mixer->max.ramps; index++) {
+        if (!strcasecmp(mixer->ramps[index]->uid, uid)) {
+            break;
+        }
+    }
+    
+    if (index == mixer->max.ramps) {
+        AFB_ApiError(mixer->api, "AlsaVolRampApply:mixer=%s stream=%s ramp=%s does not exit", mixer->uid, stream->uid, uid);
+        goto OnErrorExit;        
+    }
+
+    VolRampHandleT *rHandle = calloc(1, sizeof (VolRampHandleT));
+    rHandle->uid = stream->uid;
+    rHandle->numid = stream->volume;
+    rHandle->sndcard = sndcard;
+    rHandle->mixer = mixer;
+    rHandle->ramp = mixer->ramps[index];
+    rHandle->target = newvol;
+    rHandle->current = curvol;
+    rHandle->sdLoop = mixer->sdLoop;
+
     // set a timer with ~250us accuracy
-    sd_event_now(rampHandle->sdLoop, CLOCK_MONOTONIC, &usec);
-    (void)sd_event_add_time(rampHandle->sdLoop, &rampHandle->evtsrc, CLOCK_MONOTONIC, usec+100, 250, VolRampTimerCB, rampHandle);
+    sd_event_now(rHandle->sdLoop, CLOCK_MONOTONIC, &usec);
+    (void) sd_event_add_time(rHandle->sdLoop, &rHandle->evtsrc, CLOCK_MONOTONIC, usec + 100, 250, VolRampTimerCB, rHandle);
 
     return 0;
 

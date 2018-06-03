@@ -60,27 +60,30 @@ STATIC int AlsaPeriodSize(snd_pcm_format_t pcmFormat) {
     return pcmSampleSize;
 }
 
-PUBLIC int AlsaPcmConf(CtlSourceT *source, AlsaPcmInfoT *pcm, AlsaPcmHwInfoT *opts) {
-    char string[32];
+PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, AlsaPcmHwInfoT *opts) {
     int error;
     snd_pcm_hw_params_t *pxmHwParams;
     snd_pcm_sw_params_t *pxmSwParams;
+    snd_pcm_format_t format;
+    snd_pcm_access_t access;
 
     // retrieve hadware config from PCM
     snd_pcm_hw_params_alloca(&pxmHwParams);
     snd_pcm_hw_params_any(pcm->handle, pxmHwParams);
 
     if (!opts->access) opts->access = SND_PCM_ACCESS_RW_INTERLEAVED;
+    snd_pcm_hw_params_get_access(pxmHwParams, &access);
     error = snd_pcm_hw_params_set_access(pcm->handle, pxmHwParams, opts->access);
     if (error) {
-        AFB_ApiError(source->api, "AlsaPcmConf:%s Fail PCM=%s Set_Interleave=%d mode error=%s", pcm->uid, ALSA_PCM_UID(pcm->handle, string), opts->access, snd_strerror(error));
-        goto OnErrorExit;
+        AFB_ApiError(mixer->api, "AlsaPcmConf: mixer=%s cardid=%s Set_Interleave=%d Fail current=%d mode error=%s", mixer->uid, pcm->cid.cardid, opts->access, access, snd_strerror(error));
+//Fulup        goto OnErrorExit;
     };
 
     if (opts->format != SND_PCM_FORMAT_UNKNOWN) {
+        snd_pcm_hw_params_get_format(pxmHwParams, &format);
         if ((error = snd_pcm_hw_params_set_format(pcm->handle, pxmHwParams, opts->format)) < 0) {
-            AFB_ApiError(source->api, "AlsaPcmConf:%s Fail PCM=%s Set_Format=%d error=%s", pcm->uid, ALSA_PCM_UID(pcm->handle, string), opts->format, snd_strerror(error));
-            AlsaDumpFormats(source, pcm->handle);
+            AFB_ApiError(mixer->api, "AlsaPcmConf: mixer=%s cardid=%s Set_Format=%d Fail current=%d error=%s", mixer->uid, pcm->cid.cardid, opts->format, format, snd_strerror(error));
+            AlsaDumpFormats(mixer, pcm->handle);
             goto OnErrorExit;
         }
     }
@@ -88,27 +91,27 @@ PUBLIC int AlsaPcmConf(CtlSourceT *source, AlsaPcmInfoT *pcm, AlsaPcmHwInfoT *op
     if (opts->rate > 0) {
         unsigned int pcmRate = opts->rate;
         if ((error = snd_pcm_hw_params_set_rate_near(pcm->handle, pxmHwParams, &opts->rate, 0)) < 0) {
-            AFB_ApiError(source->api, "AlsaPcmConf:%s Fail PCM=%s Set_Rate=%d error=%s", pcm->uid, ALSA_PCM_UID(pcm->handle, string), opts->rate, snd_strerror(error));
+            AFB_ApiError(mixer->api, "AlsaPcmConf: mixer=%s cardid=%s FailSet_Rate=%d error=%s", mixer->uid, pcm->cid.cardid, opts->rate, snd_strerror(error));
             goto OnErrorExit;
         }
 
         // check we got requested rate
         if (opts->rate != pcmRate) {
-            AFB_ApiError(source->api, "AlsaPcmConf:%s Fail PCM=%s Set_Rate ask=%dHz get=%dHz", pcm->uid, ALSA_PCM_UID(pcm->handle, string), pcmRate, opts->rate);
+            AFB_ApiError(mixer->api, "AlsaPcmConf: mixer=%s cardid=%s Set_Rate Fail ask=%dHz get=%dHz", mixer->uid, pcm->cid.cardid,pcmRate, opts->rate);
             goto OnErrorExit;
         }
     }
 
     if (opts->channels) {
         if ((error = snd_pcm_hw_params_set_channels(pcm->handle, pxmHwParams, opts->channels)) < 0) {
-            AFB_ApiError(source->api, "AlsaPcmConf:%s Fail PCM=%s Set_Channels=%d error=%s", pcm->uid, ALSA_PCM_UID(pcm->handle, string), opts->channels, snd_strerror(error));
+            AFB_ApiError(mixer->api, "AlsaPcmConf: mixer=%s cardid=%s Set_Channels=%d Fail error=%s",mixer->uid, pcm->cid.cardid, opts->channels, snd_strerror(error));
             goto OnErrorExit;
         };
     }
 
     // store selected values
     if ((error = snd_pcm_hw_params(pcm->handle, pxmHwParams)) < 0) {
-        AFB_ApiError(source->api, "AlsaPcmConf:%s Fail PCM=%s apply hwparams error=%s", pcm->uid, ALSA_PCM_UID(pcm->handle, string), snd_strerror(error));
+        AFB_ApiError(mixer->api, "AlsaPcmConf: mixer=%s cardid=%s Fail apply hwparams error=%s", mixer->uid, pcm->cid.cardid, snd_strerror(error));
         goto OnErrorExit;
     }
 
@@ -118,7 +121,7 @@ PUBLIC int AlsaPcmConf(CtlSourceT *source, AlsaPcmInfoT *pcm, AlsaPcmHwInfoT *op
     snd_pcm_hw_params_get_rate(pxmHwParams, &opts->rate, 0);
     opts->sampleSize = AlsaPeriodSize(opts->format);
     if (opts->sampleSize == 0) {
-        AFB_ApiError(source->api, "AlsaPcmConf:%s Fail PCM=%s unsupported format format=%d", pcm->uid, ALSA_PCM_UID(pcm->handle, string), opts->format);
+        AFB_ApiError(mixer->api, "AlsaPcmConf: mixer=%s cardid=%s Fail unsupported format format=%d", mixer->uid, pcm->cid.cardid, opts->format);
         goto OnErrorExit;
     }
 
@@ -127,17 +130,17 @@ PUBLIC int AlsaPcmConf(CtlSourceT *source, AlsaPcmInfoT *pcm, AlsaPcmHwInfoT *op
     snd_pcm_sw_params_current(pcm->handle, pxmSwParams);
 
     if ((error = snd_pcm_sw_params_set_avail_min(pcm->handle, pxmSwParams, 16)) < 0) {
-        AFB_ApiError(source->api, "AlsaPcmConf:%s Fail to PCM=%s set_buffersize error=%s", pcm->uid, ALSA_PCM_UID(pcm->handle, string), snd_strerror(error));
+        AFB_ApiError(mixer->api, "AlsaPcmConf: mixer=%s cardid=%s Fail set_buffersize error=%s", mixer->uid, pcm->cid.cardid, snd_strerror(error));
         goto OnErrorExit;
     };
 
     // push software params into PCM
     if ((error = snd_pcm_sw_params(pcm->handle, pxmSwParams)) < 0) {
-        AFB_ApiError(source->api, "AlsaPcmConf:%s Fail to push software=%s params error=%s", pcm->uid, ALSA_PCM_UID(pcm->handle, string), snd_strerror(error));
+        AFB_ApiError(mixer->api, "AlsaPcmConf: mixer=%s cardid=%s Fail to push params error=%s", mixer->uid, pcm->cid.cardid, snd_strerror(error));
         goto OnErrorExit;
     };
 
-    AFB_ApiNotice(source->api, "AlsaPcmConf:%s PCM=%s channels=%d rate=%d format=%d access=%d done", pcm->uid, ALSA_PCM_UID(pcm->handle,string), opts->channels, opts->rate, opts->format, opts->access);
+    AFB_ApiNotice(mixer->api, "AlsaPcmConf: mixer=%s cardid=%s Done channels=%d rate=%d format=%d access=%d done", mixer->uid, pcm->cid.cardid, opts->channels, opts->rate, opts->format, opts->access);
     return 0;
 
 OnErrorExit:
@@ -211,16 +214,19 @@ STATIC int AlsaPcmReadCB(sd_event_source* src, int fd, uint32_t revents, void* u
     }
 
     // effectively read pcmIn and push frame to pcmOut
-    framesIn = snd_pcm_readi(pcmCopyHandle->pcmIn, pcmCopyHandle->buffer, availIn);
+    framesIn = snd_pcm_readi(pcmCopyHandle->pcmIn, pcmCopyHandle->buffer, availOut);
     if (framesIn < 0 || framesIn != availIn) {
         AFB_ApiNotice(pcmCopyHandle->api, "AlsaPcmReadCB PcmIn=%s UNDERUN frame=%ld", ALSA_PCM_UID(pcmCopyHandle->pcmIn, string), framesIn);
+        snd_pcm_prepare(pcmCopyHandle->pcmIn);
         goto ExitOnSuccess;
     }
 
     // In/Out frames transfer through buffer copy
-    framesOut = snd_pcm_writei(pcmCopyHandle->pcmOut, pcmCopyHandle->buffer, framesIn);
+    //framesOut = snd_pcm_writei(pcmCopyHandle->pcmOut, pcmCopyHandle->buffer, framesIn);
+    framesOut = snd_pcm_mmap_writei (pcmCopyHandle->pcmOut, pcmCopyHandle->buffer, framesIn);
     if (framesOut < 0 || framesOut != framesIn) {
         AFB_ApiNotice(pcmCopyHandle->api, "AlsaPcmReadCB PcmOut=%s UNDERUN frame=%ld", ALSA_PCM_UID(pcmCopyHandle->pcmOut, string), (framesIn - framesOut));
+        snd_pcm_prepare(pcmCopyHandle->pcmOut);
         goto ExitOnSuccess;
     }
 
@@ -260,87 +266,92 @@ static void *LoopInThread(void *handle) {
     pthread_exit(0);
 }
 
-PUBLIC int AlsaPcmCopy(CtlSourceT *source, AlsaLoopStreamT *loopStream, AlsaPcmInfoT *pcmIn, AlsaPcmInfoT *pcmOut, AlsaPcmHwInfoT * opts) {
+PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT *pcmIn, AlsaPcmCtlT *pcmOut, AlsaPcmHwInfoT * opts) {
     char string[32];
     struct pollfd *pcmInFds; 
     int error;
+    
+    // Fulup need to check https://www.alsa-project.org/alsa-doc/alsa-lib/group___p_c_m___direct.html
+    
+    AlsaDumpPcmInfo(mixer,"PcmIn",pcmIn->handle);
+    AlsaDumpPcmInfo(mixer,"PcmOut",pcmOut->handle);
 
+    // prepare PCM for capture and replay
+    error = AlsaPcmConf(mixer, pcmIn, opts);
+    if (error) goto OnErrorExit;
+    
     // input and output should match
-    error = AlsaPcmConf(source, pcmOut, opts);
+    error = AlsaPcmConf(mixer, pcmOut, opts);
     if (error) goto OnErrorExit;
 
     // Prepare PCM for usage
     if ((error = snd_pcm_prepare(pcmOut->handle)) < 0) {
-        AFB_ApiError(source->api, "AlsaPcmCopy: Fail to prepare PCM=%s error=%s", ALSA_PCM_UID(pcmOut->handle, string), snd_strerror(error));
+        AFB_ApiError(mixer->api, "AlsaPcmCopy: Fail to prepare PCM=%s error=%s", ALSA_PCM_UID(pcmOut->handle, string), snd_strerror(error));
         goto OnErrorExit;
     };
-
-    // prepare PCM for capture and replay
-    error = AlsaPcmConf(source, pcmIn, opts);
-    if (error) goto OnErrorExit;
 
     // Prepare PCM for usage
     if ((error = snd_pcm_start(pcmIn->handle)) < 0) {
-        AFB_ApiError(source->api, "AlsaPcmCopy: Fail to prepare PCM=%s error=%s", ALSA_PCM_UID(pcmIn->handle, string), snd_strerror(error));
+        AFB_ApiError(mixer->api, "AlsaPcmCopy: Fail to prepare PCM=%s error=%s", ALSA_PCM_UID(pcmIn->handle, string), snd_strerror(error));
         goto OnErrorExit;
     };
     
-    AlsaPcmCopyHandleT *pcmCopyHandle = &loopStream->copy;
-    pcmCopyHandle->info = "pcmCpy";
-    pcmCopyHandle->pcmIn = pcmIn->handle;
-    pcmCopyHandle->pcmOut = pcmOut->handle;
-    pcmCopyHandle->api = source->api;
-    pcmCopyHandle->channels = opts->channels;
-    pcmCopyHandle->frameSize = opts->channels * opts->sampleSize;
-    pcmCopyHandle->frameCount = ALSA_BUFFER_FRAMES_COUNT;
-    pcmCopyHandle->buffer = malloc(pcmCopyHandle->frameCount * pcmCopyHandle->frameSize);
+    AlsaPcmCopyHandleT *cHandle= calloc(1, sizeof(AlsaPcmCopyHandleT));
+    cHandle = cHandle;
+    cHandle->info = "pcmCpy";
+    cHandle->pcmIn = pcmIn->handle;
+    cHandle->pcmOut = pcmOut->handle;
+    cHandle->api = mixer->api;
+    cHandle->channels = opts->channels;
+    cHandle->frameSize = opts->channels * opts->sampleSize;
+    cHandle->frameCount = ALSA_BUFFER_FRAMES_COUNT;
+    cHandle->buffer = malloc(cHandle->frameCount * cHandle->frameSize);
     
-
     // get FD poll descriptor for capture PCM
-    int pcmInCount = snd_pcm_poll_descriptors_count(pcmCopyHandle->pcmIn);
+    int pcmInCount = snd_pcm_poll_descriptors_count(cHandle->pcmIn);
     if (pcmInCount <= 0) {
-        AFB_ApiError(source->api, "AlsaPcmCopy: Fail pcmIn=%s get fds count error=%s", ALSA_PCM_UID(pcmIn->handle, string), snd_strerror(error));
+        AFB_ApiError(mixer->api, "AlsaPcmCopy: Fail pcmIn=%s get fds count error=%s", ALSA_PCM_UID(pcmIn->handle, string), snd_strerror(error));
         goto OnErrorExit;
     };
 
     pcmInFds = alloca(sizeof (*pcmInFds) * pcmInCount);
     if ((error = snd_pcm_poll_descriptors(pcmIn->handle, pcmInFds, pcmInCount)) < 0) {
-        AFB_ApiError(source->api, "AlsaPcmCopy: Fail pcmIn=%s get pollfds error=%s", ALSA_PCM_UID(pcmOut->handle, string), snd_strerror(error));
+        AFB_ApiError(mixer->api, "AlsaPcmCopy: Fail pcmIn=%s get pollfds error=%s", ALSA_PCM_UID(pcmOut->handle, string), snd_strerror(error));
         goto OnErrorExit;
     };
 
     // add poll descriptor to AGL systemd mainloop
-    if ((error = sd_event_new(&pcmCopyHandle->sdLoop)) < 0) {
+    if ((error = sd_event_new(&cHandle->sdLoop)) < 0) {
         fprintf(stderr, "LaunchCallRequest: fail pcmin=%s creating a new loop: %s\n", ALSA_PCM_UID(pcmOut->handle, string), strerror(error));
         goto OnErrorExit;
     }
 
     for (int idx = 0; idx < pcmInCount; idx++) {
-        if ((error = sd_event_add_io(pcmCopyHandle->sdLoop, &pcmCopyHandle->evtsrc, pcmInFds[idx].fd, EPOLLIN, AlsaPcmReadCB, pcmCopyHandle)) < 0) {
-            AFB_ApiError(source->api, "AlsaPcmCopy: Fail pcmIn=%s sd_event_add_io err=%d", ALSA_PCM_UID(pcmIn->handle, string), error);
+        if ((error = sd_event_add_io(cHandle->sdLoop, &cHandle->evtsrc, pcmInFds[idx].fd, EPOLLIN, AlsaPcmReadCB, cHandle)) < 0) {
+            AFB_ApiError(mixer->api, "AlsaPcmCopy: Fail pcmIn=%s sd_event_add_io err=%d", ALSA_PCM_UID(pcmIn->handle, string), error);
             goto OnErrorExit;
         }
     }
 
     // start a thread with a mainloop to monitor Audio-Agent
-    if ((error = pthread_create(&pcmCopyHandle->thread, NULL, &LoopInThread, pcmCopyHandle)) < 0) {
-        AFB_ApiError(source->api, "AlsaPcmCopy: Fail create waiting thread pcmIn=%s err=%d", ALSA_PCM_UID(pcmIn->handle, string), error);
+    if ((error = pthread_create(&cHandle->thread, NULL, &LoopInThread, cHandle)) < 0) {
+        AFB_ApiError(mixer->api, "AlsaPcmCopy: Fail create waiting thread pcmIn=%s err=%d", ALSA_PCM_UID(pcmIn->handle, string), error);
         goto OnErrorExit;
     }
     
     // request a higher priority for each audio stream thread
     struct sched_param params;
     params.sched_priority = sched_get_priority_max(SCHED_FIFO);
-    error= pthread_setschedparam(pcmCopyHandle->thread, SCHED_FIFO, &params);
+    error= pthread_setschedparam(cHandle->thread, SCHED_FIFO, &params);
     if (error) {
-        AFB_ApiWarning(source->api, "AlsaPcmCopy: Fail create increase stream thread priority pcmIn=%s err=%s", ALSA_PCM_UID(pcmIn->handle, string), strerror(error));        
+        AFB_ApiWarning(mixer->api, "AlsaPcmCopy: Fail create increase stream thread priority pcmIn=%s err=%s", ALSA_PCM_UID(pcmIn->handle, string), strerror(error));        
     }
 
     return 0;
 
 OnErrorExit:
-    AFB_ApiError(source->api, "AlsaPcmCopy: - pcmIn=%s" , ALSA_PCM_UID(pcmIn->handle, string));
-    AFB_ApiError(source->api, "AlsaPcmCopy: - pcmOut=%s", ALSA_PCM_UID(pcmOut->handle, string));
+    AFB_ApiError(mixer->api, "AlsaPcmCopy: - pcmIn=%s" , ALSA_PCM_UID(pcmIn->handle, string));
+    AFB_ApiError(mixer->api, "AlsaPcmCopy: - pcmOut=%s", ALSA_PCM_UID(pcmOut->handle, string));
     return -1;
 }
 
