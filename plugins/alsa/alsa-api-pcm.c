@@ -177,7 +177,7 @@ STATIC int PcmSetControl(SoftMixerT *mixer, AlsaSndCtlT *sndcard, AlsaSndControl
     }
 
     error = CtlElemIdGetLong(mixer, sndcard, elemId, &curval);
-    if (!error) {
+    if (error) {
         AFB_ApiError(mixer->api, "PcmSetControl sndard=%s fail to read control numid=%d", sndcard->cid.cardid, control->numid);
         goto OnErrorExit;
     }
@@ -199,10 +199,14 @@ STATIC int PcmSetControl(SoftMixerT *mixer, AlsaSndCtlT *sndcard, AlsaSndControl
                     value = CONVERT_PERCENT(curval, control->min, control->max) - value;
                     break;
                 default:
-                    value= CONVERT_VOLUME(value, control->min, control->max);
+                    value= value;
             }
 
-            error = CtlElemIdSetLong(mixer, sndcard, elemId, (int)value);
+            error = CtlElemIdSetLong(mixer, sndcard, elemId, CONVERT_VOLUME(value, control->min, control->max));
+            if (error) {
+                AFB_ApiError(mixer->api, "PcmSetControl sndard=%s fail to write control numid=%d value=%d", sndcard->cid.cardid, control->numid, value); 
+                goto OnErrorExit;
+            }
             break;
 
         default:
@@ -474,7 +478,7 @@ PUBLIC AlsaSndPcmT * ApiPcmAttachOne(SoftMixerT *mixer, const char *uid, snd_pcm
             (void) asprintf(&apiVerb, "%s/playback", pcm->uid);
             (void) asprintf(&apiInfo, "HAL:%s SND_PCM_STREAM_PLAYBACK", uid);
         } else {
-            (void) asprintf(&apiVerb, "%s/playback", pcm->uid);
+            (void) asprintf(&apiVerb, "%s/capture", pcm->uid);
             (void) asprintf(&apiInfo, "HAL:%s SND_PCM_STREAM_PLAYBACK", uid);
         }
         apiVerbHandleT *handle = calloc(1, sizeof (apiVerbHandleT));

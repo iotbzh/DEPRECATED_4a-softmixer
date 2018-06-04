@@ -384,22 +384,22 @@
       <item path="plugins/alsa/alsa-api-pcm.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
             <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>/usr/include/p11-kit-1</pElem>
             <pElem>/usr/include/uuid</pElem>
             <pElem>../../../opt/include/alsa</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
+            <pElem>app-controller-submodule/ctl-lib</pElem>
             <pElem>mixer-binding</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>build/plugins/alsa</pElem>
-            <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>
-            <Elem>alsa_router_EXPORTS</Elem>
+            <Elem>CONTROL_CONFIG_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/etc:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/etc:/home/fulup/opt/4a-smixer/etc"</Elem>
+            <Elem>CONTROL_LUA_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/lua.d:/home/fulup/opt/4a-smixer/var"</Elem>
+            <Elem>CONTROL_PLUGIN_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/lib/plugins:/home/fulup/opt/4a-smixer/lib/plugins"</Elem>
+            <Elem>alsa_softmixer_EXPORTS</Elem>
           </preprocessorList>
         </cTool>
       </item>
@@ -586,19 +586,22 @@
           </preprocessorList>
         </cTool>
       </item>
-      <item path="plugins/alsa/alsa-effect-ramp.c" ex="false" tool="0" flavor2="0">
+      <item path="plugins/alsa/alsa-effect-ramp.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
+            <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>build/app-controller-submodule/ctl-lib</pElem>
+            <pElem>/usr/include</pElem>
             <pElem>/usr/include/json-c</pElem>
+            <pElem>/usr/include/alsa</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>/usr/include/p11-kit-1</pElem>
             <pElem>/usr/include/uuid</pElem>
             <pElem>../../../opt/include/alsa</pElem>
-            <pElem>/usr/include/lua5.3</pElem>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
             <pElem>mixer-binding</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>build/plugins/alsa</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>
             <Elem>CONTROL_CONFIG_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/etc:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/etc:/home/fulup/opt/4a-smixer/etc"</Elem>
