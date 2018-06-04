@@ -29,7 +29,7 @@ static void MixerRemoveVerb(AFB_ReqT request) {
     SoftMixerT *mixer = (SoftMixerT*) afb_request_get_vcbdata(request);
     int error;
 
-    for (int idx; mixer->streams[idx]->uid; idx++) {
+    for (int idx = 0; mixer->streams[idx]->uid; idx++) {
         AlsaStreamAudioT *stream = mixer->streams[idx];
 
         AFB_ApiNotice(mixer->api, "cleaning mixer=%s stream=%s", mixer->uid, stream->uid);

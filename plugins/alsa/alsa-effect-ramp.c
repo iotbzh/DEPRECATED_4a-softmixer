@@ -86,6 +86,7 @@ PUBLIC int AlsaVolRampApply(SoftMixerT *mixer, AlsaSndCtlT *sndcard, AlsaStreamA
     json_object *volJ;
     int error, index;
     uint64_t usec;
+    int count = 0;
 
     error = wrap_json_unpack(rampJ, "{ss so !}"
             , "uid", &uid
@@ -97,8 +98,7 @@ PUBLIC int AlsaVolRampApply(SoftMixerT *mixer, AlsaSndCtlT *sndcard, AlsaStreamA
     }
 
     switch (json_object_get_type(volJ)) {
-        int count;
-        
+
         case json_type_string:
             volS = json_object_get_string(volJ);
 

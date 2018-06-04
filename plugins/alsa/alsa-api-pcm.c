@@ -190,7 +190,7 @@ OnErrorExit:
 
 PUBLIC AlsaSndPcmT *ApiPcmAttachOne(SoftMixerT *mixer, const char *uid, snd_pcm_stream_t direction, json_object *argsJ) {
     AlsaSndPcmT *pcm = calloc(1, sizeof (AlsaSndPcmT));
-    json_object *sourceJ = NULL, *paramsJ = NULL, *sinkJ = NULL, *targetJ;
+    json_object *sourceJ = NULL, *paramsJ = NULL, *sinkJ = NULL, *targetJ = NULL;
     int error;
 
     pcm->sndcard = (AlsaSndCtlT*) calloc(1, sizeof (AlsaSndCtlT));
