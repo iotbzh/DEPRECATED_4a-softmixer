@@ -90,7 +90,7 @@ PUBLIC int AlsaVolRampApply(SoftMixerT *mixer, AlsaSndCtlT *sndcard, AlsaStreamA
 
     error = wrap_json_unpack(rampJ, "{ss so !}"
             , "uid", &uid
-            , "vol", &volJ
+            , "volume", &volJ
             );
     if (error) {
         AFB_ApiError(mixer->api, "AlsaVolRampApply:mixer=%s stream=%s invalid-json should {uid:ramp, vol:[+,-,=]value} ramp=%s", mixer->uid, stream->uid, json_object_get_string(rampJ));

@@ -76,7 +76,7 @@ STATIC void StreamApiVerbCB(AFB_ReqT request) {
 
         error = AlsaCtlNumidGetLong(mixer, handle->sndcard, handle->stream->volume, &curvol);
         if (error) {
-            AFB_ReqFailF(request, "invalid-numid", "Fail to set volume numid=%d value=%ld", handle->stream->volume, volume);
+            AFB_ReqFailF(request, "invalid-numid", "Fail to get volume numid=%d value=%ld", handle->stream->volume, volume);
             goto OnErrorExit;
         }
 
@@ -95,8 +95,11 @@ STATIC void StreamApiVerbCB(AFB_ReqT request) {
                         newvol = curvol - newvol;
                         break;
                     default:
-                        AFB_ReqFailF(request, "not-integer", "relative volume should start by '+|-' value=%s", json_object_get_string(volumeJ));
-                        goto OnErrorExit;
+                        error = sscanf(&volString[0], "%ld", &newvol);
+                        if (error != 1) {
+                            AFB_ReqFailF(request, "not-integer", "relative volume should start by '+|-' value=%s", json_object_get_string(volumeJ));
+                            goto OnErrorExit;
+                        }
                 }
                 break;
             case json_type_int:
@@ -153,7 +156,7 @@ OnErrorExit:
 PUBLIC json_object *CreateOneStream(SoftMixerT *mixer, AlsaStreamAudioT *stream) {
     int error;
     long value;
-    AlsaSndLoopT *loop=NULL;
+    AlsaSndLoopT *loop = NULL;
     AlsaPcmCtlT *streamPcm;
     AlsaSndCtlT *captureCard;
     AlsaDevInfoT *captureDev = alloca(sizeof (AlsaDevInfoT));
@@ -188,8 +191,8 @@ PUBLIC json_object *CreateOneStream(SoftMixerT *mixer, AlsaStreamAudioT *stream)
     // check PCM is valid and get its full name
     AlsaPcmCtlT *capturePcm = AlsaByPathOpenPcm(mixer, captureDev, SND_PCM_STREAM_CAPTURE);
     if (!capturePcm) goto OnErrorExit;
-    
-     // Registry capturePcm PCM for active/pause event
+
+    // Registry capturePcm PCM for active/pause event
     if (loopDev && loopDev->numid) {
         error = AlsaCtlRegister(mixer, captureCard, capturePcm, FONTEND_NUMID_RUN, loopDev->numid);
         if (error) goto OnErrorExit;
@@ -237,9 +240,9 @@ PUBLIC json_object *CreateOneStream(SoftMixerT *mixer, AlsaStreamAudioT *stream)
             AFB_ApiError(mixer->api, "StreamsAttach: mixer=%s stream=%s fail to create rate converter", mixer->uid, stream->uid);
             goto OnErrorExit;
         }
-        captureName=rateName;
+        captureName = rateName;
     } else {
-       captureName= (char*)streamPcm->cid.cardid;
+        captureName = (char*) streamPcm->cid.cardid;
     }
 
     // everything is not ready to open playback pcm
@@ -269,27 +272,31 @@ PUBLIC json_object *CreateOneStream(SoftMixerT *mixer, AlsaStreamAudioT *stream)
     }
 
     // prepare response for application
-    json_object *paramsJ, *streamJ;
+    json_object *paramsJ, *streamJ, *numidsJ;
     char *appCardId = NULL;
-    
+
     // return alsa URI only when loopback is used
     if (loop) {
         (void) asprintf(&appCardId, "hw:%d,%d,%d", captureDev->cardidx, loop->playback, capturePcm->cid.subdev);
     } else {
-      appCardId="";  
+        appCardId = "";
     }
 
+    
     error += wrap_json_pack(&paramsJ, "{si si si si}"
             , "rate", stream->params->rate
             , "channels", stream->params->channels
             , "format", stream->params->format
             , "access", stream->params->access
             );
-    error += wrap_json_pack(&streamJ, "{ss ss si si so}", "uid"
-            , stream->uid, "alsa"
-            , appCardId
-            , "volid", volNumid
-            , "runid", pauseNumid
+    error += wrap_json_pack(&numidsJ, "{si si}"
+            , "volume", volNumid
+            , "pause", pauseNumid
+            );
+    error += wrap_json_pack(&streamJ, "{ss ss so so}"
+            , "uid", stream->uid
+            , "alsa", appCardId
+            , "numid", numidsJ
             , "params", paramsJ
             );
     if (error) {
@@ -302,8 +309,12 @@ PUBLIC json_object *CreateOneStream(SoftMixerT *mixer, AlsaStreamAudioT *stream)
 
     apiHandle->mixer = mixer;
     apiHandle->stream = stream;
-    apiHandle->sndcard =captureCard;
+    apiHandle->sndcard = captureCard;
     apiHandle->pcm = capturePcm->handle;
+    
+    // replace stream volume/mute values with corresponding ctl control
+    stream->volume=volNumid;
+    stream->mute=pauseNumid;
 
     error = afb_dynapi_add_verb(mixer->api, stream->uid, stream->info, StreamApiVerbCB, apiHandle, NULL, 0);
     if (error) {
@@ -399,7 +410,7 @@ PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid,
 
         case json_type_array:
             *responseJ = json_object_new_array();
-            
+
             count = json_object_array_length(argsJ);
             if (count > (mixer->max.streams - count)) {
                 AFB_ReqFailF(request, "too-small", "mixer=%s max stream=%d argsJ= %s", mixer->uid, mixer->max.streams, json_object_get_string(argsJ));

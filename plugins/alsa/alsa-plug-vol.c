@@ -22,7 +22,7 @@
 
 ALSA_PLUG_PROTO(softvol); // stream uses solftvol plugin
 
-PUBLIC AlsaPcmCtlT* AlsaCreateSoftvol(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaSndZoneT *zone, AlsaSndCtlT *sndcard, char* ctlName, int max, int open) {
+PUBLIC AlsaPcmCtlT *AlsaCreateSoftvol(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaSndZoneT *zone, AlsaSndCtlT *sndcard, char* ctlName, int max, int open) {
     snd_config_t *streamConfig, *elemConfig, *slaveConfig, *controlConfig,*pcmConfig;
     AlsaPcmCtlT *pcmVol= calloc(1,sizeof(AlsaPcmCtlT));
     int error = 0;

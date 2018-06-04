@@ -25,6 +25,31 @@
 #define CONVERT_RANGE(val, min, max) ceil((val) * ((max) - (min)) * 0.01 + (min))
 #define CONVERT_VOLUME(val, min, max) (int) CONVERT_RANGE ((double)val, (double)min, (double)max)
 
+// move from volume to percentage (extract from alsa-utils)
+
+STATIC int CONVERT_PERCENT(long val, long min, long max) {
+    long range = max - min;
+    int tmp;
+    if (range == 0)
+        return 0;
+    val -= min;
+    tmp = rint((double) val / (double) range * 100);
+    return tmp;
+}
+
+typedef enum {
+    RVOL_ABS,
+    RVOL_ADD,
+    RVOL_DEL,
+
+    RVOL_NONE
+} volumeT;
+
+typedef struct {
+    const char *uid;
+    SoftMixerT *mixer;
+    AlsaSndPcmT* pcm;
+} apiVerbHandleT;
 
 STATIC AlsaPcmChannelT *ProcessOneChannel(SoftMixerT *mixer, const char *uid, json_object *argsJ) {
     AlsaPcmChannelT *channel = calloc(1, sizeof (AlsaPcmChannelT));
@@ -40,7 +65,7 @@ OnErrorExit:
     return NULL;
 }
 
-STATIC int ProcessOneControl(SoftMixerT *mixer, AlsaSndPcmT* pcm, json_object *argsJ, AlsaSndControlT *control) {
+STATIC int PcmAttachOneCtl(SoftMixerT *mixer, AlsaSndCtlT *sndcard, json_object *argsJ, AlsaSndControlT *control) {
     snd_ctl_elem_id_t* elemId = NULL;
     snd_ctl_elem_info_t *elemInfo;
     int numid = 0;
@@ -54,21 +79,21 @@ STATIC int ProcessOneControl(SoftMixerT *mixer, AlsaSndPcmT* pcm, json_object *a
             , "value", &value
             );
     if (error || (!numid && !name)) {
-        AFB_ApiError(mixer->api, "ProcessOneControl: sndcard=%s channel: missing (numid|name|value) error=%s json=%s", pcm->uid, wrap_json_get_error_string(error), json_object_get_string(argsJ));
+        AFB_ApiError(mixer->api, "PcmAttachOneCtl: cardid=%s channel: missing (numid|name|value) error=%s json=%s", sndcard->cid.name, wrap_json_get_error_string(error), json_object_get_string(argsJ));
         goto OnErrorExit;
     }
 
     if (numid > 0) {
-        elemId = AlsaCtlGetNumidElemId(mixer, pcm->sndcard, numid);
+        elemId = AlsaCtlGetNumidElemId(mixer, sndcard, numid);
         if (!elemId) {
-            AFB_ApiError(mixer->api, "ProcessOneControl sndard=%s fail to find control numid=%d", pcm->sndcard->cid.cardid, numid);
+            AFB_ApiError(mixer->api, "PcmAttachOneCtl sndard=%s fail to find control numid=%d", sndcard->cid.cardid, numid);
             goto OnErrorExit;
         }
 
     } else {
-        elemId = AlsaCtlGetNameElemId(mixer, pcm->sndcard, name);
+        elemId = AlsaCtlGetNameElemId(mixer, sndcard, name);
         if (!elemId) {
-            AFB_ApiError(mixer->api, "ProcessOneControl sndard=%s fail to find control name=%s", pcm->sndcard->cid.cardid, name);
+            AFB_ApiError(mixer->api, "PcmAttachOneCtl sndard=%s fail to find control name=%s", sndcard->cid.cardid, name);
             goto OnErrorExit;
         }
     }
@@ -78,13 +103,13 @@ STATIC int ProcessOneControl(SoftMixerT *mixer, AlsaSndPcmT* pcm, json_object *a
     control->name = strdup(snd_ctl_elem_info_get_name(elemInfo));
     control->numid = snd_ctl_elem_info_get_numid(elemInfo);
 
-    if (snd_ctl_elem_info(pcm->sndcard->ctl, elemInfo) < 0) {
-        AFB_ApiError(mixer->api, "ProcessOneControl: sndard=%s numid=%d name='%s' not loadable", pcm->sndcard->cid.cardid, control->numid, control->name);
+    if (snd_ctl_elem_info(sndcard->ctl, elemInfo) < 0) {
+        AFB_ApiError(mixer->api, "PcmAttachOneCtl: sndard=%s numid=%d name='%s' not loadable", sndcard->cid.cardid, control->numid, control->name);
         goto OnErrorExit;
     }
 
     if (!snd_ctl_elem_info_is_writable(elemInfo)) {
-        AFB_ApiError(mixer->api, "ProcessOneControl: sndard=%s numid=%d name='%s' not writable", pcm->sndcard->cid.cardid, control->numid, control->name);
+        AFB_ApiError(mixer->api, "PcmAttachOneCtl: sndard=%s numid=%d name='%s' not writable", sndcard->cid.cardid, control->numid, control->name);
         goto OnErrorExit;
     }
 
@@ -94,7 +119,7 @@ STATIC int ProcessOneControl(SoftMixerT *mixer, AlsaSndPcmT* pcm, json_object *a
             control->min = 0;
             control->max = 1;
             control->step = 0;
-            error = CtlElemIdSetLong(mixer, pcm->sndcard, elemId, value);
+            error = CtlElemIdSetLong(mixer, sndcard, elemId, value);
             break;
 
         case SND_CTL_ELEM_TYPE_INTEGER:
@@ -102,16 +127,16 @@ STATIC int ProcessOneControl(SoftMixerT *mixer, AlsaSndPcmT* pcm, json_object *a
             control->min = snd_ctl_elem_info_get_min(elemInfo);
             control->max = snd_ctl_elem_info_get_max(elemInfo);
             control->step = snd_ctl_elem_info_get_step(elemInfo);
-            error = CtlElemIdSetLong(mixer, pcm->sndcard, elemId, (int) CONVERT_VOLUME(value, control->min, control->max));
+            error = CtlElemIdSetLong(mixer, sndcard, elemId, (int) CONVERT_VOLUME(value, control->min, control->max));
             break;
 
         default:
-            AFB_ApiError(mixer->api, "ProcessOneControl: sndard=%s numid=%d name='%s' invalid/unsupported type=%d", pcm->sndcard->cid.cardid, control->numid, control->name, snd_ctl_elem_info_get_type(elemInfo));
+            AFB_ApiError(mixer->api, "PcmAttachOneCtl: sndard=%s numid=%d name='%s' invalid/unsupported type=%d", sndcard->cid.cardid, control->numid, control->name, snd_ctl_elem_info_get_type(elemInfo));
             goto OnErrorExit;
     }
 
     if (error) {
-        AFB_ApiError(mixer->api, "ProcessOneControl: sndard=%s numid=%d name='%s' not writable", pcm->sndcard->cid.cardid, control->numid, control->name);
+        AFB_ApiError(mixer->api, "PcmAttachOneCtl: sndard=%s numid=%d name='%s' not writable", sndcard->cid.cardid, control->numid, control->name);
         goto OnErrorExit;
     }
 
@@ -124,7 +149,160 @@ OnErrorExit:
     return -1;
 }
 
-PUBLIC AlsaPcmHwInfoT *ApiPcmSetParams(SoftMixerT *mixer, const char *uid, json_object *paramsJ) {
+STATIC int PcmSetControl(SoftMixerT *mixer, AlsaSndCtlT *sndcard, AlsaSndControlT *control, volumeT volType, int value) {
+    snd_ctl_elem_id_t* elemId = NULL;
+    snd_ctl_elem_info_t *elemInfo;
+    int error;
+    long curval;
+
+    assert(control->numid);
+
+    elemId = AlsaCtlGetNumidElemId(mixer, sndcard, control->numid);
+    if (!elemId) {
+        AFB_ApiError(mixer->api, "PcmSetControl sndard=%s fail to find control numid=%d", sndcard->cid.cardid, control->numid);
+        goto OnErrorExit;
+    }
+
+    snd_ctl_elem_info_alloca(&elemInfo);
+    snd_ctl_elem_info_set_id(elemInfo, elemId);
+
+    if (snd_ctl_elem_info(sndcard->ctl, elemInfo) < 0) {
+        AFB_ApiError(mixer->api, "PcmSetControl: sndard=%s numid=%d name='%s' not loadable", sndcard->cid.cardid, control->numid, control->name);
+        goto OnErrorExit;
+    }
+
+    if (!snd_ctl_elem_info_is_writable(elemInfo)) {
+        AFB_ApiError(mixer->api, "PcmSetControl: sndard=%s numid=%d name='%s' not writable", sndcard->cid.cardid, control->numid, control->name);
+        goto OnErrorExit;
+    }
+
+    error = CtlElemIdGetLong(mixer, sndcard, elemId, &curval);
+    if (!error) {
+        AFB_ApiError(mixer->api, "PcmSetControl sndard=%s fail to read control numid=%d", sndcard->cid.cardid, control->numid);
+        goto OnErrorExit;
+    }
+
+    switch (snd_ctl_elem_info_get_type(elemInfo)) {
+
+        case SND_CTL_ELEM_TYPE_BOOLEAN:
+            error = CtlElemIdSetLong(mixer, sndcard, elemId, value);
+            break;
+
+        case SND_CTL_ELEM_TYPE_INTEGER:
+        case SND_CTL_ELEM_TYPE_INTEGER64:
+
+            switch (volType) {
+                case RVOL_ADD:
+                    value = CONVERT_PERCENT(curval, control->min, control->max) + value;
+                    break;
+                case RVOL_DEL:
+                    value = CONVERT_PERCENT(curval, control->min, control->max) - value;
+                    break;
+                default:
+                    value= CONVERT_VOLUME(value, control->min, control->max);
+            }
+
+            error = CtlElemIdSetLong(mixer, sndcard, elemId, (int)value);
+            break;
+
+        default:
+            AFB_ApiError(mixer->api, "PcmSetControl: sndard=%s numid=%d name='%s' invalid/unsupported type=%d", sndcard->cid.cardid, control->numid, control->name, snd_ctl_elem_info_get_type(elemInfo));
+            goto OnErrorExit;
+    }
+
+    if (error) {
+        AFB_ApiError(mixer->api, "PcmSetControl: sndard=%s numid=%d name='%s' not writable", sndcard->cid.cardid, control->numid, control->name);
+        goto OnErrorExit;
+    }
+
+    free(elemId);
+    return 0;
+
+OnErrorExit:
+    if (elemId)free(elemId);
+    return -1;
+}
+
+STATIC void ApiPcmVerbCB(AFB_ReqT request) {
+    apiVerbHandleT *handle = (apiVerbHandleT*) afb_request_get_vcbdata(request);
+    int error, doQuiet = 0, doToggle = 0, doMute = -1;
+    json_object *volumeJ = NULL;
+    json_object *responseJ = json_object_new_object();
+    json_object *argsJ = afb_request_json(request);
+
+    SoftMixerT *mixer = handle->mixer;
+    AlsaSndCtlT *sndcard = handle->pcm->sndcard;
+    assert(mixer && sndcard);
+
+    error = wrap_json_unpack(argsJ, "{s?b s?b,s?b,s?o !}"
+            , "quiet", &doQuiet
+            , "mute", &doMute
+            , "toggle", &doToggle
+            , "volume", &volumeJ
+            );
+    if (error) {
+        AFB_ReqFailF(request, "syntax-error", "Missing 'mute|volume|toggle|quiet' args=%s error=%s", json_object_get_string(argsJ), wrap_json_get_error_string(error));
+        goto OnErrorExit;
+    }
+
+    if (volumeJ) {
+        volumeT volType;
+
+        int newvol;
+        const char*volString;
+
+        switch (json_object_get_type(volumeJ)) {
+            case json_type_string:
+                volString = json_object_get_string(volumeJ);
+                switch (volString[0]) {
+                    case '+':
+                        sscanf(&volString[1], "%d", &newvol);
+                        volType = RVOL_ADD;
+                        break;
+
+                    case '-':
+                        sscanf(&volString[1], "%d", &newvol);
+                        volType = RVOL_DEL;
+                        break;
+                    default:
+                        error = sscanf(&volString[0], "%d", &newvol);
+                        volType = RVOL_ABS;
+                        if (error != 1) {
+                            AFB_ReqFailF(request, "not-integer", "relative volume should start by '+|-' value=%s", json_object_get_string(volumeJ));
+                            goto OnErrorExit;
+                        }
+                }
+                break;
+            case json_type_int:
+                volType = RVOL_ABS;
+                newvol = json_object_get_int(volumeJ);
+                break;
+            default:
+                AFB_ReqFailF(request, "not-integer", "volume should be string or integer value=%s", json_object_get_string(volumeJ));
+                goto OnErrorExit;
+
+        }
+
+        error = PcmSetControl(mixer, handle->pcm->sndcard, &handle->pcm->volume, volType, newvol);
+        if (error) {
+            AFB_ReqFailF(request, "invalid-ctl", "Fail to set volume hal=%s card=%s numid=%d name=%s value=%d"
+                    , handle->uid, handle->pcm->sndcard->cid.cardid, handle->pcm->volume.numid, handle->pcm->volume.name, newvol);
+            goto OnErrorExit;
+        }
+
+        if (!doQuiet) {
+            json_object_object_add(responseJ, "volume", json_object_new_int(newvol));
+        }
+    }
+
+    AFB_ReqSucess(request, responseJ, handle->uid);
+    return;
+
+OnErrorExit:
+    return;
+}
+
+PUBLIC AlsaPcmHwInfoT * ApiPcmSetParams(SoftMixerT *mixer, const char *uid, json_object * paramsJ) {
     AlsaPcmHwInfoT *params = calloc(1, sizeof (AlsaPcmHwInfoT));
     const char *format = NULL, *access = NULL;
 
@@ -168,7 +346,6 @@ PUBLIC AlsaPcmHwInfoT *ApiPcmSetParams(SoftMixerT *mixer, const char *uid, json_
         }
     }
 
-
     if (!access) params->access = SND_PCM_ACCESS_RW_INTERLEAVED;
     else if (!strcasecmp(access, "MMAP_INTERLEAVED")) params->access = SND_PCM_ACCESS_MMAP_INTERLEAVED;
     else if (!strcasecmp(access, "MMAP_NONINTERLEAVED")) params->access = SND_PCM_ACCESS_MMAP_NONINTERLEAVED;
@@ -188,7 +365,7 @@ OnErrorExit:
     return NULL;
 }
 
-PUBLIC AlsaSndPcmT *ApiPcmAttachOne(SoftMixerT *mixer, const char *uid, snd_pcm_stream_t direction, json_object *argsJ) {
+PUBLIC AlsaSndPcmT * ApiPcmAttachOne(SoftMixerT *mixer, const char *uid, snd_pcm_stream_t direction, json_object * argsJ) {
     AlsaSndPcmT *pcm = calloc(1, sizeof (AlsaSndPcmT));
     json_object *sourceJ = NULL, *paramsJ = NULL, *sinkJ = NULL, *targetJ = NULL;
     int error;
@@ -215,7 +392,7 @@ PUBLIC AlsaSndPcmT *ApiPcmAttachOne(SoftMixerT *mixer, const char *uid, snd_pcm_
         AFB_ApiError(mixer->api, "ApiPcmAttachOne: hal=%s Fail to open sndcard uid=%s devpath=%s cardid=%s", uid, pcm->uid, pcm->sndcard->cid.devpath, pcm->sndcard->cid.cardid);
         goto OnErrorExit;
     }
-    
+
     // check sndcard accepts params
     pcm->sndcard->params = ApiPcmSetParams(mixer, pcm->uid, paramsJ);
     if (!pcm->sndcard->params) {
@@ -239,7 +416,7 @@ PUBLIC AlsaSndPcmT *ApiPcmAttachOne(SoftMixerT *mixer, const char *uid, snd_pcm_
         targetJ = sourceJ;
 
         // we may have to register SMIXER_SUBDS_CTLS per subdev (Fulup ToBeDone when sndcard get multiple device/subdev)
-        pcm->sndcard->registry = calloc(SMIXER_SUBDS_CTLS+1, sizeof (RegistryEntryPcmT));
+        pcm->sndcard->registry = calloc(SMIXER_SUBDS_CTLS + 1, sizeof (RegistryEntryPcmT));
         pcm->sndcard->rcount = SMIXER_SUBDS_CTLS;
     }
 
@@ -271,7 +448,7 @@ PUBLIC AlsaSndPcmT *ApiPcmAttachOne(SoftMixerT *mixer, const char *uid, snd_pcm_
                 }
                 break;
             default:
-                AFB_ApiError(mixer->api, "ProcessPcmControls:%s invalid pcm=%s", pcm->uid, json_object_get_string(channelsJ));
+                AFB_ApiError(mixer->api, "ApiPcmAttachOne:%s invalid pcm=%s", pcm->uid, json_object_get_string(channelsJ));
                 goto OnErrorExit;
         }
     }
@@ -283,13 +460,33 @@ PUBLIC AlsaSndPcmT *ApiPcmAttachOne(SoftMixerT *mixer, const char *uid, snd_pcm_
                 , "mute", &muteJ
                 );
         if (error) {
-            AFB_ApiNotice(mixer->api, "ProcessPcmControls: source missing [volume]|[mute] error=%s control=%s", wrap_json_get_error_string(error), json_object_get_string(controlsJ));
+            AFB_ApiNotice(mixer->api, "ApiPcmAttachOne: source missing [volume]|[mute] error=%s control=%s", wrap_json_get_error_string(error), json_object_get_string(controlsJ));
             goto OnErrorExit;
         }
 
-        if (volJ) error += ProcessOneControl(mixer, pcm, volJ, &pcm->volume);
-        if (muteJ) error += ProcessOneControl(mixer, pcm, muteJ, &pcm->mute);
+        if (volJ) error += PcmAttachOneCtl(mixer, pcm->sndcard, volJ, &pcm->volume);
+        if (muteJ) error += PcmAttachOneCtl(mixer, pcm->sndcard, muteJ, &pcm->mute);
         if (error) goto OnErrorExit;
+
+        // create master control for this sink
+        char *apiVerb, *apiInfo;
+        if (direction == SND_PCM_STREAM_PLAYBACK) {
+            (void) asprintf(&apiVerb, "%s/playback", pcm->uid);
+            (void) asprintf(&apiInfo, "HAL:%s SND_PCM_STREAM_PLAYBACK", uid);
+        } else {
+            (void) asprintf(&apiVerb, "%s/playback", pcm->uid);
+            (void) asprintf(&apiInfo, "HAL:%s SND_PCM_STREAM_PLAYBACK", uid);
+        }
+        apiVerbHandleT *handle = calloc(1, sizeof (apiVerbHandleT));
+        handle->uid = uid;
+        handle->pcm = pcm;
+        handle->mixer = mixer;
+
+        error = afb_dynapi_add_verb(mixer->api, apiVerb, apiInfo, ApiPcmVerbCB, handle, NULL, 0);
+        if (error) {
+            AFB_ApiError(mixer->api, "ApiPcmAttachOne mixer=%s verb=%s fail to Register Master control ", mixer->uid, apiVerb);
+            goto OnErrorExit;
+        }
     }
 
     // free useless resource and secure others

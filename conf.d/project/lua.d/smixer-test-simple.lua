@@ -171,7 +171,7 @@ function _mixer_simple_test_ (source, args)
         ["uid"] = "multimedia",
         ["zone"]= "full-stereo",
         ["source"]= "loop-multimedia",
-        ["volume"]= 60,
+        ["volume"]= 80,
         ["mute"]  = false,
         ["params"]= audio_params.standard,
     }
@@ -179,7 +179,7 @@ function _mixer_simple_test_ (source, args)
     local stream_navigation= {
         ["uid"]   = "navigation",
         ["zone"]= "front-seats",
-        ["volume"]= 60,
+        ["volume"]= 80,
         ["mute"]  = false,
     }
     
@@ -195,7 +195,7 @@ function _mixer_simple_test_ (source, args)
         ["uid"]   = "radio",
         ["zone"]  = "full-stereo",
         --["source"]= snd_usb_8ch.uid,
-        ["volume"]= 60,
+        ["volume"]= 80,
         ["mute"]  = false,
     }
     
@@ -203,7 +203,7 @@ function _mixer_simple_test_ (source, args)
         ["uid"]   = "pulseaudio",
         ["zone"]  = "back-seats",
         ["source"]= "loop-legacy",
-        ["volume"]= 60,
+        ["volume"]= 80,
         ["mute"]  = false,
     }
     

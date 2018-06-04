@@ -74,16 +74,21 @@ STATIC void MixerInfoVerb(AFB_ReqT request) {
 
     SoftMixerT *mixer = (SoftMixerT*) afb_request_get_vcbdata(request);
     json_object *argsJ = afb_request_json(request);
-    int error, stream = 0, quiet = 0, backend = 0, source = 0, zones = 0;
+    int error, streams = 0, quiet = 0, ramps = 0, zones = 0, captures = 0, playbacks = 0;
 
     if (json_object_get_type(argsJ) == json_type_null) {
-        stream = 1;
+        streams = 1;
+        ramps = 1;
+        zones = 1;
+        captures = 0;
+        playbacks = 0;
     } else {
-        error = wrap_json_unpack(argsJ, "{s?b,s?b,s?b,s?b,s?b !}"
+        error = wrap_json_unpack(argsJ, "{s?b,s?b,s?b,s?b,s?b,s?b !}"
                 , "quiet", &quiet
-                , "stream", &stream
-                , "backend", &backend
-                , "source", &source
+                , "streams", &streams
+                , "ramps", &ramps
+                , "captures", &captures
+                , "playbacks", &playbacks
                 , "zones", &zones
                 );
         if (error) {
@@ -93,12 +98,12 @@ STATIC void MixerInfoVerb(AFB_ReqT request) {
     }
     json_object *responseJ = json_object_new_object();
 
-    if (stream) {
+    if (streams) {
         json_object *streamsJ = json_object_new_array();
         json_object *valueJ;
 
         AlsaStreamAudioT **streams = mixer->streams;
-        for (int idx = 0; streams[idx]->uid; idx++) {
+        for (int idx = 0; streams[idx]; idx++) {
             if (quiet) {
                 json_object_array_add(streamsJ, json_object_new_string(streams[idx]->uid));
             } else {
@@ -112,14 +117,86 @@ STATIC void MixerInfoVerb(AFB_ReqT request) {
                         , "numid", numidJ
                         );
                 json_object_array_add(streamsJ, valueJ);
-                AFB_ApiWarning(request->dynapi, "stream=%s", json_object_get_string(streamsJ));
             }
 
         }
         json_object_object_add(responseJ, "streams", streamsJ);
     }
 
-    if (backend || source || zones) {
+    if (ramps) {
+        json_object *rampsJ = json_object_new_array();
+        json_object *valueJ;
+
+        AlsaVolRampT **ramps = mixer->ramps;
+        for (int idx = 0; ramps[idx]; idx++) {
+            if (quiet) {
+                json_object_array_add(rampsJ, json_object_new_string(ramps[idx]->uid));
+            } else {
+                wrap_json_pack(&valueJ, "{ss,si,si,si}"
+                        , "uid", ramps[idx]->uid
+                        , "delay", ramps[idx]->delay
+                        , "step_down", ramps[idx]->stepDown
+                        , "step_up", ramps[idx]->stepUp
+                        );
+                json_object_array_add(rampsJ, valueJ);
+            }
+
+        }
+        json_object_object_add(responseJ, "ramps", rampsJ);
+    }
+
+    if (zones) {
+        json_object *zonesJ = json_object_new_array();
+
+        AlsaSndZoneT **zones = mixer->zones;
+        for (int idx = 0; zones[idx]; idx++) {
+            if (quiet) {
+                json_object_array_add(zonesJ, json_object_new_string(zones[idx]->uid));
+            } else {
+                json_object *zoneJ = json_object_new_object();
+                if (zones[idx]->sinks) {
+                    json_object *sinksJ = json_object_new_array();
+                    for (int jdx = 0; zones[idx]->sinks[jdx]; jdx++) {
+                        json_object *channelJ;
+                        wrap_json_pack(&channelJ, "{ss,si}"
+                                , "uid", zones[idx]->sinks[jdx]->uid
+                                , "port", zones[idx]->sinks[jdx]->port
+                                );
+                        json_object_array_add(sinksJ, channelJ);
+                    }
+                    json_object_object_add(zoneJ, "sinks", sinksJ);
+                }
+
+                if (zones[idx]->sources) {
+                    json_object *sourcesJ = json_object_new_array();
+                    for (int jdx = 0; zones[idx]->sources[jdx]; jdx++) {
+                        json_object *channelJ;
+                        wrap_json_pack(&channelJ, "{ss,si}"
+                                , "uid", zones[idx]->sources[jdx]->uid
+                                , "port", zones[idx]->sources[jdx]->port
+                                );
+                        json_object_array_add(sourcesJ, channelJ);
+                    }
+                    json_object_object_add(zoneJ, "source", sourcesJ);
+                }
+
+                if (zones[idx]->params) {
+
+                    json_object *paramsJ;
+                    wrap_json_pack(&paramsJ, "{si,ss,si}"
+                            , "rate", zones[idx]->params->rate
+                            , "format", zones[idx]->params->formatS
+                            , "channels", zones[idx]->params->channels
+                            );
+                    json_object_object_add(zoneJ, "params", paramsJ);
+                }
+                json_object_array_add(zonesJ, zoneJ);
+            }
+        }
+        json_object_object_add(responseJ, "zones", zonesJ);
+    }
+
+    if (captures || playbacks) {
         AFB_ReqFailF(request, "not implemented", "(Fulup) list action Still To Be Done");
         goto OnErrorExit;
     }
@@ -134,12 +211,12 @@ OnErrorExit:
 
 STATIC void MixerAttachVerb(AFB_ReqT request) {
     SoftMixerT *mixer = (SoftMixerT*) afb_request_get_vcbdata(request);
-    const char *uid=NULL;
+    const char *uid = NULL;
     json_object *playbackJ = NULL, *captureJ = NULL, *zonesJ = NULL, *streamsJ = NULL, *rampsJ = NULL, *loopsJ = NULL;
     json_object *argsJ = afb_request_json(request);
     json_object *responseJ;
     int error;
-   
+
     error = wrap_json_unpack(argsJ, "{ss,s?o,s?o,s?o,s?o,s?o,s?o !}"
             , "uid", &uid
             , "ramps", &rampsJ
@@ -150,7 +227,7 @@ STATIC void MixerAttachVerb(AFB_ReqT request) {
             , "streams", &streamsJ
             );
     if (error) {
-        AFB_ApiError(mixer->api, "MixerAttachVerb: invalid-syntax mixer=%s error=%s args=%s", mixer->uid,  wrap_json_get_error_string(error), json_object_get_string(argsJ));
+        AFB_ApiError(mixer->api, "MixerAttachVerb: invalid-syntax mixer=%s error=%s args=%s", mixer->uid, wrap_json_get_error_string(error), json_object_get_string(argsJ));
         AFB_ReqFailF(request, "invalid-syntax", "mixer=%s missing 'uid|ramps|playbacks|captures|zones|streams' error=%s args=%s", mixer->uid, wrap_json_get_error_string(error), json_object_get_string(argsJ));
         goto OnErrorExit;
     }
@@ -185,8 +262,7 @@ STATIC void MixerAttachVerb(AFB_ReqT request) {
         if (error) goto OnErrorExit;
     }
 
-    AFB_ReqNotice(request, "**** mixer=%s response=%s", json_object_get_string(responseJ),  mixer->uid);
-    AFB_ReqSucess(request, NULL, mixer->uid);
+    AFB_ReqSucess(request, responseJ, mixer->uid);
     return;
 
 OnErrorExit:
@@ -234,7 +310,7 @@ STATIC int MixerInitCB(AFB_ApiT api) {
 
     SoftMixerT *mixer = (SoftMixerT*) afb_dynapi_get_userdata(api);
     assert(mixer);
-    
+
     // attach AFB mainloop to mixer
     mixer->sdLoop = AFB_GetEventLoop(api);
 
@@ -247,14 +323,14 @@ STATIC int MixerInitCB(AFB_ApiT api) {
 STATIC int MixerApiCB(void* handle, AFB_ApiT api) {
     SoftMixerT *mixer = (SoftMixerT*) handle;
 
-    mixer->api= api;
+    mixer->api = api;
     afb_dynapi_set_userdata(api, mixer);
     afb_dynapi_on_event(api, MixerEventCB);
     afb_dynapi_on_init(api, MixerInitCB);
 
     int error = LoadStaticVerbs(mixer, CtrlApiVerbs);
     if (error) goto OnErrorExit;
-    
+
     return 0;
 
 OnErrorExit:
@@ -287,7 +363,7 @@ CTLP_LUA2C(_mixer_new_, source, argsJ, responseJ) {
             , "max_ramp", &mixer->max.ramps
             );
     if (error) {
-        AFB_ApiNotice(source->api, "_mixer_new_ missing 'uid|max_loop|max_sink|max_source|max_zone|max_stream|max_ramp' error=%s mixer=%s", wrap_json_get_error_string(error),json_object_get_string(argsJ));
+        AFB_ApiNotice(source->api, "_mixer_new_ missing 'uid|max_loop|max_sink|max_source|max_zone|max_stream|max_ramp' error=%s mixer=%s", wrap_json_get_error_string(error), json_object_get_string(argsJ));
         goto OnErrorExit;
     }
 
@@ -295,12 +371,12 @@ CTLP_LUA2C(_mixer_new_, source, argsJ, responseJ) {
     mixer->uid = strdup(mixer->uid);
     if (mixer->info)mixer->info = strdup(mixer->info);
 
-    mixer->loops = calloc(mixer->max.loops+1, sizeof (AlsaSndLoopT));
-    mixer->sinks = calloc(mixer->max.sinks+1, sizeof (AlsaSndPcmT));
-    mixer->sources = calloc(mixer->max.sources+1, sizeof (AlsaSndPcmT));
-    mixer->zones = calloc(mixer->max.zones+1, sizeof (AlsaSndZoneT));
-    mixer->streams = calloc(mixer->max.streams+1, sizeof (AlsaStreamAudioT));
-    mixer->ramps = calloc(mixer->max.ramps+1, sizeof (AlsaVolRampT));
+    mixer->loops = calloc(mixer->max.loops + 1, sizeof (void*));
+    mixer->sinks = calloc(mixer->max.sinks + 1, sizeof (void*));
+    mixer->sources = calloc(mixer->max.sources + 1, sizeof (void*));
+    mixer->zones = calloc(mixer->max.zones + 1, sizeof (void*));
+    mixer->streams = calloc(mixer->max.streams + 1, sizeof (void*));
+    mixer->ramps = calloc(mixer->max.ramps + 1, sizeof (void*));
 
     // create mixer verb within API.
     error = afb_dynapi_new_api(source->api, mixer->uid, mixer->info, !MAINLOOP_CONCURENCY, MixerApiCB, mixer);

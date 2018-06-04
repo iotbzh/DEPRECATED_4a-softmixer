@@ -3,15 +3,15 @@
     "metadata": {
         "uid": "Soft Mixer",
         "version": "1.0",
-        "api": "softmixer",
+        "api": "smixer",
         "info": "Soft Mixer emulating hardware mixer"
     },
     "resources": [
         {
             "uid": "softmixer",
             "info": "Map alsa-loop subdevices to 4A HAL streams",
-            "spath": "./lib/plugins:./var",
-            "libs": ["alsa-softmixer.ctlso", "softmixer-simple-test.lua"],
+            "spath": "./package/lib/plugins:./package/var:./lib/plugins:./var",
+            "libs": ["alsa-softmixer.ctlso", "smixer-test-simple.lua"],
             "lua": {
                 "prefix": "smix",
                 "functions": ["_mixer_new_"]
