@@ -10,7 +10,7 @@
         {
             "uid": "softmixer",
             "info": "Map alsa-loop subdevices to 4A HAL streams",
-            "spath": "./plugins/alsa:../conf.d/project/lua.d",
+            "spath": "./lib/plugins:./var",
             "libs": ["alsa-softmixer.ctlso", "softmixer-simple-test.lua"],
             "lua": {
                 "prefix": "smix",
