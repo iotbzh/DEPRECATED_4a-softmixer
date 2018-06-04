@@ -50,7 +50,7 @@ PUBLIC AlsaLoopSubdevT *ApiLoopFindSubdev(SoftMixerT *mixer, const char *streamU
 STATIC AlsaLoopSubdevT *ProcessOneSubdev(SoftMixerT *mixer, AlsaSndLoopT *loop, json_object *subdevJ) {
     AlsaLoopSubdevT *subdev = calloc(1, sizeof (AlsaPcmCtlT));
 
-    int error = wrap_json_unpack(subdevJ, "{s?s, si,si,s?o !}"
+    int error = wrap_json_unpack(subdevJ, "{s?s, si,si !}"
             , "uid", &subdev->uid
             , "subdev", &subdev->index
             , "numid", &subdev->numid

@@ -339,10 +339,11 @@ STATIC AlsaStreamAudioT * AttachOneStream(SoftMixerT *mixer, const char *uid, js
             , "zone", &stream->sink
             , "source", &stream->source
             , "volume", &stream->volume
-            , "mute", stream->mute
+            , "mute", &stream->mute
             , "params", &paramsJ
             , "ramp", &stream->ramp
             );
+
     if (error) {
         AFB_ApiNotice(mixer->api, "ProcessOneStream hal=%s missing 'uid|[info]|zone|source||[volume]|[mute]|[params]' error=%s stream=%s", uid, wrap_json_get_error_string(error), json_object_get_string(streamJ));
         goto OnErrorExit;
