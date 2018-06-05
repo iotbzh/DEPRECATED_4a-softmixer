@@ -78,7 +78,7 @@ STATIC void MixerInfoAction(AFB_ReqT request, json_object *argsJ) {
     if (json_object_get_type(argsJ) == json_type_null) {
         streams = 1;
         ramps = 1;
-        zones = 1;
+        zones = 0;
         captures = 0;
         playbacks = 0;
     } else {
@@ -111,8 +111,9 @@ STATIC void MixerInfoAction(AFB_ReqT request, json_object *argsJ) {
                         , "volume", streams[idx]->volume
                         , "mute", streams[idx]->mute
                         );
-                wrap_json_pack(&valueJ, "{ss,so}"
+                wrap_json_pack(&valueJ, "{ss,ss, so}"
                         , "uid", streams[idx]->uid
+                        , "alsa", streams[idx]->source
                         , "numid", numidJ
                         );
                 json_object_array_add(streamsJ, valueJ);
