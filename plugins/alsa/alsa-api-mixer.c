@@ -70,10 +70,9 @@ OnErrorExit:
     AFB_ReqFail(request, "internal-error", "fail to delete mixer");
 }
 
-STATIC void MixerInfoVerb(AFB_ReqT request) {
+STATIC void MixerInfoAction(AFB_ReqT request, json_object *argsJ) {
 
     SoftMixerT *mixer = (SoftMixerT*) afb_request_get_vcbdata(request);
-    json_object *argsJ = afb_request_json(request);
     int error, streams = 0, quiet = 0, ramps = 0, zones = 0, captures = 0, playbacks = 0;
 
     if (json_object_get_type(argsJ) == json_type_null) {
@@ -206,7 +205,11 @@ STATIC void MixerInfoVerb(AFB_ReqT request) {
 
 OnErrorExit:
     AFB_ReqFail(request, "internal-error", "fail to get mixer info");
+}
 
+STATIC void MixerInfoVerb(AFB_ReqT request) {
+        json_object *argsJ = afb_request_json(request);
+        MixerInfoAction (request, argsJ);
 }
 
 STATIC void MixerAttachVerb(AFB_ReqT request) {
@@ -214,7 +217,6 @@ STATIC void MixerAttachVerb(AFB_ReqT request) {
     const char *uid = NULL;
     json_object *playbackJ = NULL, *captureJ = NULL, *zonesJ = NULL, *streamsJ = NULL, *rampsJ = NULL, *loopsJ = NULL;
     json_object *argsJ = afb_request_json(request);
-    json_object *responseJ;
     int error;
 
     error = wrap_json_unpack(argsJ, "{ss,s?o,s?o,s?o,s?o,s?o,s?o !}"
@@ -258,12 +260,12 @@ STATIC void MixerAttachVerb(AFB_ReqT request) {
     }
 
     if (streamsJ) {
-        error = ApiStreamAttach(mixer, request, uid, streamsJ, &responseJ);
+        error = ApiStreamAttach(mixer, request, uid, streamsJ);
         if (error) goto OnErrorExit;
     }
 
-    AFB_ReqSucess(request, responseJ, mixer->uid);
-    return;
+    // return mixer info data after attach
+    return (MixerInfoAction(request,NULL));
 
 OnErrorExit:
     return;

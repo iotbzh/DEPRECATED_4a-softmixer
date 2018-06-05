@@ -274,8 +274,8 @@ PUBLIC AlsaPcmHwInfoT *ApiSinkGetParamsByZone(SoftMixerT *mixer, const char *tar
 PUBLIC int ApiSinkAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, json_object * argsJ);
 PUBLIC AlsaSndCtlT *ApiSourceFindSubdev(SoftMixerT *mixer, const char *target);
 PUBLIC int ApiSourceAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, json_object * argsJ);
-PUBLIC json_object *CreateOneStream(SoftMixerT *mixer, AlsaStreamAudioT *stream);
-PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, json_object * argsJ, json_object **responseJ);
+PUBLIC int CreateOneStream(SoftMixerT *mixer, AlsaStreamAudioT *stream);
+PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, json_object * argsJ);
 PUBLIC AlsaSndZoneT *ApiZoneGetByUid(SoftMixerT *mixer, const char *target);
 PUBLIC int ApiZoneAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, json_object * argsJ);
 
