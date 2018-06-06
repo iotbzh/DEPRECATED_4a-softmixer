@@ -147,6 +147,7 @@ OnErrorExit:
     return -1;
 }
 
+
 STATIC int AlsaPcmReadCB(sd_event_source* src, int fd, uint32_t revents, void* userData) {
     char string[32];
     int error;
@@ -214,9 +215,10 @@ STATIC int AlsaPcmReadCB(sd_event_source* src, int fd, uint32_t revents, void* u
     }
 
     // effectively read pcmIn and push frame to pcmOut
-    framesIn = snd_pcm_readi(pcmCopyHandle->pcmIn, pcmCopyHandle->buffer, availOut);
+    framesIn = snd_pcm_readi(pcmCopyHandle->pcmIn, pcmCopyHandle->buffer, availIn);
     if (framesIn < 0 || framesIn != availIn) {
-        AFB_ApiNotice(pcmCopyHandle->api, "AlsaPcmReadCB PcmIn=%s UNDERUN frame=%ld", ALSA_PCM_UID(pcmCopyHandle->pcmIn, string), framesIn);
+        AFB_ApiNotice(pcmCopyHandle->api, "AlsaPcmReadCB PcmIn=%s UNDERUN framesIn=%ld, availIn %ld, max %d",
+                      ALSA_PCM_UID(pcmCopyHandle->pcmIn, string), framesIn, availIn, pcmCopyHandle->frameCount);
         snd_pcm_prepare(pcmCopyHandle->pcmIn);
         goto ExitOnSuccess;
     }
@@ -225,7 +227,7 @@ STATIC int AlsaPcmReadCB(sd_event_source* src, int fd, uint32_t revents, void* u
     framesOut = snd_pcm_writei(pcmCopyHandle->pcmOut, pcmCopyHandle->buffer, framesIn);
     //framesOut = snd_pcm_mmap_writei (pcmCopyHandle->pcmOut, pcmCopyHandle->buffer, framesIn);
     if (framesOut < 0 || framesOut != framesIn) {
-        AFB_ApiNotice(pcmCopyHandle->api, "AlsaPcmReadCB PcmOut=%s UNDERUN frame=%ld", ALSA_PCM_UID(pcmCopyHandle->pcmOut, string), (framesIn - framesOut));
+        AFB_ApiNotice(pcmCopyHandle->api, "AlsaPcmReadCB PcmOut=%s UNDERUN frame=%ld / %ld", ALSA_PCM_UID(pcmCopyHandle->pcmOut, string), framesOut ,framesIn);
         snd_pcm_prepare(pcmCopyHandle->pcmOut);
         goto ExitOnSuccess;
     }
