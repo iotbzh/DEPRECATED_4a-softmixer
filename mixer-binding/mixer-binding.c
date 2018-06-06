@@ -30,7 +30,7 @@ PUBLIC afb_dynapi *AFB_default;
 static CtlSectionT ctrlSections[]= {
     {.key="resources" , .loadCB= PluginConfig},
     {.key="onload"  , .loadCB= OnloadConfig},
-    {.key="controls", .loadCB= ControlConfig},
+    // {.key="controls", .loadCB= ControlConfig},
 
     {.key=NULL}
 };
@@ -63,16 +63,15 @@ STATIC int CtrlLoadStaticVerbs (afb_dynapi *apiHandle, AFB_ApiVerbs *verbs) {
 };
 
 
-STATIC int CtrlInitOneApi (AFB_ApiT apiHandle) {
-
-    AFB_default = apiHandle; // hugely hack to make all V2 AFB_DEBUG to work in fileutils
-
-    // retrieve section config from api handle
-    CtlConfigT *ctrlConfig = (CtlConfigT*) afb_dynapi_get_userdata(apiHandle);
-    int err = CtlConfigExec (apiHandle, ctrlConfig);
-
-    return err;
-}
+//STATIC int CtrlInitOneApi (AFB_ApiT apiHandle) {
+//
+//    AFB_default = apiHandle; // hugely hack to make all V2 AFB_DEBUG to work in fileutils
+//
+//    // retrieve section config from api handle
+//    CtlConfigT *ctrlConfig = (CtlConfigT*) afb_dynapi_get_userdata(apiHandle);
+// 
+//    return 0;
+//}
 
 // next generation dynamic API-V3 mode
 #include <signal.h>
@@ -85,24 +84,26 @@ STATIC int CtrlLoadOneApi (void *cbdata, AFB_ApiT apiHandle) {
     afb_dynapi_set_userdata(apiHandle, ctrlConfig);
     
     // add static controls verbs
-    int err = CtrlLoadStaticVerbs (apiHandle, CtrlApiVerbs);
-    if (err) {
+    int error = CtrlLoadStaticVerbs (apiHandle, CtrlApiVerbs);
+    if (error) {
         AFB_ApiError(apiHandle, "CtrlLoadSection fail to Registry static V2 verbs");
         goto OnErrorExit;
     }
 
     // load section for corresponding API
-    err= CtlLoadSections(apiHandle, ctrlConfig, ctrlSections);
+    error= CtlLoadSections(apiHandle, ctrlConfig, ctrlSections);
 
     // declare an event event manager for this API;
     afb_dynapi_on_event(apiHandle, CtrlDispatchApiEvent);
 
     // init API function (does not receive user closure ???
-    afb_dynapi_on_init(apiHandle, CtrlInitOneApi);
+    //afb_dynapi_on_init(apiHandle, CtrlInitOneApi);
+    
+    //error = CtlConfigExec (apiHandle, ctrlConfig);
 
     // should not seal API as each mixer+stream create a new verb
     // afb_dynapi_seal(apiHandle);
-    return err;
+    return error;
 
 OnErrorExit:
     return 1;
@@ -140,6 +141,9 @@ PUBLIC int afbBindingVdyn(afb_dynapi *apiHandle) {
     // create one API per config file (Pre-V3 return code ToBeChanged)
     int status = afb_dynapi_new_api(apiHandle, ctrlConfig->api, ctrlConfig->info, 1, CtrlLoadOneApi, ctrlConfig);
 
+    if (!status) 
+        status = CtlConfigExec (apiHandle, ctrlConfig);
+    
     return status;
 
 OnErrorExit:
