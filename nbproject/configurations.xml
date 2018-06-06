@@ -174,8 +174,6 @@
             flavor2="3">
         <cTool flags="1">
           <incDir>
-            <pElem>../../../opt/include/afb</pElem>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -188,8 +186,6 @@
             flavor2="3">
         <cTool flags="1">
           <incDir>
-            <pElem>../../../opt/include/afb</pElem>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -202,21 +198,10 @@
             flavor2="3">
         <cTool flags="1">
           <incDir>
-            <pElem>../../../opt/include/afb</pElem>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
           </incDir>
-          <preprocessorList>
-            <Elem>AFB_BINDING_VERSION=dyn</Elem>
-            <Elem>CONTROL_CONFIG_PATH="/home/fulup/opt/4a-softmixer/etc:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/etc"</Elem>
-            <Elem>CONTROL_LUA_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/lua.d:/home/fulup/opt/4a-softmixer/data"</Elem>
-            <Elem>CONTROL_PLUGIN_PATH="/home/fulup/opt/4a-softmixer/lib/plugins:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/lib/plugins"</Elem>
-            <Elem>CONTROL_SUPPORT_LUA</Elem>
-            <Elem>CTL_PLUGIN_MAGIC=987456123</Elem>
-            <Elem>USE_API_DYN=1</Elem>
-          </preprocessorList>
         </cTool>
       </item>
       <item path="app-controller-submodule/ctl-lib/ctl-event.c"
@@ -225,8 +210,6 @@
             flavor2="3">
         <cTool flags="1">
           <incDir>
-            <pElem>../../../opt/include/afb</pElem>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -239,7 +222,6 @@
             flavor2="3">
         <cTool flags="1">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
           </incDir>
         </cTool>
@@ -250,8 +232,6 @@
             flavor2="3">
         <cTool flags="1">
           <incDir>
-            <pElem>../../../opt/include/afb</pElem>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -264,8 +244,6 @@
             flavor2="3">
         <cTool flags="1">
           <incDir>
-            <pElem>../../../opt/include/afb</pElem>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -278,8 +256,6 @@
             flavor2="3">
         <cTool flags="1">
           <incDir>
-            <pElem>../../../opt/include/afb</pElem>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -292,8 +268,6 @@
             flavor2="3">
         <cTool flags="1">
           <incDir>
-            <pElem>../../../opt/include/afb</pElem>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -320,14 +294,26 @@
       <folder path="0/mixer-binding">
         <cTool>
           <incDir>
-            <pElem>../../../opt/include/afb</pElem>
-            <pElem>mixer-binding</pElem>
+            <pElem>/usr/include/json-c</pElem>
+            <pElem>../../../opt/include</pElem>
+            <pElem>/usr/include/p11-kit-1</pElem>
+            <pElem>/usr/include/uuid</pElem>
             <pElem>../../../opt/include/alsa</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
+            <pElem>mixer-binding</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>../../../opt/include</pElem>
             <pElem>build/mixer-binding</pElem>
           </incDir>
+          <preprocessorList>
+            <Elem>AFB_BINDING_VERSION=dyn</Elem>
+            <Elem>CONTROL_CONFIG_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/etc:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/etc:/home/fulup/opt/4a-smixer/etc"</Elem>
+            <Elem>CONTROL_LUA_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/lua.d:/home/fulup/opt/4a-smixer/var"</Elem>
+            <Elem>CONTROL_PLUGIN_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/lib/plugins:/home/fulup/opt/4a-smixer/lib/plugins"</Elem>
+            <Elem>CTL_PLUGIN_MAGIC=987456123</Elem>
+            <Elem>USE_API_DYN=1</Elem>
+            <Elem>softmixer_binding_EXPORTS</Elem>
+          </preprocessorList>
         </cTool>
       </folder>
       <folder path="0/plugins">
@@ -357,7 +343,7 @@
         </cTool>
       </folder>
       <item path="mixer-binding/mixer-binding.c" ex="false" tool="0" flavor2="3">
-        <cTool flags="1">
+        <cTool flags="0">
         </cTool>
       </item>
       <item path="plugins/alsa/alsa-api-loop.c" ex="false" tool="0" flavor2="2">
