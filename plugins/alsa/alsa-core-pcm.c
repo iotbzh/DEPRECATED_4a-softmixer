@@ -227,7 +227,7 @@ STATIC int AlsaPcmReadCB(sd_event_source* src, int fd, uint32_t revents, void* u
     framesOut = snd_pcm_writei(pcmCopyHandle->pcmOut, pcmCopyHandle->buffer, framesIn);
     //framesOut = snd_pcm_mmap_writei (pcmCopyHandle->pcmOut, pcmCopyHandle->buffer, framesIn);
     if (framesOut < 0 || framesOut != framesIn) {
-        AFB_ApiNotice(pcmCopyHandle->api, "AlsaPcmReadCB PcmOut=%s UNDERUN frame=%ld / %ld", ALSA_PCM_UID(pcmCopyHandle->pcmOut, string), framesOut ,framesIn);
+        AFB_ApiNotice(pcmCopyHandle->api, "AlsaPcmReadCB PcmOut=%s UNDERUN frame=%ld=>%ld error=%s", ALSA_PCM_UID(pcmCopyHandle->pcmOut, string), framesOut ,framesIn, snd_strerror((int)framesOut));
         snd_pcm_prepare(pcmCopyHandle->pcmOut);
         goto ExitOnSuccess;
     }

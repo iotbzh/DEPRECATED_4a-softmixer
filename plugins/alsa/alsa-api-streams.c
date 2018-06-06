@@ -245,8 +245,8 @@ PUBLIC int CreateOneStream(SoftMixerT *mixer, AlsaStreamAudioT *stream) {
         captureName = (char*) streamPcm->cid.cardid;
     }
 
-    // everything is not ready to open playback pcm
-    error = snd_pcm_open(&streamPcm->handle, captureName, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
+    // everything is now ready to open playback pcm in BLOCKING_MODE this time
+    error = snd_pcm_open(&streamPcm->handle, captureName, SND_PCM_STREAM_PLAYBACK, 0);
     if (error) {
         AFB_ApiError(mixer->api, "CreateOneStream: mixer=%s stream=%s fail to open capturePcm=%s error=%s", mixer->uid, stream->uid, streamPcm->cid.cardid, snd_strerror(error));
         goto OnErrorExit;
