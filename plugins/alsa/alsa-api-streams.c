@@ -271,11 +271,10 @@ PUBLIC int CreateOneStream(SoftMixerT *mixer, AlsaStreamAudioT *stream) {
         }
     }
 
-    // return alsa URI only when loopback is used
     if (loop) {
         (void) asprintf((char**)&stream->source, "hw:%d,%d,%d", captureDev->cardidx, loop->playback, capturePcm->cid.subdev);
     } else {
-        stream->source=NULL;
+        (void) asprintf((char**)&stream->source, "hw:%d,%d,%d", captureDev->cardidx, captureDev->device, captureDev->subdev);
     }
 
     // create a dedicated verb for this stream 

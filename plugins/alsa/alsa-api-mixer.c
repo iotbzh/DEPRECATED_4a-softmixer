@@ -106,15 +106,12 @@ STATIC void MixerInfoAction(AFB_ReqT request, json_object *argsJ) {
             if (quiet) {
                 json_object_array_add(streamsJ, json_object_new_string(streams[idx]->uid));
             } else {
-                json_object *numidJ;
-                wrap_json_pack(&numidJ, "{si,si}"
-                        , "volume", streams[idx]->volume
-                        , "mute", streams[idx]->mute
-                        );
-                wrap_json_pack(&valueJ, "{ss,ss, so}"
+                wrap_json_pack(&valueJ, "{ss,ss?,s{si,si}}"
                         , "uid", streams[idx]->uid
                         , "alsa", streams[idx]->source
-                        , "numid", numidJ
+                        , "numid"
+							, "volume", streams[idx]->volume
+							, "mute", streams[idx]->mute
                         );
                 json_object_array_add(streamsJ, valueJ);
             }
