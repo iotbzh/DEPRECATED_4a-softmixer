@@ -278,13 +278,6 @@ STATIC void MixerPingVerb(AFB_ReqT request) {
     return;
 }
 
-STATIC void MixerEventCB(AFB_ApiT api, const char *evtLabel, struct json_object *eventJ) {
-
-    SoftMixerT *mixer = (SoftMixerT*) afb_dynapi_get_userdata(api);
-    assert(mixer);
-
-    AFB_ApiNotice(api, "Mixer=%s Received event=%s, eventJ=%s", mixer->uid, evtLabel, json_object_get_string(eventJ));
-}
 
 // Every HAL export the same API & Interface Mapping from SndCard to AudioLogic is done through alsaHalSndCardT
 STATIC AFB_ApiVerbs CtrlApiVerbs[] = {
@@ -306,38 +299,7 @@ STATIC int LoadStaticVerbs(SoftMixerT *mixer, AFB_ApiVerbs *verbs) {
     return errcount;
 };
 
-STATIC int MixerInitCB(AFB_ApiT api) {
-
-    SoftMixerT *mixer = (SoftMixerT*) afb_dynapi_get_userdata(api);
-    assert(mixer);
-
-    // attach AFB mainloop to mixer
-    mixer->sdLoop = AFB_GetEventLoop(api);
-
-
-    AFB_ApiNotice(api, "MixerInitCB API=%s activated info=%s", mixer->uid, mixer->info);
-
-    return 0;
-}
-
-STATIC int MixerApiCB(void* handle, AFB_ApiT api) {
-    SoftMixerT *mixer = (SoftMixerT*) handle;
-
-    mixer->api = api;
-    afb_dynapi_set_userdata(api, mixer);
-    afb_dynapi_on_event(api, MixerEventCB);
-    afb_dynapi_on_init(api, MixerInitCB);
-
-    int error = LoadStaticVerbs(mixer, CtrlApiVerbs);
-    if (error) goto OnErrorExit;
-
-    return 0;
-
-OnErrorExit:
-    return -1;
-}
-
-CTLP_LUA2C(_mixer_new_, source, argsJ, responseJ) {
+CTLP_CAPI(CreateMixer, source, argsJ, responseJ) {
     SoftMixerT *mixer = calloc(1, sizeof (SoftMixerT));
     int error;
     mixer->max.loops = SMIXER_DEFLT_RAMPS;
@@ -377,40 +339,16 @@ CTLP_LUA2C(_mixer_new_, source, argsJ, responseJ) {
     mixer->zones = calloc(mixer->max.zones + 1, sizeof (void*));
     mixer->streams = calloc(mixer->max.streams + 1, sizeof (void*));
     mixer->ramps = calloc(mixer->max.ramps + 1, sizeof (void*));
+    
+    mixer->sdLoop = AFB_GetEventLoop(source->api);
+    mixer->api= source->api;
+    afb_dynapi_set_userdata(source->api, mixer);
 
-    // create mixer verb within API.
-    error = afb_dynapi_new_api(source->api, mixer->uid, mixer->info, !MAINLOOP_CONCURENCY, MixerApiCB, mixer);
-    if (error) {
-        AFB_ApiError(source->api, "_mixer_new_ mixer=%s fail to Registry API verb", mixer->uid);
-        goto OnErrorExit;
-    }
-
+    error = LoadStaticVerbs(mixer, CtrlApiVerbs);
+    if (error) goto OnErrorExit;
+     
     return 0;
 
 OnErrorExit:
     return -1;
-}
-
-// provide a similar command but for API
-
-CTLP_CAPI(mixer_new, source, argsJ, queryJ) {
-    json_object * responseJ;
-
-    // merge static config args with dynamic one coming from the request
-    if (argsJ && json_object_get_type(argsJ) == json_type_object) {
-
-        json_object_object_foreach(argsJ, key, val) {
-            json_object_get(val);
-            json_object_object_add(queryJ, key, val);
-        }
-    }
-
-    int error = _mixer_new_(source, queryJ, &responseJ);
-
-    if (error)
-        AFB_ReqFailF(source->request, "fail-create", "invalid arguments");
-    else
-        AFB_ReqSucess(source->request, responseJ, NULL);
-
-    return error;
 }

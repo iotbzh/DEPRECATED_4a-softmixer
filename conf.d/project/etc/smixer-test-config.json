@@ -12,24 +12,20 @@
             "info": "Map alsa-loop subdevices to 4A HAL streams",
             "spath": "./package/lib/plugins:./package/var:./lib/plugins:./var",
             "libs": ["alsa-softmixer.ctlso", "smixer-test-simple.lua"],
-            "lua": {
-                "prefix": "smix",
-                "functions": ["_mixer_new_"]
-            }
         }
     ],
 
     "onload": [
         {
-            "uid": "init-soft-mixer",
-            "info": "Initialise Audio Router",
-            "action": "lua://softmixer#_mixer_simple_test_"
-        }
-    ],
-    "controls": [
+            "uid": "create-soft-mixer",
+            "info": "Create Audio Router",
+            "action": "plugin://softmixer#CreateMixer",
+            "args": {"uid":"Simple_Test_Mixer"}
+        },
         {
-            "uid": "create",
-            "action": "plugin://softmixer#mixer_new"
+            "uid": "attach-soft-mixer",
+            "info": "Attach Stream to Audio Router",
+            "action": "lua://softmixer#_mixer_simple_test_"
         }
     ]
 }

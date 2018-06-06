@@ -18,21 +18,21 @@
 
     <h2>V3 API CALL</h2>
     <ol>
-        <li><button onclick="callbinder('MyMixer', 'info', {streams: true});">Streams List</button></li>
-        <li><button onclick="callbinder('MyMixer', 'info', {ramps: true});">Ramps List</button></li>
-        <li><button onclick="callbinder('MyMixer', 'info', {zones: true});">Zones List</button></li>
+        <li><button onclick="callbinder('smixer', 'info', {streams: true});">Streams List</button></li>
+        <li><button onclick="callbinder('smixer', 'info', {ramps: true});">Ramps List</button></li>
+        <li><button onclick="callbinder('smixer', 'info', {zones: true});">Zones List</button></li>
         <br>
-        <li><button onclick="callbinder('MyMixer', '8CH-USB/playback', {volume: '+10'});">Master 8CH-USB vol=+10</button></li>
-        <li><button onclick="callbinder('MyMixer', '8CH-USB/playback', {volume: '-10'});">Master 8CH-USB vol=-10</button></li>
+        <li><button onclick="callbinder('smixer', '8CH-USB/playback', {volume: '+10'});">Master 8CH-USB vol=+10</button></li>
+        <li><button onclick="callbinder('smixer', '8CH-USB/playback', {volume: '-10'});">Master 8CH-USB vol=-10</button></li>
         <br>
-        <li><button onclick="callbinder('MyMixer', 'multimedia', {toggle: true});">Stream Multimedia pause/resume</button></li>
-        <li><button onclick="callbinder('MyMixer', 'navigation', {toggle: true});">Stream Navigation pause/resume</button></li>
+        <li><button onclick="callbinder('smixer', 'multimedia', {toggle: true});">Stream Multimedia pause/resume</button></li>
+        <li><button onclick="callbinder('smixer', 'navigation', {toggle: true});">Stream Navigation pause/resume</button></li>
         <br>
-        <li><button onclick="callbinder('MyMixer', 'multimedia', {volume: '+10'});">Stream Multimedia volume=+10"</button></li>
-        <li><button onclick="callbinder('MyMixer', 'multimedia', {volume: '-10'});">Stream Multimedia volume=-10"</button></li>
+        <li><button onclick="callbinder('smixer', 'multimedia', {volume: '+10'});">Stream Multimedia volume=+10"</button></li>
+        <li><button onclick="callbinder('smixer', 'multimedia', {volume: '-10'});">Stream Multimedia volume=-10"</button></li>
         <br>
-        <li><button onclick="callbinder('MyMixer', 'multimedia', {ramp: {uid:'ramp-slow', volume:30}});">Stream Multimedia ramp-slow=30"</button></li>
-        <li><button onclick="callbinder('MyMixer', 'multimedia', {ramp: {uid:'ramp-fast', volume:80}});">Stream Multimedia ramp-fast=80"</button></li>
+        <li><button onclick="callbinder('smixer', 'multimedia', {ramp: {uid:'ramp-slow', volume:30}});">Stream Multimedia ramp-slow=30"</button></li>
+        <li><button onclick="callbinder('smixer', 'multimedia', {ramp: {uid:'ramp-fast', volume:80}});">Stream Multimedia ramp-fast=80"</button></li>
     </ol>
 
     <div id="main" style="visibility:hidden">

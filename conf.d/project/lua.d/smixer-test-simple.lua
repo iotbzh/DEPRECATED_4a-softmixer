@@ -37,7 +37,6 @@ end
 function _mixer_simple_test_ (source, args)
     do
  
-
     -- Mixer UID is used as API name
 
     -- ==================== Default rate ===========================
@@ -220,16 +219,9 @@ function _mixer_simple_test_ (source, args)
 
     }
 
-    -- direct LUA call because controller cannot call its own API from AFB:servsync
-    error,result= smix:_mixer_new_ (source, {["uid"]="MyMixer"})
-    if (error ~= 0) then 
-        AFB:error (source, "--InLua-- smix:_mixer_new_ fail config=%s", Dump_Table(result))
-        goto OnErrorExit
-    else
-        AFB:notice (source, "--InLua-- smix:_mixer_new_ done\n")
-    end
 
-    error,result= AFB:servsync(source, "MyMixer", "attach", MyTestHal)
+
+    error,result= AFB:servsync(source, "smixer", "attach", MyTestHal)
     if (error) then 
         AFB:error (source, "--InLua-- API MyMixer/attach fail error=%d", error)
         goto OnErrorExit
