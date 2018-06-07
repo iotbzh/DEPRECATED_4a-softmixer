@@ -18,7 +18,7 @@
 
 # Project Info
 # ------------------
-set(PROJECT_NAME 4a-smixer)
+set(PROJECT_NAME smixer)
 set(PROJECT_PRETTY_NAME "Audio SoftMixer")
 set(PROJECT_DESCRIPTION "Soft Mixer for 4A (AGL Advanced Audio Architecture)")
 set(PROJECT_URL "https://github.com/iotbzh/4a-softmixer")
@@ -75,6 +75,7 @@ set (PKG_REQUIRED_LIST
 	libmicrohttpd>=0.9.55
 	uuid
 	alsa>=1.1.2
+	lua
 )
 
 # Prefix path where will be installed the files
