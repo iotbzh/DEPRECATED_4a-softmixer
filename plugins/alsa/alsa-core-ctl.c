@@ -269,6 +269,8 @@ PUBLIC snd_ctl_card_info_t *AlsaCtlGetInfo(SoftMixerT *mixer, const char *cardid
     int error;
     snd_ctl_t *ctl;
 
+    AFB_ApiNotice(mixer->api, "Looking for card '%s'", cardid);
+
     if ((error = snd_ctl_open(&ctl, cardid, SND_CTL_READONLY)) < 0) {
         cardid = "Not Defined";
         goto OnErrorExit;

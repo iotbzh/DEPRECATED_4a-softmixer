@@ -97,8 +97,11 @@ PUBLIC snd_ctl_t *AlsaByPathOpenCtl(SoftMixerT *mixer, const char *uid, AlsaSndC
 
     // get card info from /dev/snd/xxx if not use hw:x,x,x
     snd_ctl_card_info_t *cardInfo = NULL;
-    if (dev->cid.devpath) cardInfo = AlsaByPathInfo(mixer, dev->cid.devpath);
-    else if (dev->cid.cardid) cardInfo = AlsaCtlGetInfo(mixer, dev->cid.cardid);
+
+    if (dev->cid.devpath)
+        cardInfo = AlsaByPathInfo(mixer, dev->cid.devpath);
+    else if (dev->cid.cardid)
+        cardInfo = AlsaCtlGetInfo(mixer, dev->cid.cardid);
 
     if (!cardInfo) {
         AFB_ApiError(mixer->api, "AlsaByPathOpenCtl: uid=%s fail to find sndcard by path=%s id=%s", uid, dev->cid.devpath, dev->cid.cardid);
