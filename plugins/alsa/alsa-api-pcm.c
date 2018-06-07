@@ -352,7 +352,7 @@ PUBLIC AlsaPcmHwInfoT * ApiPcmSetParams(SoftMixerT *mixer, const char *uid, json
     goto OnErrorExit;
 
 check_access:
-	AFB_ApiNotice(mixer->api, "THIERRY ApiPcmSetParams:%s format set to SND_PCM_FORMAT_%s",uid, params->formatS);
+	AFB_ApiNotice(mixer->api, "ApiPcmSetParams:%s format set to SND_PCM_FORMAT_%s",uid, params->formatS);
 
 #define ACCESS_CHECK(arg) if (!strcmp(access,#arg)) { params->access = SND_PCM_ACCESS_##arg; goto success;}
 
@@ -371,7 +371,7 @@ check_access:
     goto OnErrorExit;
 
 success:
-	AFB_ApiNotice(mixer->api, "THIERRY ApiPcmSetParams:%s access set to %s", uid, access);
+	AFB_ApiNotice(mixer->api, "ApiPcmSetParams:%s access set to %s", uid, access);
     return params;
 
 OnErrorExit:
