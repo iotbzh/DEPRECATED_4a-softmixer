@@ -67,7 +67,7 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, AlsaPcmHwInfoT *opts
     snd_pcm_format_t format;
     snd_pcm_access_t access;
 
-    // retrieve hadware config from PCM
+    // retrieve hardware config from PCM
     snd_pcm_hw_params_alloca(&pxmHwParams);
     snd_pcm_hw_params_any(pcm->handle, pxmHwParams);
 
@@ -101,6 +101,8 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, AlsaPcmHwInfoT *opts
             goto OnErrorExit;
         }
     }
+
+
 
     if (opts->channels) {
         if ((error = snd_pcm_hw_params_set_channels(pcm->handle, pxmHwParams, opts->channels)) < 0) {

@@ -33,7 +33,7 @@ STATIC int CONVERT_PERCENT(long val, long min, long max) {
     if (range == 0)
         return 0;
     val -= min;
-    tmp = rint((double) val / (double) range * 100);
+    tmp = (int)rint((double) val / (double) range * 100);
     return tmp;
 }
 
@@ -326,42 +326,52 @@ PUBLIC AlsaPcmHwInfoT * ApiPcmSetParams(SoftMixerT *mixer, const char *uid, json
     if (!format) {
         params->format = SND_PCM_FORMAT_S16_LE;
         params->formatS = "S16_LE";
-    } else {
-        params->formatS = strdup(format);
-        if (!strcasecmp(format, "S16_LE")) params->format = SND_PCM_FORMAT_S16_LE;
-        else if (!strcasecmp(format, "S16_BE")) params->format = SND_PCM_FORMAT_S16_BE;
-        else if (!strcasecmp(format, "U16_LE")) params->format = SND_PCM_FORMAT_U16_LE;
-        else if (!strcasecmp(format, "U16_BE")) params->format = SND_PCM_FORMAT_U16_BE;
-        else if (!strcasecmp(format, "S32_LE")) params->format = SND_PCM_FORMAT_S32_LE;
-        else if (!strcasecmp(format, "S32_BE")) params->format = SND_PCM_FORMAT_S32_BE;
-        else if (!strcasecmp(format, "U32_LE")) params->format = SND_PCM_FORMAT_U32_LE;
-        else if (!strcasecmp(format, "U32_BE")) params->format = SND_PCM_FORMAT_U32_BE;
-        else if (!strcasecmp(format, "S24_LE")) params->format = SND_PCM_FORMAT_S24_LE;
-        else if (!strcasecmp(format, "S24_BE")) params->format = SND_PCM_FORMAT_S24_BE;
-        else if (!strcasecmp(format, "U24_LE")) params->format = SND_PCM_FORMAT_U24_LE;
-        else if (!strcasecmp(format, "U24_BE")) params->format = SND_PCM_FORMAT_U24_BE;
-        else if (!strcasecmp(format, "S8")) params->format = SND_PCM_FORMAT_S8;
-        else if (!strcasecmp(format, "U8")) params->format = SND_PCM_FORMAT_U8;
-        else if (!strcasecmp(format, "FLOAT_LE")) params->format = SND_PCM_FORMAT_FLOAT_LE;
-        else if (!strcasecmp(format, "FLOAT_BE")) params->format = SND_PCM_FORMAT_FLOAT_LE;
-        else {
-            AFB_ApiNotice(mixer->api, "ApiPcmSetParams:%s(params) unsupported format 'S16_LE|S32_L|...' format=%s", uid, format);
-            goto OnErrorExit;
-        }
+        goto check_access;
+    }
+    params->formatS = strdup(format);
+#define FORMAT_CHECK(arg) if (!strcmp(format,#arg)) { params->format = SND_PCM_FORMAT_##arg; goto check_access; }
+
+    FORMAT_CHECK(S16_LE);
+    FORMAT_CHECK(S16_BE);
+    FORMAT_CHECK(U16_LE);
+    FORMAT_CHECK(U16_BE);
+    FORMAT_CHECK(S32_BE);
+    FORMAT_CHECK(S32_LE);
+    FORMAT_CHECK(U32_BE);
+    FORMAT_CHECK(U32_LE);
+    FORMAT_CHECK(S24_BE);
+    FORMAT_CHECK(S24_LE);
+    FORMAT_CHECK(U24_BE);
+    FORMAT_CHECK(U24_LE);
+    FORMAT_CHECK(S8);
+    FORMAT_CHECK(U8);
+    FORMAT_CHECK(FLOAT_LE);
+    FORMAT_CHECK(FLOAT_BE);
+
+    AFB_ApiNotice(mixer->api, "ApiPcmSetParams:%s(params) unsupported format 'S16_LE|S32_L|...' format=%s", uid, format);
+    goto OnErrorExit;
+
+check_access:
+	AFB_ApiNotice(mixer->api, "THIERRY ApiPcmSetParams:%s format set to SND_PCM_FORMAT_%s",uid, params->formatS);
+
+#define ACCESS_CHECK(arg) if (!strcmp(access,#arg)) { params->access = SND_PCM_ACCESS_##arg; goto success;}
+
+	if (!access) {
+        params->access = SND_PCM_ACCESS_RW_INTERLEAVED;
+        goto success;
     }
 
-    if (!access) params->access = SND_PCM_ACCESS_RW_INTERLEAVED;
-    else if (!strcasecmp(access, "MMAP_INTERLEAVED")) params->access = SND_PCM_ACCESS_MMAP_INTERLEAVED;
-    else if (!strcasecmp(access, "MMAP_NONINTERLEAVED")) params->access = SND_PCM_ACCESS_MMAP_NONINTERLEAVED;
-    else if (!strcasecmp(access, "MMAP_COMPLEX")) params->access = SND_PCM_ACCESS_MMAP_COMPLEX;
-    else if (!strcasecmp(access, "RW_INTERLEAVED")) params->access = SND_PCM_ACCESS_RW_INTERLEAVED;
-    else if (!strcasecmp(access, "RW_NONINTERLEAVED")) params->access = SND_PCM_ACCESS_RW_NONINTERLEAVED;
+	ACCESS_CHECK(MMAP_INTERLEAVED);
+	ACCESS_CHECK(MMAP_NONINTERLEAVED);
+	ACCESS_CHECK(MMAP_COMPLEX);
+	ACCESS_CHECK(RW_INTERLEAVED);
+	ACCESS_CHECK(RW_NONINTERLEAVED);
 
-    else {
-        AFB_ApiNotice(mixer->api, "ApiPcmSetParams:%s(params) unsupported access 'RW_INTERLEAVED|MMAP_INTERLEAVED|MMAP_COMPLEX' access=%s", uid, access);
-        goto OnErrorExit;
-    }
+    AFB_ApiNotice(mixer->api, "ApiPcmSetParams:%s(params) unsupported access 'RW_INTERLEAVED|MMAP_INTERLEAVED|MMAP_COMPLEX' access=%s", uid, access);
+    goto OnErrorExit;
 
+success:
+	AFB_ApiNotice(mixer->api, "THIERRY ApiPcmSetParams:%s access set to %s", uid, access);
     return params;
 
 OnErrorExit:
