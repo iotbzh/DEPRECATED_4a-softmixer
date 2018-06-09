@@ -540,9 +540,10 @@ STATIC void MixerAttachVerb(AFB_ReqT request) {
     json_object *responseJ = json_object_new_object();
     int error;
 
-    error = wrap_json_unpack(argsJ, "{ss,s?s,s?o,s?o,s?o,s?o,s?o,s?o !}"
+    error = wrap_json_unpack(argsJ, "{ss,s?s,s?s,s?o,s?o,s?o,s?o,s?o,s?o !}"
             , "uid", &uid
             , "prefix", &prefix
+            , "mixerapi", NULL
             , "ramps", &rampsJ
             , "playbacks", &playbacksJ
             , "captures", &capturesJ
