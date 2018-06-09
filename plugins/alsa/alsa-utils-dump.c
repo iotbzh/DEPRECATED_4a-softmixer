@@ -159,7 +159,7 @@ PUBLIC void AlsaDumpPcmInfo(SoftMixerT *mixer, const char* info, snd_pcm_t *pcm)
 
     // create an output buffer an dump PCM config
     snd_output_buffer_open(&out);
-    snd_output_printf(out, info);
+    snd_output_printf(out, "%s", info);
     snd_output_printf(out, ": ");
     snd_pcm_dump(pcm, out);
 
