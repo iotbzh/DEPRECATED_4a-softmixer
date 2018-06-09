@@ -135,7 +135,7 @@ PUBLIC int ApiZoneAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
     }
 
     if (index == mixer->max.zones) {
-        AFB_ReqFailF(request, "too-small", "mixer=%s max zone=%d argsJ= %s", mixer->uid, mixer->max.zones, json_object_get_string(argsJ));
+        AFB_ReqFailF(request, "too-small", "mixer=%s max zone=%d", mixer->uid, mixer->max.zones);
         goto OnErrorExit;
     }
 
@@ -159,8 +159,8 @@ PUBLIC int ApiZoneAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
 
         case json_type_array:
             count = json_object_array_length(argsJ);
-            if (count > (mixer->max.zones - count)) {
-                AFB_ReqFailF(request, "too-small", "mixer=%s max zone=%d argsJ= %s", mixer->uid, mixer->max.zones, json_object_get_string(argsJ));
+            if (count > (mixer->max.zones - index)) {
+                AFB_ReqFailF(request, "too-small", "mixer=%s max zone=%d", mixer->uid, mixer->max.zones);
                 goto OnErrorExit;
 
             }

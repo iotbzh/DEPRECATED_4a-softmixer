@@ -39,26 +39,29 @@ typedef struct {
 
 STATIC void StreamApiVerbCB(AFB_ReqT request) {
     apiHandleT *handle = (apiHandleT*) afb_request_get_vcbdata(request);
-    int error, doClose = 0, doQuiet = 0, doToggle = 0, doMute = -1;
-    long mute, volume;
-    json_object *responseJ, *volumeJ = NULL, *rampJ = NULL, *argsJ = afb_request_json(request);
-
+    int error, verbose = 0, doClose = 0, doToggle = 0, doMute = -1, doInfo = 0;
+    long mute, volume, curvol;
+    json_object *volumeJ = NULL, *rampJ = NULL, *argsJ = afb_request_json(request);
+    json_object *responseJ = NULL;
     SoftMixerT *mixer = handle->mixer;
     AlsaSndCtlT *sndcard = handle->sndcard;
     assert(mixer && sndcard);
 
-    error = wrap_json_unpack(argsJ, "{s?b s?b,s?b,s?b,s?o,s?o !}"
-            , "quiet", &doQuiet
+    error = wrap_json_unpack(argsJ, "{s?b s?b,s?b,s?b,s?b,s?o,s?o !}"
             , "close", &doClose
             , "mute", &doMute
             , "toggle", &doToggle
+            , "info", &doInfo
+            , "verbose", &verbose
             , "volume", &volumeJ
             , "ramp", &rampJ
             );
     if (error) {
-        AFB_ReqFailF(request, "syntax-error", "Missing 'close|mute|volume|quiet' args=%s", json_object_get_string(argsJ));
+        AFB_ReqFailF(request, "syntax-error", "Missing 'close|mute|volume|verbose' args=%s", json_object_get_string(argsJ));
         goto OnErrorExit;
     }
+
+    if (verbose) responseJ = json_object_new_object();
 
     if (doClose) {
         AFB_ReqFailF(request, "internal-error", "(Fulup) Close action still to be done mixer=%s stream=%s", mixer->uid, handle->stream->uid);
@@ -68,10 +71,31 @@ STATIC void StreamApiVerbCB(AFB_ReqT request) {
     if (doToggle) {
         error += AlsaCtlNumidGetLong(mixer, sndcard, handle->stream->mute, &mute);
         error += AlsaCtlNumidSetLong(mixer, sndcard, handle->stream->mute, !mute);
+        if (error) {
+            AFB_ReqFailF(request, "invalid-numid", "Fail to set/get pause numid=%d", handle->stream->mute);
+            goto OnErrorExit;
+        }
+
+        if (verbose) {
+            json_object_object_add(responseJ, "mute", json_object_new_boolean(!mute));
+        }
+    }
+
+    if (doMute != -1) {
+        error = AlsaCtlNumidSetLong(mixer, handle->sndcard, handle->stream->mute, !mute);
+        if (error) {
+            AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to set stream volume numid=%d value=%d", handle->stream->volume, !mute);
+            goto OnErrorExit;
+        }
+
+        if (verbose) {
+            error += AlsaCtlNumidGetLong(mixer, handle->sndcard, handle->stream->mute, &mute);
+            json_object_object_add(responseJ, "mute", json_object_new_boolean((json_bool) mute));
+        }
     }
 
     if (volumeJ) {
-        long curvol, newvol;
+        long newvol;
         const char*volString;
 
         error = AlsaCtlNumidGetLong(mixer, handle->sndcard, handle->stream->volume, &curvol);
@@ -116,27 +140,29 @@ STATIC void StreamApiVerbCB(AFB_ReqT request) {
             AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to set stream volume numid=%d value=%ld", handle->stream->volume, newvol);
             goto OnErrorExit;
         }
+
+        if (verbose) {
+            json_object_object_add(responseJ, "volnew", json_object_new_int((int) newvol));
+            json_object_object_add(responseJ, "volold", json_object_new_int((int) curvol));
+        }
     }
 
     if (rampJ) {
-        error = AlsaVolRampApply(mixer, handle->sndcard, handle->stream, rampJ);
+        if (verbose) {
+            error = AlsaCtlNumidGetLong(mixer, handle->sndcard, handle->stream->volume, &curvol);
+            json_object_object_add(responseJ, "volold", json_object_new_int((int) curvol));
+        }
+
+        error += AlsaVolRampApply(mixer, handle->sndcard, handle->stream, rampJ);
         if (error) {
             AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to set stream volram numid=%d value=%s", handle->stream->volume, json_object_get_string(rampJ));
             goto OnErrorExit;
         }
     }
 
-    if (doMute != -1) {
-        error = AlsaCtlNumidSetLong(mixer, handle->sndcard, handle->stream->mute, !mute);
-        if (error) {
-            AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to set stream volume numid=%d value=%d", handle->stream->volume, !mute);
-            goto OnErrorExit;
-        }
-    }
 
-    // if not in quiet mode return effective selected control values
-    if (doQuiet) responseJ = NULL;
-    else {
+    if (doInfo) {
+        json_object_put(responseJ); // free default response.
         error += AlsaCtlNumidGetLong(mixer, handle->sndcard, handle->stream->volume, &volume);
         error += AlsaCtlNumidGetLong(mixer, handle->sndcard, handle->stream->mute, &mute);
         if (error) {
@@ -146,14 +172,15 @@ STATIC void StreamApiVerbCB(AFB_ReqT request) {
         wrap_json_pack(&responseJ, "{si,sb}", "volume", volume, "mute", !mute);
     }
 
-    AFB_ReqSucess(request, responseJ, NULL);
+
+    AFB_ReqSuccess(request, responseJ, NULL);
     return;
 
 OnErrorExit:
     return;
 }
 
-PUBLIC int CreateOneStream(SoftMixerT *mixer, AlsaStreamAudioT *stream) {
+STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT * stream) {
     int error;
     long value;
     AlsaSndLoopT *loop = NULL;
@@ -272,9 +299,9 @@ PUBLIC int CreateOneStream(SoftMixerT *mixer, AlsaStreamAudioT *stream) {
     }
 
     if (loop) {
-        (void) asprintf((char**)&stream->source, "hw:%d,%d,%d", captureDev->cardidx, loop->playback, capturePcm->cid.subdev);
+        (void) asprintf((char**) &stream->source, "hw:%d,%d,%d", captureDev->cardidx, loop->playback, capturePcm->cid.subdev);
     } else {
-        (void) asprintf((char**)&stream->source, "hw:%d,%d,%d", captureDev->cardidx, captureDev->device, captureDev->subdev);
+        (void) asprintf((char**) &stream->source, "hw:%d,%d,%d", captureDev->cardidx, captureDev->device, captureDev->subdev);
     }
 
     // create a dedicated verb for this stream 
@@ -289,7 +316,7 @@ PUBLIC int CreateOneStream(SoftMixerT *mixer, AlsaStreamAudioT *stream) {
     stream->volume = volNumid;
     stream->mute = pauseNumid;
 
-    error = afb_dynapi_add_verb(mixer->api, stream->uid, stream->info, StreamApiVerbCB, apiHandle, NULL, 0);
+    error = afb_dynapi_add_verb(mixer->api, stream->verb, stream->info, StreamApiVerbCB, apiHandle, NULL, 0);
     if (error) {
         AFB_ApiError(mixer->api, "CreateOneStream mixer=%s fail to Register API verb stream=%s", mixer->uid, stream->uid);
         goto OnErrorExit;
@@ -307,7 +334,7 @@ OnErrorExit:
     return -1;
 }
 
-STATIC AlsaStreamAudioT * AttachOneStream(SoftMixerT *mixer, const char *uid, json_object *streamJ) {
+STATIC AlsaStreamAudioT * AttachOneStream(SoftMixerT *mixer, const char *uid, const char *prefix, json_object * streamJ) {
     AlsaStreamAudioT *stream = calloc(1, sizeof (AlsaStreamAudioT));
     int error;
     json_object *paramsJ = NULL;
@@ -317,8 +344,9 @@ STATIC AlsaStreamAudioT * AttachOneStream(SoftMixerT *mixer, const char *uid, js
     stream->mute = 0;
     stream->info = NULL;
 
-    error = wrap_json_unpack(streamJ, "{ss,s?s,ss,s?s,s?i,s?b,s?o,s?s !}"
+    error = wrap_json_unpack(streamJ, "{ss,s?s,s?s,ss,s?s,s?i,s?b,s?o,s?s !}"
             , "uid", &stream->uid
+            , "verb", &stream->verb
             , "info", &stream->info
             , "zone", &stream->sink
             , "source", &stream->source
@@ -344,8 +372,16 @@ STATIC AlsaStreamAudioT * AttachOneStream(SoftMixerT *mixer, const char *uid, js
     if (stream->sink)stream->sink = strdup(stream->sink);
     if (stream->source)stream->source = strdup(stream->source);
 
+    // Prefix verb with uid|prefix
+    if (prefix) {
+        if (stream->verb) asprintf((char**) &stream->verb, "%s:%s", prefix, stream->verb);
+        else asprintf((char**) &stream->verb, "%s:%s", prefix, stream->uid);
+    } else {
+        if (!stream->verb) asprintf((char**) &stream->verb, stream->uid);
+    }
+
     // implement stream PCM with corresponding thread and controls
-    error = CreateOneStream(mixer, stream);
+    error = CreateOneStream(mixer, uid, stream);
     if (error) goto OnErrorExit;
 
     return stream;
@@ -355,7 +391,7 @@ OnErrorExit:
     return NULL;
 }
 
-PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, json_object * argsJ) {
+PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, const char *prefix, json_object * argsJ) {
 
     if (!mixer->loops) {
         AFB_ApiError(mixer->api, "StreamsAttach: mixer=%s No Loop found [should Registry snd_loop first]", mixer->uid);
@@ -368,7 +404,7 @@ PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid,
     }
 
     if (index == mixer->max.streams) {
-        AFB_ReqFailF(request, "too-small", "mixer=%s max stream=%d argsJ= %s", mixer->uid, mixer->max.streams, json_object_get_string(argsJ));
+        AFB_ReqFailF(request, "too-small", "mixer=%s max stream=%d", mixer->uid, mixer->max.streams);
         goto OnErrorExit;
     }
 
@@ -376,7 +412,7 @@ PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid,
             long count;
 
         case json_type_object:
-            mixer->streams[index] = AttachOneStream(mixer, uid, argsJ);
+            mixer->streams[index] = AttachOneStream(mixer, uid, prefix, argsJ);
             if (!mixer->streams[index]) {
                 AFB_ReqFailF(request, "invalid-syntax", "mixer=%s invalid stream= %s", mixer->uid, json_object_get_string(argsJ));
                 goto OnErrorExit;
@@ -386,14 +422,14 @@ PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid,
         case json_type_array:
 
             count = json_object_array_length(argsJ);
-            if (count > (mixer->max.streams - count)) {
-                AFB_ReqFailF(request, "too-small", "mixer=%s max stream=%d argsJ= %s", mixer->uid, mixer->max.streams, json_object_get_string(argsJ));
+            if (count > (mixer->max.streams - index)) {
+                AFB_ReqFailF(request, "too-small", "mixer=%s max stream=%d", mixer->uid, mixer->max.streams);
                 goto OnErrorExit;
             }
 
             for (int idx = 0; idx < count; idx++) {
                 json_object *streamJ = json_object_array_get_idx(argsJ, idx);
-                mixer->streams[index + idx] = AttachOneStream(mixer, uid, streamJ);
+                mixer->streams[index + idx] = AttachOneStream(mixer, uid, prefix, streamJ);
                 if (!mixer->streams[index + idx]) {
                     AFB_ReqFailF(request, "invalid-syntax", "mixer=%s invalid stream= %s", mixer->uid, json_object_get_string(streamJ));
                     goto OnErrorExit;

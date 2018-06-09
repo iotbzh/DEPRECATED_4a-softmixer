@@ -71,7 +71,7 @@ PUBLIC int ApiRampAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
     }
 
     if (index == mixer->max.ramps) {
-        AFB_ReqFailF(request, "too-small", "mixer=%s hal=%s max ramp=%d argsJ= %s", mixer->uid, uid, mixer->max.ramps, json_object_get_string(argsJ));
+        AFB_ReqFailF(request, "too-small", "mixer=%s hal=%s max ramp=%d", mixer->uid, uid, mixer->max.ramps);
         goto OnErrorExit;
     }
 
@@ -88,8 +88,8 @@ PUBLIC int ApiRampAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
 
         case json_type_array:
             count = json_object_array_length(argsJ);
-            if (count > (mixer->max.ramps - count)) {
-                AFB_ReqFailF(request, "too-small", "mixer=%s hal=%s max ramp=%d argsJ= %s", mixer->uid, uid, mixer->max.ramps, json_object_get_string(argsJ));
+            if (count > (mixer->max.ramps - index)) {
+                AFB_ReqFailF(request, "too-small", "mixer=%s hal=%s max ramp=%d", mixer->uid, uid, mixer->max.ramps);
                 goto OnErrorExit;
 
             }

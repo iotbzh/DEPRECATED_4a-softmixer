@@ -53,29 +53,11 @@ function _mixer_simple_test_ (source, args)
             {["uid"]="ramp-normal", ["delay"]= 100, ["up"]=06,["down"]=2},
     }
 
-    -- ======================= Loop PCM ===========================
-    local snd_aloop = {
-        ["uid"]     = "Alsa-Loop",
-        ["path"]= "/dev/snd/by-path/platform-snd_aloop.0",
-        ["devices"] = {["playback"]=0,["capture"]=1},
-        ["subdevs"] = {
-            {["subdev"]= 0, ["numid"]= 51, ["uid"]= "loop-legacy"},
-            {["subdev"]= 1, ["numid"]= 57, ["uid"]= "loop-multimedia"},
-            {["subdev"]= 2, ["numid"]= 63},
-            {["subdev"]= 3, ["numid"]= 69},
-            {["subdev"]= 4, ["numid"]= 75},
-            {["subdev"]= 5, ["numid"]= 81},
-            {["subdev"]= 6, ["numid"]= 87},
-            {["subdev"]= 7, ["numid"]= 93},
-        },
-    }
-
-
     -- ============================= Backend (Sound Cards) ===================  
 
     local snd_usb_8ch= {
         ["uid"]= "8CH-USB",
-        ["cardid"]= "USB",
+        ["path"]= "/dev/snd/by-id/usb-0d8c_USB_Sound_Device-00",
         ["params"] = audio_params.default,
         ["sink"] = {
             ["controls"]= {
@@ -143,21 +125,12 @@ function _mixer_simple_test_ (source, args)
         }
     }
 
-    local zone_driver= {
-        ["uid"]  = "driver-seat",
-        ["source"] = {
-            {["target"]="mic-right",["channel"]=0},
-        },
-        ["sink"] = {
-            {["target"]="front-right",["channel"]=0},
-        }
-    }
 
     -- =================== Audio Streams ============================
     local stream_music= {
         ["uid"] = "stream-multimedia",
+        ["verb"] = "multimedia",
         ["zone"]= "full-stereo",
-        ["source"]= "loop-multimedia",
         ["volume"]= 80,
         ["mute"]  = false,
         ["params"]= audio_params.standard,
@@ -165,6 +138,7 @@ function _mixer_simple_test_ (source, args)
     
     local stream_navigation= {
         ["uid"]   = "stream-navigation",
+        ["verb"] = "navigation",
         ["zone"]= "front-seats",
         ["volume"]= 80,
         ["mute"]  = false,
@@ -172,22 +146,16 @@ function _mixer_simple_test_ (source, args)
     
     local stream_emergency= {
         ["uid"]   = "stream-emergency",
-        ["zone"]  = "driver-seat",
-        ["volume"]= 80,
-        ["mute"]  = false,
-        --["params"]= audio_params.basic,
-    }
-        
-    local stream_radio= {
-        ["uid"]   = "stream-radio",
-        ["zone"]  = "full-stereo",
-        ["source"]= "radio",
+        ["verb"] = "emergency",
+        ["zone"]  = "front-seats",
         ["volume"]= 80,
         ["mute"]  = false,
     }
-    
+            
+    -- Force Pulse to attach a well known Loop subdev to get a fix Alsa cardid 
     local stream_pulse= {
         ["uid"]   = "stream-pulseaudio",
+        ["verb"] = "legacy",
         ["zone"]  = "back-seats",
         ["source"]= "loop-legacy",
         ["volume"]= 80,
@@ -196,22 +164,21 @@ function _mixer_simple_test_ (source, args)
     
     --- ================ Create Mixer =========================
     local MyTestHal= {
-        ["uid"]      = "MyMixer",
+        ["uid"]      = "HAL-LUA-8CH-USB",
+        ["prefix"]   = "default",
         ["ramps"]    = volume_ramps,
         ["playbacks"]= {snd_usb_8ch },
         ["captures"] = {snd_usb_8ch },
-        ["loops"]    = {snd_aloop},
-        ["zones"]    = {zone_stereo, zone_front, zone_back, zone_middle, zone_driver},
-        ["streams"]  = {stream_pulse, stream_music, stream_navigation, stream_radio },
+        ["zones"]    = {zone_stereo, zone_front, zone_back, zone_middle},
+        ["streams"]  = {stream_pulse, stream_music, stream_navigation, stream_emergency },
     }
 
     error,result= AFB:servsync(source, "smixer", "attach", MyTestHal)
-
     if (error) then 
-        AFB:error (source, "--InLua-- API MyMixer/attach fail error=%d", error)
+        AFB:error (source, "--InLua-- API smixer/attach fail error=%d %s", error, Dump_Table(result))
         goto OnErrorExit
     else
-        AFB:notice (source, "--InLua-- MyMixer/attach done result=%s\n", Dump_Table(result))
+        AFB:notice (source, "--InLua-- smixer/attach done result=%s\n", Dump_Table(result))
     end
   
     -- ================== Happy End =============================
@@ -221,9 +188,9 @@ function _mixer_simple_test_ (source, args)
     -- ================= Unhappy End ============================
     ::OnErrorExit::
         local response=result["request"]
-        printf ("--InLua-- ------------STATUS= %s --------------", result["status"])
+        printf ("--InLua-- ------------STATUS= %s --------------", response["status"])
         printf ("--InLua-- ++ INFO= %s", Dump_Table(response["info"]))
-        printf ("--InLua-- ----------TEST %s-------------", result["status"])
+        printf ("--InLua-- ----------TEST %s-------------", response["status"])
 
         AFB:error (source, "--InLua-- Test Fail")
         return 1 -- unhappy end --

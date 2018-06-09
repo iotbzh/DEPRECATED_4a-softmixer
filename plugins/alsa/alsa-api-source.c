@@ -40,7 +40,7 @@ PUBLIC int ApiSourceAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid,
     }
 
     if (index == mixer->max.sources) {
-        AFB_ReqFailF(request, "too-small", "mixer=%s max source=%d argsJ= %s", mixer->uid, mixer->max.sources, json_object_get_string(argsJ));
+        AFB_ReqFailF(request, "too-small", "mixer=%s max source=%d", mixer->uid, mixer->max.sources);
         goto OnErrorExit;
     }
 
@@ -57,8 +57,8 @@ PUBLIC int ApiSourceAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid,
 
         case json_type_array:
             count = json_object_array_length(argsJ);
-            if (count > (mixer->max.sources - count)) {
-                AFB_ReqFailF(request, "too-small", "mixer=%s max source=%d argsJ= %s", mixer->uid, mixer->max.sources, json_object_get_string(argsJ));
+            if (count > (mixer->max.sources - index)) {
+                AFB_ReqFailF(request, "too-small", "mixer=%s max source=%d", mixer->uid, mixer->max.sources);
                 goto OnErrorExit;
 
             }

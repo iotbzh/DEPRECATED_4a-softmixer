@@ -277,8 +277,8 @@ PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT 
     
     // Fulup need to check https://www.alsa-project.org/alsa-doc/alsa-lib/group___p_c_m___direct.html
     
-    AlsaDumpPcmInfo(mixer,"PcmIn",pcmIn->handle);
-    AlsaDumpPcmInfo(mixer,"PcmOut",pcmOut->handle);
+    //AlsaDumpPcmInfo(mixer,"PcmIn",pcmIn->handle);
+    //AlsaDumpPcmInfo(mixer,"PcmOut",pcmOut->handle);
 
     // prepare PCM for capture and replay
     error = AlsaPcmConf(mixer, pcmIn, opts);

@@ -91,7 +91,7 @@ PUBLIC AlsaPcmCtlT *AlsaCreateSoftvol(SoftMixerT *mixer, AlsaStreamAudioT *strea
     return pcmVol;
 
 OnErrorExit:
-    AlsaDumpCtlConfig (mixer, "plug-config", pcmConfig, 1);
+    //AlsaDumpCtlConfig (mixer, "plug-config", pcmConfig, 1);
     AlsaDumpCtlConfig(mixer, "plug-softvol", streamConfig, 1);
     AFB_ApiNotice(mixer->api, "AlsaCreateSoftvol:%s(stream) OnErrorExit\n", stream->uid);
     return NULL;

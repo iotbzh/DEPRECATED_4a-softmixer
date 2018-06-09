@@ -78,6 +78,7 @@ PUBLIC AlsaPcmCtlT *AlsaByPathOpenPcm(SoftMixerT *mixer, AlsaDevInfoT *pcmDev, s
     pcmCtl->cid.name=NULL;
     pcmCtl->cid.longname=NULL;
 
+    //error = snd_pcm_open(&pcmCtl->handle, pcmCtl->cid.cardid, direction, SND_PCM_NONBLOCK);
     error = snd_pcm_open(&pcmCtl->handle, pcmCtl->cid.cardid, direction, SND_PCM_NONBLOCK);
     if (error) {
         AFB_ApiError(mixer->api, "AlsaByPathOpenPcm: fail openpcm cardid=%s error=%s", pcmCtl->cid.cardid, snd_strerror(error));

@@ -47,7 +47,7 @@ PUBLIC int ApiSinkAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
     }
 
     if (index == mixer->max.sinks) {
-        AFB_ReqFailF(request, "too-small", "mixer=%s max sink=%d argsJ= %s", mixer->uid, mixer->max.sinks, json_object_get_string(argsJ));
+        AFB_ReqFailF(request, "too-small", "mixer=%s max sink=%d", mixer->uid, mixer->max.sinks);
         goto OnErrorExit;
     }
 
@@ -76,8 +76,8 @@ PUBLIC int ApiSinkAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
 
         case json_type_array:
             count = json_object_array_length(argsJ);
-            if (count > (mixer->max.sinks - count)) {
-                AFB_ReqFailF(request, "too-small", "mixer=%s max sink=%d argsJ= %s", mixer->uid, mixer->max.sinks, json_object_get_string(argsJ));
+            if (count > (mixer->max.sinks - index)) {
+                AFB_ReqFailF(request, "too-small", "mixer=%s max sink=%d", mixer->uid, mixer->max.sinks);
                 goto OnErrorExit;
             }
 

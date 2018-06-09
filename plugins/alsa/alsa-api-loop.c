@@ -161,7 +161,7 @@ PUBLIC int ApiLoopAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
     }
 
     if (index == mixer->max.loops) {
-        AFB_ReqFailF(request, "too-small", "mixer=%s hal=%s max loop=%d argsJ= %s", mixer->uid, uid, mixer->max.loops, json_object_get_string(argsJ));
+        AFB_IfReqFailF(mixer, request, "too-small", "mixer=%s hal=%s max loop=%d", mixer->uid, uid, mixer->max.loops);
         goto OnErrorExit;
     }
 
@@ -171,15 +171,15 @@ PUBLIC int ApiLoopAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
         case json_type_object:
             mixer->loops[index] = AttachOneLoop(mixer, uid, argsJ);
             if (!mixer->loops[index]) {
-                AFB_ReqFailF(request, "invalid-syntax", "mixer=%s hal=%s invalid loop= %s", mixer->uid, uid, json_object_get_string(argsJ));
+                AFB_IfReqFailF(mixer, request, "invalid-syntax", "mixer=%s hal=%s invalid loop= %s", mixer->uid, uid, json_object_get_string(argsJ));
                 goto OnErrorExit;
             }
             break;
 
         case json_type_array:
             count = json_object_array_length(argsJ);
-            if (count > (mixer->max.loops - count)) {
-                AFB_ReqFailF(request, "too-small", "mixer=%s hal=%s max loop=%d argsJ= %s", mixer->uid, uid, mixer->max.loops, json_object_get_string(argsJ));
+            if (count > (mixer->max.loops - index)) {
+                AFB_IfReqFailF(mixer, request, "too-small", "mixer=%s hal=%s max loop=%d", mixer->uid, uid, mixer->max.loops);
                 goto OnErrorExit;
 
             }
@@ -188,13 +188,13 @@ PUBLIC int ApiLoopAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
                 json_object *loopJ = json_object_array_get_idx(argsJ, idx);
                 mixer->loops[index + idx] = AttachOneLoop(mixer, uid, loopJ);
                 if (!mixer->loops[index + idx]) {
-                    AFB_ReqFailF(request, "invalid-syntax", "mixer=%s hal=%s invalid loop= %s", mixer->uid, uid, json_object_get_string(loopJ));
+                    AFB_IfReqFailF(mixer, request, "invalid-syntax", "mixer=%s hal=%s invalid loop= %s", mixer->uid, uid, json_object_get_string(loopJ));
                     goto OnErrorExit;
                 }
             }
             break;
         default:
-            AFB_ReqFailF(request, "invalid-syntax", "mixer=%s hal=%s loops invalid argsJ= %s", mixer->uid, uid, json_object_get_string(argsJ));
+            AFB_IfReqFailF(mixer, request, "invalid-syntax", "mixer=%s hal=%s loops invalid argsJ= %s", mixer->uid, uid, json_object_get_string(argsJ));
             goto OnErrorExit;
     }
 

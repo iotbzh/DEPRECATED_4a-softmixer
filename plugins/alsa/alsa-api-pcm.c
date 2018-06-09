@@ -33,7 +33,7 @@ STATIC int CONVERT_PERCENT(long val, long min, long max) {
     if (range == 0)
         return 0;
     val -= min;
-    tmp = (int)rint((double) val / (double) range * 100);
+    tmp = (int) rint((double) val / (double) range * 100);
     return tmp;
 }
 
@@ -149,10 +149,10 @@ OnErrorExit:
     return -1;
 }
 
-STATIC int PcmSetControl(SoftMixerT *mixer, AlsaSndCtlT *sndcard, AlsaSndControlT *control, volumeT volType, int value) {
+STATIC int PcmSetControl(SoftMixerT *mixer, AlsaSndCtlT *sndcard, AlsaSndControlT *control, volumeT volType, int *newvol, int *oldval) {
     snd_ctl_elem_id_t* elemId = NULL;
     snd_ctl_elem_info_t *elemInfo;
-    int error;
+    int error, value;
     long curval;
 
     assert(control->numid);
@@ -185,7 +185,7 @@ STATIC int PcmSetControl(SoftMixerT *mixer, AlsaSndCtlT *sndcard, AlsaSndControl
     switch (snd_ctl_elem_info_get_type(elemInfo)) {
 
         case SND_CTL_ELEM_TYPE_BOOLEAN:
-            error = CtlElemIdSetLong(mixer, sndcard, elemId, value);
+            error = CtlElemIdSetLong(mixer, sndcard, elemId, *newvol);
             break;
 
         case SND_CTL_ELEM_TYPE_INTEGER:
@@ -193,18 +193,18 @@ STATIC int PcmSetControl(SoftMixerT *mixer, AlsaSndCtlT *sndcard, AlsaSndControl
 
             switch (volType) {
                 case RVOL_ADD:
-                    value = CONVERT_PERCENT(curval, control->min, control->max) + value;
+                    value = CONVERT_PERCENT(curval, control->min, control->max) + *newvol;
                     break;
                 case RVOL_DEL:
-                    value = CONVERT_PERCENT(curval, control->min, control->max) - value;
+                    value = CONVERT_PERCENT(curval, control->min, control->max) - *newvol;
                     break;
                 default:
-                    value= value;
+                    value = *newvol;
             }
 
             error = CtlElemIdSetLong(mixer, sndcard, elemId, CONVERT_VOLUME(value, control->min, control->max));
             if (error) {
-                AFB_ApiError(mixer->api, "PcmSetControl sndard=%s fail to write control numid=%d value=%d", sndcard->cid.cardid, control->numid, value); 
+                AFB_ApiError(mixer->api, "PcmSetControl sndard=%s fail to write control numid=%d value=%d", sndcard->cid.cardid, control->numid, value);
                 goto OnErrorExit;
             }
             break;
@@ -219,6 +219,8 @@ STATIC int PcmSetControl(SoftMixerT *mixer, AlsaSndCtlT *sndcard, AlsaSndControl
         goto OnErrorExit;
     }
 
+    *oldval = CONVERT_PERCENT(curval, control->min, control->max);
+    *newvol = value;
     free(elemId);
     return 0;
 
@@ -229,17 +231,18 @@ OnErrorExit:
 
 STATIC void ApiPcmVerbCB(AFB_ReqT request) {
     apiVerbHandleT *handle = (apiVerbHandleT*) afb_request_get_vcbdata(request);
-    int error, doQuiet = 0, doToggle = 0, doMute = -1;
+    int error, verbose = 0, doInfo = 0, doToggle = 0, doMute = -1;
     json_object *volumeJ = NULL;
-    json_object *responseJ = json_object_new_object();
+    json_object *responseJ = NULL;
     json_object *argsJ = afb_request_json(request);
 
     SoftMixerT *mixer = handle->mixer;
     AlsaSndCtlT *sndcard = handle->pcm->sndcard;
     assert(mixer && sndcard);
 
-    error = wrap_json_unpack(argsJ, "{s?b s?b,s?b,s?o !}"
-            , "quiet", &doQuiet
+    error = wrap_json_unpack(argsJ, "{s?b,s?b,s?b,s?b,s?o !}"
+            , "verbose", &verbose
+            , "info", &doInfo
             , "mute", &doMute
             , "toggle", &doToggle
             , "volume", &volumeJ
@@ -249,10 +252,41 @@ STATIC void ApiPcmVerbCB(AFB_ReqT request) {
         goto OnErrorExit;
     }
 
+    if (verbose) responseJ=json_object_new_object();
+    
+    if (doMute != -1) {
+        int mute = (int) doMute;
+
+        error += AlsaCtlNumidSetLong(mixer, sndcard, handle->pcm->mute.numid, mute);
+        if (error) {
+            AFB_ReqFailF(request, "invalid-numid", "Fail to set pause numid=%d", handle->pcm->mute.numid);
+            goto OnErrorExit;
+        }
+
+        if (verbose) {
+            json_object_object_add(responseJ, "mute", json_object_new_boolean((json_bool) mute));
+        }
+    }
+
+    if (doToggle) {
+        long mute;
+
+        error += AlsaCtlNumidGetLong(mixer, handle->pcm->sndcard, handle->pcm->mute.numid, &mute);
+        error += AlsaCtlNumidSetLong(mixer, handle->pcm->sndcard, handle->pcm->mute.numid, !mute);
+        if (error) {
+            AFB_ReqFailF(request, "invalid-numid", "Fail to toogle pause numid=%d", handle->pcm->mute.numid);
+            goto OnErrorExit;
+        }
+
+        if (verbose) {
+            json_object_object_add(responseJ, "mute", json_object_new_boolean((json_bool)!mute));
+        }
+    }
+
     if (volumeJ) {
         volumeT volType;
 
-        int newvol;
+        int newvol, oldvol;
         const char*volString;
 
         switch (json_object_get_type(volumeJ)) {
@@ -287,19 +321,20 @@ STATIC void ApiPcmVerbCB(AFB_ReqT request) {
 
         }
 
-        error = PcmSetControl(mixer, handle->pcm->sndcard, &handle->pcm->volume, volType, newvol);
+        error = PcmSetControl(mixer, handle->pcm->sndcard, &handle->pcm->volume, volType, &newvol, &oldvol);
         if (error) {
             AFB_ReqFailF(request, "invalid-ctl", "Fail to set volume hal=%s card=%s numid=%d name=%s value=%d"
                     , handle->uid, handle->pcm->sndcard->cid.cardid, handle->pcm->volume.numid, handle->pcm->volume.name, newvol);
             goto OnErrorExit;
         }
-
-        if (!doQuiet) {
-            json_object_object_add(responseJ, "volume", json_object_new_int(newvol));
+        
+        if (verbose) {
+            json_object_object_add(responseJ, "volnew", json_object_new_int(newvol));
+            json_object_object_add(responseJ, "volold", json_object_new_int(oldvol));
         }
     }
 
-    AFB_ReqSucess(request, responseJ, handle->uid);
+    AFB_ReqSuccess(request, responseJ, handle->uid);
     return;
 
 OnErrorExit:
@@ -352,26 +387,26 @@ PUBLIC AlsaPcmHwInfoT * ApiPcmSetParams(SoftMixerT *mixer, const char *uid, json
     goto OnErrorExit;
 
 check_access:
-	AFB_ApiNotice(mixer->api, "ApiPcmSetParams:%s format set to SND_PCM_FORMAT_%s",uid, params->formatS);
+    AFB_ApiNotice(mixer->api, "ApiPcmSetParams:%s format set to SND_PCM_FORMAT_%s", uid, params->formatS);
 
 #define ACCESS_CHECK(arg) if (!strcmp(access,#arg)) { params->access = SND_PCM_ACCESS_##arg; goto success;}
 
-	if (!access) {
+    if (!access) {
         params->access = SND_PCM_ACCESS_RW_INTERLEAVED;
         goto success;
     }
 
-	ACCESS_CHECK(MMAP_INTERLEAVED);
-	ACCESS_CHECK(MMAP_NONINTERLEAVED);
-	ACCESS_CHECK(MMAP_COMPLEX);
-	ACCESS_CHECK(RW_INTERLEAVED);
-	ACCESS_CHECK(RW_NONINTERLEAVED);
+    ACCESS_CHECK(MMAP_INTERLEAVED);
+    ACCESS_CHECK(MMAP_NONINTERLEAVED);
+    ACCESS_CHECK(MMAP_COMPLEX);
+    ACCESS_CHECK(RW_INTERLEAVED);
+    ACCESS_CHECK(RW_NONINTERLEAVED);
 
     AFB_ApiNotice(mixer->api, "ApiPcmSetParams:%s(params) unsupported access 'RW_INTERLEAVED|MMAP_INTERLEAVED|MMAP_COMPLEX' access=%s", uid, access);
     goto OnErrorExit;
 
 success:
-	AFB_ApiNotice(mixer->api, "ApiPcmSetParams:%s access set to %s", uid, access);
+    AFB_ApiNotice(mixer->api, "ApiPcmSetParams:%s access set to %s", uid, access);
     return params;
 
 OnErrorExit:
@@ -485,10 +520,10 @@ PUBLIC AlsaSndPcmT * ApiPcmAttachOne(SoftMixerT *mixer, const char *uid, snd_pcm
         // create master control for this sink
         char *apiVerb, *apiInfo;
         if (direction == SND_PCM_STREAM_PLAYBACK) {
-            (void) asprintf(&apiVerb, "%s/playback", pcm->uid);
+            (void) asprintf(&apiVerb, "%s:playback", pcm->uid);
             (void) asprintf(&apiInfo, "HAL:%s SND_PCM_STREAM_PLAYBACK", uid);
         } else {
-            (void) asprintf(&apiVerb, "%s/capture", pcm->uid);
+            (void) asprintf(&apiVerb, "%s:capture", pcm->uid);
             (void) asprintf(&apiInfo, "HAL:%s SND_PCM_STREAM_PLAYBACK", uid);
         }
         apiVerbHandleT *handle = calloc(1, sizeof (apiVerbHandleT));

@@ -172,7 +172,7 @@ PUBLIC AlsaPcmCtlT* AlsaCreateRoute(SoftMixerT *mixer, AlsaSndZoneT *zone, int o
 
     // Debug config & pcm
     AFB_ApiNotice(mixer->api, "AlsaCreateRoute:zone(%s) done", zone->uid);
-    AlsaDumpCtlConfig(mixer, "plug-route", routeConfig, 1);
+    //AlsaDumpCtlConfig(mixer, "plug-route", routeConfig, 1);
     return pcmRoute;
 
 OnErrorExit:

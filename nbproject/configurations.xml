@@ -99,8 +99,6 @@
             flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
             <pElem>/usr/include/json-c</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>/usr/include/p11-kit-1</pElem>
@@ -112,9 +110,9 @@
           </incDir>
           <preprocessorList>
             <Elem>AFB_BINDING_VERSION=dyn</Elem>
-            <Elem>CONTROL_CONFIG_PATH="/home/fulup/opt/4a-softmixer/etc:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/etc"</Elem>
-            <Elem>CONTROL_LUA_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/lua.d:/home/fulup/opt/4a-softmixer/data"</Elem>
-            <Elem>CONTROL_PLUGIN_PATH="/home/fulup/opt/4a-softmixer/lib/plugins:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/lib/plugins"</Elem>
+            <Elem>CONTROL_CONFIG_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/etc:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/etc:/home/fulup/opt/smixer/etc"</Elem>
+            <Elem>CONTROL_LUA_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/lua.d:/home/fulup/opt/smixer/var"</Elem>
+            <Elem>CONTROL_PLUGIN_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/lib/plugins:/home/fulup/opt/smixer/lib/plugins"</Elem>
             <Elem>CTL_PLUGIN_MAGIC=987456123</Elem>
             <Elem>USE_API_DYN=1</Elem>
           </preprocessorList>
@@ -123,8 +121,6 @@
       <item path="app-afb-helpers-submodule/escape.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
             <pElem>/usr/include/json-c</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>/usr/include/p11-kit-1</pElem>
@@ -136,9 +132,9 @@
           </incDir>
           <preprocessorList>
             <Elem>AFB_BINDING_VERSION=dyn</Elem>
-            <Elem>CONTROL_CONFIG_PATH="/home/fulup/opt/4a-softmixer/etc:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/etc"</Elem>
-            <Elem>CONTROL_LUA_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/lua.d:/home/fulup/opt/4a-softmixer/data"</Elem>
-            <Elem>CONTROL_PLUGIN_PATH="/home/fulup/opt/4a-softmixer/lib/plugins:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/lib/plugins"</Elem>
+            <Elem>CONTROL_CONFIG_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/etc:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/etc:/home/fulup/opt/smixer/etc"</Elem>
+            <Elem>CONTROL_LUA_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/lua.d:/home/fulup/opt/smixer/var"</Elem>
+            <Elem>CONTROL_PLUGIN_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/lib/plugins:/home/fulup/opt/smixer/lib/plugins"</Elem>
             <Elem>CTL_PLUGIN_MAGIC=987456123</Elem>
             <Elem>USE_API_DYN=1</Elem>
           </preprocessorList>
@@ -152,6 +148,7 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-afb-helpers-submodule</pElem>
           </incDir>
@@ -164,6 +161,7 @@
         <cTool flags="1">
           <incDir>
             <pElem>app-afb-helpers-submodule</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
             <pElem>build/app-afb-helpers-submodule</pElem>
           </incDir>
         </cTool>
@@ -174,6 +172,10 @@
             flavor2="3">
         <cTool flags="1">
           <incDir>
+            <pElem>../../../opt/include/afb</pElem>
+            <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -186,7 +188,11 @@
             flavor2="3">
         <cTool flags="1">
           <incDir>
+            <pElem>../../../opt/include/afb</pElem>
+            <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
           </incDir>
@@ -196,12 +202,27 @@
             ex="false"
             tool="0"
             flavor2="3">
-        <cTool flags="1">
+        <cTool flags="0">
           <incDir>
-            <pElem>app-afb-helpers-submodule</pElem>
+            <pElem>/usr/include/json-c</pElem>
             <pElem>../../../opt/include</pElem>
+            <pElem>/usr/include/p11-kit-1</pElem>
+            <pElem>/usr/include/uuid</pElem>
+            <pElem>../../../opt/include/alsa</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
+            <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>app-afb-helpers-submodule</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
           </incDir>
+          <preprocessorList>
+            <Elem>AFB_BINDING_VERSION=dyn</Elem>
+            <Elem>CONTROL_CONFIG_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/etc:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/etc:/home/fulup/opt/smixer/etc"</Elem>
+            <Elem>CONTROL_LUA_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/lua.d:/home/fulup/opt/smixer/var"</Elem>
+            <Elem>CONTROL_PLUGIN_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/lib/plugins:/home/fulup/opt/smixer/lib/plugins"</Elem>
+            <Elem>CONTROL_SUPPORT_LUA</Elem>
+            <Elem>CTL_PLUGIN_MAGIC=987456123</Elem>
+            <Elem>USE_API_DYN=1</Elem>
+          </preprocessorList>
         </cTool>
       </item>
       <item path="app-controller-submodule/ctl-lib/ctl-event.c"
@@ -210,6 +231,10 @@
             flavor2="3">
         <cTool flags="1">
           <incDir>
+            <pElem>../../../opt/include/afb</pElem>
+            <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -222,6 +247,7 @@
             flavor2="3">
         <cTool flags="1">
           <incDir>
+            <pElem>app-controller-submodule/ctl-lib</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
           </incDir>
         </cTool>
@@ -232,6 +258,10 @@
             flavor2="3">
         <cTool flags="1">
           <incDir>
+            <pElem>../../../opt/include/afb</pElem>
+            <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -244,6 +274,10 @@
             flavor2="3">
         <cTool flags="1">
           <incDir>
+            <pElem>../../../opt/include/afb</pElem>
+            <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -256,6 +290,10 @@
             flavor2="3">
         <cTool flags="1">
           <incDir>
+            <pElem>../../../opt/include/afb</pElem>
+            <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -268,6 +306,10 @@
             flavor2="3">
         <cTool flags="1">
           <incDir>
+            <pElem>../../../opt/include/afb</pElem>
+            <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>../../../opt/include</pElem>
             <pElem>build/app-controller-submodule/ctl-lib</pElem>
@@ -277,17 +319,18 @@
       <folder path="0/app-controller-submodule">
         <cTool>
           <incDir>
-            <pElem>../../../opt/include/afb</pElem>
+            <pElem>/usr/include/json-c</pElem>
+            <pElem>../../../opt/include</pElem>
+            <pElem>/usr/include/p11-kit-1</pElem>
+            <pElem>/usr/include/uuid</pElem>
+            <pElem>../../../opt/include/alsa</pElem>
+            <pElem>/usr/include/lua5.3</pElem>
             <pElem>app-controller-submodule/ctl-lib</pElem>
+            <pElem>app-afb-helpers-submodule</pElem>
+            <pElem>build/app-controller-submodule/ctl-lib</pElem>
           </incDir>
           <preprocessorList>
-            <Elem>AFB_BINDING_VERSION=dyn</Elem>
-            <Elem>CONTROL_CONFIG_PATH="/home/fulup/opt/4a-softmixer/etc:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/etc"</Elem>
-            <Elem>CONTROL_LUA_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/lua.d:/home/fulup/opt/4a-softmixer/data"</Elem>
-            <Elem>CONTROL_PLUGIN_PATH="/home/fulup/opt/4a-softmixer/lib/plugins:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/lib/plugins"</Elem>
             <Elem>CONTROL_SUPPORT_LUA</Elem>
-            <Elem>CTL_PLUGIN_MAGIC=987456123</Elem>
-            <Elem>USE_API_DYN=1</Elem>
           </preprocessorList>
         </cTool>
       </folder>
@@ -296,6 +339,7 @@
           <incDir>
             <pElem>../../../opt/include/afb</pElem>
             <pElem>mixer-binding</pElem>
+            <pElem>/usr/lib64/gcc/x86_64-suse-linux/7/include</pElem>
             <pElem>../../../opt/include/alsa</pElem>
             <pElem>app-afb-helpers-submodule</pElem>
             <pElem>app-controller-submodule/ctl-lib</pElem>
@@ -322,10 +366,11 @@
           </incDir>
           <preprocessorList>
             <Elem>AFB_BINDING_VERSION=dyn</Elem>
-            <Elem>CONTROL_CONFIG_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/etc:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/etc:/home/fulup/opt/4a-smixer/etc"</Elem>
-            <Elem>CONTROL_LUA_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/lua.d:/home/fulup/opt/4a-smixer/var"</Elem>
-            <Elem>CONTROL_PLUGIN_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/lib/plugins:/home/fulup/opt/4a-smixer/lib/plugins"</Elem>
+            <Elem>CONTROL_CONFIG_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/etc:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/etc:/home/fulup/opt/smixer/etc"</Elem>
+            <Elem>CONTROL_LUA_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/lua.d:/home/fulup/opt/smixer/var"</Elem>
+            <Elem>CONTROL_PLUGIN_PATH="/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/lib/plugins:/home/fulup/opt/smixer/lib/plugins"</Elem>
             <Elem>CTL_PLUGIN_MAGIC=987456123</Elem>
+            <Elem>NATIVE_LINUX</Elem>
             <Elem>USE_API_DYN=1</Elem>
           </preprocessorList>
         </cTool>
@@ -337,18 +382,6 @@
       <item path="plugins/alsa/alsa-api-loop.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>
@@ -359,18 +392,6 @@
       <item path="plugins/alsa/alsa-api-mixer.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>
@@ -381,18 +402,6 @@
       <item path="plugins/alsa/alsa-api-pcm.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>
@@ -403,18 +412,6 @@
       <item path="plugins/alsa/alsa-api-ramp.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>
@@ -425,18 +422,6 @@
       <item path="plugins/alsa/alsa-api-sink.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>
@@ -447,18 +432,6 @@
       <item path="plugins/alsa/alsa-api-source.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>
@@ -469,16 +442,7 @@
       <item path="plugins/alsa/alsa-api-streams.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
             <pElem>/usr/include/lua5.3</pElem>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
           </incDir>
           <preprocessorList>
             <Elem>alsa_softmixer_EXPORTS</Elem>
@@ -488,18 +452,6 @@
       <item path="plugins/alsa/alsa-api-zones.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>
@@ -509,25 +461,10 @@
       </item>
       <item path="plugins/alsa/alsa-capture.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
-          <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
-          </incDir>
           <preprocessorList>
             <Elem>CONTROL_CONFIG_PATH="/home/fulup/opt/4a-softmixer/etc:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/etc"</Elem>
             <Elem>CONTROL_LUA_PATH="/home/fulup/opt/4a-softmixer/data:/home/fulup/Workspace/Audio-4a/4a-softmixer/conf.d/project/lua.d"</Elem>
             <Elem>CONTROL_PLUGIN_PATH="/home/fulup/opt/4a-softmixer/lib/plugins:/home/fulup/Workspace/Audio-4a/4a-softmixer/build/package/lib/plugins"</Elem>
-            <Elem>NATIVE_LINUX</Elem>
             <Elem>alsa_router_EXPORTS</Elem>
           </preprocessorList>
         </cTool>
@@ -535,18 +472,6 @@
       <item path="plugins/alsa/alsa-core-ctl.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>
@@ -557,18 +482,6 @@
       <item path="plugins/alsa/alsa-core-pcm.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>
@@ -579,18 +492,6 @@
       <item path="plugins/alsa/alsa-effect-ramp.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>
@@ -601,18 +502,6 @@
       <item path="plugins/alsa/alsa-plug-dmix.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>
@@ -623,18 +512,6 @@
       <item path="plugins/alsa/alsa-plug-rate.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>
@@ -645,18 +522,6 @@
       <item path="plugins/alsa/alsa-plug-route.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>
@@ -667,18 +532,6 @@
       <item path="plugins/alsa/alsa-plug-vol.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>
@@ -689,18 +542,6 @@
       <item path="plugins/alsa/alsa-softmixer.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>
@@ -711,18 +552,6 @@
       <item path="plugins/alsa/alsa-utils-bypath.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>
@@ -733,18 +562,6 @@
       <item path="plugins/alsa/alsa-utils-dump.c" ex="false" tool="0" flavor2="2">
         <cTool flags="0">
           <incDir>
-            <pElem>app-controller-submodule/ctl-lib</pElem>
-            <pElem>build/app-controller-submodule/ctl-lib</pElem>
-            <pElem>/usr/include</pElem>
-            <pElem>/usr/include/json-c</pElem>
-            <pElem>/usr/include/alsa</pElem>
-            <pElem>../../../opt/include</pElem>
-            <pElem>/usr/include/p11-kit-1</pElem>
-            <pElem>/usr/include/uuid</pElem>
-            <pElem>../../../opt/include/alsa</pElem>
-            <pElem>mixer-binding</pElem>
-            <pElem>app-afb-helpers-submodule</pElem>
-            <pElem>build/plugins/alsa</pElem>
             <pElem>/usr/include/lua5.3</pElem>
           </incDir>
           <preprocessorList>

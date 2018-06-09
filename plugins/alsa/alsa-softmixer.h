@@ -59,6 +59,11 @@
 #define ALSA_PLUG_PROTO(plugin) \
     int _snd_pcm_ ## plugin ## _open(snd_pcm_t **pcmp, const char *name, snd_config_t *root, snd_config_t *conf, snd_pcm_stream_t stream, int mode)
 
+// auto switch from Log to API request depending on request presence.
+#define AFB_IfReqFailF(mixer, request, status, format, ...) \
+ if (request) AFB_ReqFailF(request, status, format, __VA_ARGS__); \
+ else AFB_ApiError(mixer->api, format, __VA_ARGS__); 
+
 #ifndef PUBLIC
 #define PUBLIC
 #endif
@@ -184,6 +189,7 @@ typedef struct {
 
 typedef struct {
     const char *uid;
+    const char *verb;
     const char *info;
     const char *sink;
     const char *source;
@@ -274,8 +280,7 @@ PUBLIC AlsaPcmHwInfoT *ApiSinkGetParamsByZone(SoftMixerT *mixer, const char *tar
 PUBLIC int ApiSinkAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, json_object * argsJ);
 PUBLIC AlsaSndCtlT *ApiSourceFindSubdev(SoftMixerT *mixer, const char *target);
 PUBLIC int ApiSourceAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, json_object * argsJ);
-PUBLIC int CreateOneStream(SoftMixerT *mixer, AlsaStreamAudioT *stream);
-PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, json_object * argsJ);
+PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, const char *prefix, json_object * argsJ);
 PUBLIC AlsaSndZoneT *ApiZoneGetByUid(SoftMixerT *mixer, const char *target);
 PUBLIC int ApiZoneAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, json_object * argsJ);
 
