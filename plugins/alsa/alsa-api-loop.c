@@ -171,7 +171,6 @@ PUBLIC int ApiLoopAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
         case json_type_object:
             mixer->loops[index] = AttachOneLoop(mixer, uid, argsJ);
             if (!mixer->loops[index]) {
-                AFB_IfReqFailF(mixer, request, "invalid-syntax", "mixer=%s hal=%s invalid loop= %s", mixer->uid, uid, json_object_get_string(argsJ));
                 goto OnErrorExit;
             }
             break;
@@ -188,7 +187,6 @@ PUBLIC int ApiLoopAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
                 json_object *loopJ = json_object_array_get_idx(argsJ, idx);
                 mixer->loops[index + idx] = AttachOneLoop(mixer, uid, loopJ);
                 if (!mixer->loops[index + idx]) {
-                    AFB_IfReqFailF(mixer, request, "invalid-syntax", "mixer=%s hal=%s invalid loop= %s", mixer->uid, uid, json_object_get_string(loopJ));
                     goto OnErrorExit;
                 }
             }
