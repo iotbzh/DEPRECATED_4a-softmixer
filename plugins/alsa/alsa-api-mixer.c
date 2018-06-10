@@ -600,6 +600,7 @@ STATIC void MixerAttachVerb(AFB_ReqT request) {
         json_object_object_add(responseJ, "streams", resultJ);
     }
 
+    AFB_ApiNotice(mixer->api, "responseJ=%s\n", json_object_get_string(responseJ));
     AFB_ReqSuccess(request, responseJ, NULL);
 
     return;
@@ -611,7 +612,7 @@ OnErrorExit:
 STATIC void MixerPingVerb(AFB_ReqT request) {
     static int count = 0;
     count++;
-    AFB_ReqNotice(request, "Controller:ping count=%d", count);
+    AFB_ReqInfo(request, "MixerAttachVerb: Controller:ping count=%d\n", count);
     AFB_ReqSuccess(request, json_object_new_int(count), NULL);
 
     return;
