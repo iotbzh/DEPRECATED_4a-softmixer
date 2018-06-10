@@ -525,12 +525,13 @@ PUBLIC AlsaSndPcmT * ApiPcmAttachOne(SoftMixerT *mixer, const char *uid, snd_pcm
         } else {
             (void) asprintf(&apiVerb, "%s:capture", pcm->uid);
             (void) asprintf(&apiInfo, "HAL:%s SND_PCM_STREAM_PLAYBACK", uid);
-        }
+        }     
+        
         apiVerbHandleT *handle = calloc(1, sizeof (apiVerbHandleT));
         handle->uid = uid;
         handle->pcm = pcm;
         handle->mixer = mixer;
-
+        pcm->verb=apiVerb;
         error = afb_dynapi_add_verb(mixer->api, apiVerb, apiInfo, ApiPcmVerbCB, handle, NULL, 0);
         if (error) {
             AFB_ApiError(mixer->api, "ApiPcmAttachOne mixer=%s verb=%s fail to Register Master control ", mixer->uid, apiVerb);

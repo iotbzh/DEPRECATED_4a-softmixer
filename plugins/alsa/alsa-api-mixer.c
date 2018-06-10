@@ -75,7 +75,7 @@ STATIC json_object *MixerInfoOneStream(AlsaStreamAudioT *stream, int verbose) {
 
 
     if (!verbose) {
-        wrap_json_pack(&responseJ, "{ss, ss}", "uid", stream->uid, "alsa", stream->source);
+        wrap_json_pack(&responseJ, "{ss, ss, ss}", "uid", stream->uid, "verb", stream->verb, "alsa", stream->source);
     } else {
 
         wrap_json_pack(&alsaJ, "{ss,si,si}"
@@ -228,7 +228,6 @@ STATIC json_object *MixerInfoRamps(SoftMixerT *mixer, json_object *rampsJ, int v
                     AFB_ApiError(mixer->api, "MixerInfoRamps: fail to find ramp=%s", json_object_get_string(rampsJ));
                     goto OnErrorExit;
                 }
-                AFB_ApiNotice(mixer->api, "MixerInfoRamps: valueJ=%s", json_object_get_string(valueJ));
                 json_object_array_add(responseJ, valueJ);
             }
             break;
@@ -238,27 +237,251 @@ STATIC json_object *MixerInfoRamps(SoftMixerT *mixer, json_object *rampsJ, int v
             goto OnErrorExit;
     }
 
-    AFB_ApiNotice(mixer->api, "MixerInfoRamps: response=%s", json_object_get_string(responseJ));
     return (responseJ);
 
 OnErrorExit:
     return NULL;
+}
 
+STATIC json_object *MixerInfoOneZone(AlsaSndZoneT *zone, int verbose) {
+    json_object *responseJ;
+
+    if (!verbose) {
+        wrap_json_pack(&responseJ, "{ss}", "uid", zone->uid);
+    } else {
+        json_object *responseJ = json_object_new_object();
+        if (zone->sinks) {
+            json_object *sinksJ = json_object_new_array();
+            for (int jdx = 0; zone->sinks[jdx]; jdx++) {
+                json_object *channelJ;
+                wrap_json_pack(&channelJ, "{ss,si}"
+                        , "uid", zone->sinks[jdx]->uid
+                        , "port", zone->sinks[jdx]->port
+                        );
+                json_object_array_add(sinksJ, channelJ);
+            }
+            json_object_object_add(responseJ, "sinks", sinksJ);
+        }
+
+        if (zone->sources) {
+            json_object *sourcesJ = json_object_new_array();
+            for (int jdx = 0; zone->sources[jdx]; jdx++) {
+                json_object *channelJ;
+                wrap_json_pack(&channelJ, "{ss,si}"
+                        , "uid", zone->sources[jdx]->uid
+                        , "port", zone->sources[jdx]->port
+                        );
+                json_object_array_add(sourcesJ, channelJ);
+            }
+            json_object_object_add(responseJ, "source", sourcesJ);
+        }
+
+        if (zone->params) {
+            json_object *paramsJ;
+            wrap_json_pack(&paramsJ, "{si,ss,si}"
+                    , "rate", zone->params->rate
+                    , "format", zone->params->formatS
+                    , "channels", zone->params->channels
+                    );
+            json_object_object_add(responseJ, "params", paramsJ);
+        }
+    }
+    return (responseJ);
+}
+
+STATIC json_object *MixerInfoZones(SoftMixerT *mixer, json_object *zonesJ, int verbose) {
+    int error;
+    const char * key;
+    json_object *valueJ;
+    json_object *responseJ = NULL;
+    AlsaSndZoneT **zones = mixer->zones;
+
+    switch (json_object_get_type(zonesJ)) {
+
+        case json_type_null:
+        case json_type_boolean:
+            // list every existing zone
+            responseJ = json_object_new_array();
+            for (int idx = 0; zones[idx]; idx++) {
+
+                valueJ = MixerInfoOneZone(zones[idx], verbose);
+                json_object_array_add(responseJ, valueJ);
+            }
+            break;
+
+        case json_type_string:
+            key = json_object_get_string(zonesJ);
+            for (int idx = 0; zones[idx]; idx++) {
+                if (strcasecmp(zones[idx]->uid, key)) continue;
+                responseJ = MixerInfoOneZone(zones[idx], verbose);
+                break;
+            }
+            break;
+
+        case json_type_object:
+            error = wrap_json_unpack(zonesJ, "{ss}", "uid", &key);
+            if (error) {
+                AFB_ApiError(mixer->api, "MixerInfoZones: missing 'uid' request zoneJ=%s error=%s position=%d", json_object_get_string(zonesJ), wrap_json_get_error_string(error), wrap_json_get_error_position(error));
+                goto OnErrorExit;
+            }
+            for (int idx = 0; zones[idx]; idx++) {
+                if (strcasecmp(zones[idx]->uid, key)) continue;
+                responseJ = MixerInfoOneZone(zones[idx], verbose);
+                break;
+            }
+            break;
+
+        case json_type_array:
+            responseJ = json_object_new_array();
+            for (int idx = 0; idx < json_object_array_length(zonesJ); idx++) {
+                json_object *zoneJ = json_object_array_get_idx(zonesJ, idx);
+
+                valueJ = MixerInfoZones(mixer, zoneJ, verbose);
+                if (!valueJ) {
+                    AFB_ApiError(mixer->api, "MixerInfoZones: fail to find zone=%s", json_object_get_string(zonesJ));
+                    goto OnErrorExit;
+                }
+                json_object_array_add(responseJ, valueJ);
+            }
+            break;
+
+        default:
+            AFB_ApiError(mixer->api, "MixerInfoZones: unsupported json type zonesJ=%s", json_object_get_string(zonesJ));
+            goto OnErrorExit;
+    }
+
+    AFB_ApiNotice(mixer->api, "MixerInfoZones: response=%s", json_object_get_string(responseJ));
+    return (responseJ);
+
+OnErrorExit:
+    return NULL;
+}
+
+STATIC json_object *MixerInfoOnePcm(AlsaSndPcmT *pcm, int verbose) {
+    json_object *responseJ;
+
+    if (!verbose) {
+        wrap_json_pack(&responseJ, "{ss,ss}", "uid", pcm->uid, "verb", pcm->verb);
+    } else {
+        json_object *sndcardJ, *alsaJ;
+        wrap_json_pack(&sndcardJ, "{ss,si,si,si}"
+                ,"cardid", pcm->sndcard->cid.cardid
+                ,"name", pcm->sndcard->cid.name
+                ,"longname", pcm->sndcard->cid.longname
+                ,"index", pcm->sndcard->cid.cardidx
+                ,"device", pcm->sndcard->cid.device
+                ,"subdev", pcm->sndcard->cid.subdev
+                );
+        wrap_json_pack(&alsaJ, "{ss,ss,so}"
+                , "volume", pcm->volume
+                , "mute", pcm->mute
+                , "ccount", pcm->ccount
+                );
+        wrap_json_pack(&responseJ, "{ss,ss,so,so}"
+                , "uid", pcm->uid
+                , "verb", pcm->verb
+                , "sndcard", sndcardJ
+                , "alsa", alsaJ
+                );
+    }
+    return (responseJ);
+}
+
+STATIC json_object *MixerInfoPcms(SoftMixerT *mixer, json_object *pcmsJ, snd_pcm_stream_t direction, int verbose) {
+    int error;
+    const char * key;
+    json_object *valueJ;
+    json_object *responseJ = NULL;
+    AlsaSndPcmT **pcms;
+
+    switch (direction) {
+
+        case SND_PCM_STREAM_PLAYBACK:
+            pcms = mixer->sinks;
+            break;
+
+        case SND_PCM_STREAM_CAPTURE:
+            pcms = mixer->sources;
+            break;
+        default:
+            AFB_ApiError(mixer->api, "MixerInfoPcms: invalid Direction should be SND_PCM_STREAM_PLAYBACK|SND_PCM_STREAM_capture");
+            goto OnErrorExit;
+    }
+
+
+    switch (json_object_get_type(pcmsJ)) {
+
+        case json_type_null:
+        case json_type_boolean:
+            // list every existing pcm
+            responseJ = json_object_new_array();
+            for (int idx = 0; pcms[idx]; idx++) {
+
+                valueJ = MixerInfoOnePcm(pcms[idx], verbose);
+                json_object_array_add(responseJ, valueJ);
+            }
+            break;
+
+        case json_type_string:
+            key = json_object_get_string(pcmsJ);
+            for (int idx = 0; pcms[idx]; idx++) {
+                if (strcasecmp(pcms[idx]->uid, key)) continue;
+                responseJ = MixerInfoOnePcm(pcms[idx], verbose);
+                break;
+            }
+            break;
+
+        case json_type_object:
+            error = wrap_json_unpack(pcmsJ, "{ss}", "uid", &key);
+            if (error) {
+                AFB_ApiError(mixer->api, "MixerInfoPcms: missing 'uid' request pcmJ=%s error=%s position=%d", json_object_get_string(pcmsJ), wrap_json_get_error_string(error), wrap_json_get_error_position(error));
+                goto OnErrorExit;
+            }
+            for (int idx = 0; pcms[idx]; idx++) {
+                if (strcasecmp(pcms[idx]->uid, key)) continue;
+                responseJ = MixerInfoOnePcm(pcms[idx], verbose);
+                break;
+            }
+            break;
+
+        case json_type_array:
+            responseJ = json_object_new_array();
+            for (int idx = 0; idx < json_object_array_length(pcmsJ); idx++) {
+                json_object *pcmJ = json_object_array_get_idx(pcmsJ, idx);
+
+                valueJ = MixerInfoPcms(mixer, pcmJ, direction, verbose);
+                if (!valueJ) {
+                    AFB_ApiError(mixer->api, "MixerInfoPcms: fail to find playback=%s", json_object_get_string(pcmsJ));
+                    goto OnErrorExit;
+                }
+                json_object_array_add(responseJ, valueJ);
+            }
+            break;
+
+        default:
+            AFB_ApiError(mixer->api, "MixerInfoPcms: unsupported json type pcmsJ=%s", json_object_get_string(pcmsJ));
+            goto OnErrorExit;
+    }
+
+    return (responseJ);
+
+OnErrorExit:
+    return NULL;
 }
 
 STATIC void MixerInfoAction(AFB_ReqT request, json_object * argsJ) {
 
     SoftMixerT *mixer = (SoftMixerT*) afb_request_get_vcbdata(request);
-    int error, verbose = 0, zones = 0, captures = 0, playbacks = 0;
-    json_object *streamsJ = NULL, *rampsJ = NULL;
+    int error, verbose = 0;
+    json_object *streamsJ = NULL, *rampsJ = NULL, *zonesJ = NULL, *capturesJ = NULL, *playbacksJ = NULL;
 
-    error = wrap_json_unpack(argsJ, "{s?b,s?o,s?o,s?b,s?b,s?b !}"
+    error = wrap_json_unpack(argsJ, "{s?b,s?o,s?o,s?o,s?o,s?o !}"
             , "verbose", &verbose
             , "streams", &streamsJ
             , "ramps", &rampsJ
-            , "captures", &captures
-            , "playbacks", &playbacks
-            , "zones", &zones
+            , "captures", &capturesJ
+            , "playbacks", &playbacksJ
+            , "zones", &zonesJ
             );
     if (error) {
         AFB_ReqFailF(request, "invalid-syntax", "list missing 'quiet|stream|backend|source' argsJ=%s", json_object_get_string(argsJ));
@@ -266,7 +489,7 @@ STATIC void MixerInfoAction(AFB_ReqT request, json_object * argsJ) {
     }
 
     json_object *responseJ = json_object_new_object();
-    
+
     if (streamsJ) {
         json_object *resultJ = MixerInfoStreams(mixer, streamsJ, verbose);
         if (!resultJ) {
@@ -281,61 +504,21 @@ STATIC void MixerInfoAction(AFB_ReqT request, json_object * argsJ) {
         json_object_object_add(responseJ, "ramps", resultJ);
     }
 
-    if (zones) {
-        json_object *zonesJ = json_object_new_array();
-
-        AlsaSndZoneT **zones = mixer->zones;
-        for (int idx = 0; zones[idx]; idx++) {
-            if (!verbose) {
-                json_object_array_add(zonesJ, json_object_new_string(zones[idx]->uid));
-            } else {
-                json_object *zoneJ = json_object_new_object();
-                if (zones[idx]->sinks) {
-                    json_object *sinksJ = json_object_new_array();
-                    for (int jdx = 0; zones[idx]->sinks[jdx]; jdx++) {
-                        json_object *channelJ;
-                        wrap_json_pack(&channelJ, "{ss,si}"
-                                , "uid", zones[idx]->sinks[jdx]->uid
-                                , "port", zones[idx]->sinks[jdx]->port
-                                );
-                        json_object_array_add(sinksJ, channelJ);
-                    }
-                    json_object_object_add(zoneJ, "sinks", sinksJ);
-                }
-
-                if (zones[idx]->sources) {
-                    json_object *sourcesJ = json_object_new_array();
-                    for (int jdx = 0; zones[idx]->sources[jdx]; jdx++) {
-                        json_object *channelJ;
-                        wrap_json_pack(&channelJ, "{ss,si}"
-                                , "uid", zones[idx]->sources[jdx]->uid
-                                , "port", zones[idx]->sources[jdx]->port
-                                );
-                        json_object_array_add(sourcesJ, channelJ);
-                    }
-                    json_object_object_add(zoneJ, "source", sourcesJ);
-                }
-
-                if (zones[idx]->params) {
-
-                    json_object *paramsJ;
-                    wrap_json_pack(&paramsJ, "{si,ss,si}"
-                            , "rate", zones[idx]->params->rate
-                            , "format", zones[idx]->params->formatS
-                            , "channels", zones[idx]->params->channels
-                            );
-                    json_object_object_add(zoneJ, "params", paramsJ);
-                }
-                json_object_array_add(zonesJ, zoneJ);
-            }
-        }
-        json_object_object_add(responseJ, "zones", zonesJ);
+    if (zonesJ) {
+        json_object *resultJ = MixerInfoZones(mixer, zonesJ, verbose);
+        json_object_object_add(responseJ, "zones", resultJ);
     }
 
-    if (captures || playbacks) {
-        AFB_ReqFailF(request, "not implemented", "(Fulup) list action Still To Be Done");
-        goto OnErrorExit;
+    if (playbacksJ) {
+        json_object *resultJ = MixerInfoPcms(mixer, playbacksJ, SND_PCM_STREAM_PLAYBACK, verbose);
+        json_object_object_add(responseJ, "playbacks", resultJ);
     }
+
+    if (capturesJ) {
+        json_object *resultJ = MixerInfoPcms(mixer, capturesJ, SND_PCM_STREAM_CAPTURE, verbose);
+        json_object_object_add(responseJ, "captures", resultJ);
+    }
+
 
     AFB_ReqSuccess(request, responseJ, NULL);
     return;
@@ -352,7 +535,7 @@ STATIC void MixerInfoVerb(AFB_ReqT request) {
 STATIC void MixerAttachVerb(AFB_ReqT request) {
     SoftMixerT *mixer = (SoftMixerT*) afb_request_get_vcbdata(request);
     const char *uid = NULL, *prefix = NULL;
-    json_object *playbackJ = NULL, *captureJ = NULL, *zonesJ = NULL, *streamsJ = NULL, *rampsJ = NULL, *loopsJ = NULL;
+    json_object *playbacksJ = NULL, *capturesJ = NULL, *zonesJ = NULL, *streamsJ = NULL, *rampsJ = NULL, *loopsJ = NULL;
     json_object *argsJ = afb_request_json(request);
     json_object *responseJ = json_object_new_object();
     int error;
@@ -361,8 +544,8 @@ STATIC void MixerAttachVerb(AFB_ReqT request) {
             , "uid", &uid
             , "prefix", &prefix
             , "ramps", &rampsJ
-            , "playbacks", &playbackJ
-            , "captures", &captureJ
+            , "playbacks", &playbacksJ
+            , "captures", &capturesJ
             , "loops", &loopsJ
             , "zones", &zonesJ
             , "streams", &streamsJ
@@ -372,24 +555,33 @@ STATIC void MixerAttachVerb(AFB_ReqT request) {
         goto OnErrorExit;
     }
 
-    if (playbackJ) {
-        error = ApiSinkAttach(mixer, request, uid, playbackJ);
-        if (error) goto OnErrorExit;
-    }
-
-    if (captureJ) {
-        error = ApiSourceAttach(mixer, request, uid, captureJ);
-        if (error) goto OnErrorExit;
-    }
-
     if (loopsJ) {
         error = ApiLoopAttach(mixer, request, uid, loopsJ);
         if (error) goto OnErrorExit;
+    }
+    
+    if (playbacksJ) {
+        error = ApiSinkAttach(mixer, request, uid, playbacksJ);
+        if (error) goto OnErrorExit;
+
+        json_object *resultJ = MixerInfoPcms(mixer, playbacksJ, SND_PCM_STREAM_PLAYBACK, 0);
+        json_object_object_add(responseJ, "playbacks", resultJ);
+    }
+
+    if (capturesJ) {
+        error = ApiSourceAttach(mixer, request, uid, capturesJ);
+        if (error) goto OnErrorExit;
+
+        json_object *resultJ = MixerInfoPcms(mixer, capturesJ, SND_PCM_STREAM_CAPTURE, 0);
+        json_object_object_add(responseJ, "captures", resultJ);
     }
 
     if (zonesJ) {
         error = ApiZoneAttach(mixer, request, uid, zonesJ);
         if (error) goto OnErrorExit;
+        
+        json_object *resultJ = MixerInfoZones(mixer, zonesJ, 0);
+        json_object_object_add(responseJ, "zone", resultJ);
     }
 
     if (rampsJ) {

@@ -164,6 +164,7 @@ typedef struct {
 
 typedef struct {
     const char *uid;
+    const char *verb;
     unsigned int ccount;
     AlsaSndCtlT *sndcard;
     AlsaSndControlT volume;
