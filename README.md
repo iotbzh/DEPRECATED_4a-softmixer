@@ -57,6 +57,7 @@ Alsa snd-aloop impose '0' as playback device. Soft mixer will start from last su
 
 Current version does not handle audio rate conversion, using gstreamer or equivalent to match with audio hardware params is mandatory.
 ```
+    export PROJECT_ROOT=`pwd`
     gst123 --audio-output alsa=hw:Loopback,0,0 $PROJECT_ROOT/conf.d/project/sounds/trio-divi-alkazabach.mp3
 
     gst123 --audio-output alsa=hw:XXX,0,??? other sound file

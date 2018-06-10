@@ -22,20 +22,33 @@
 
 PUBLIC AlsaPcmHwInfoT *ApiSinkGetParamsByZone(SoftMixerT *mixer, const char *target) {
 
+    // try to attach a zone as stream playback sink
     AlsaSndZoneT *zone = ApiZoneGetByUid(mixer, target);
-    if (!zone || !zone->sinks) return NULL;
+    if (zone && zone->sinks) {
 
-    // use 1st channel to find attached sound card.
-    const char *channel = zone->sinks[0]->uid;
+        // use 1st channel to find attached sound card.
+        const char *channel = zone->sinks[0]->uid;
 
-    // search for channel uid into mixer sinks
-    for (int idx = 0; mixer->sinks[idx]; idx++) {
-        for (int jdx = 0; jdx < mixer->sinks[idx]->ccount; jdx++) {
-            if (mixer->sinks[idx]->channels[jdx]->uid && !strcasecmp(channel, mixer->sinks[idx]->channels[jdx]->uid)) {
-                return mixer->sinks[idx]->sndcard->params;
+        // search for channel uid into mixer sinks and derive sound card
+        for (int idx = 0; mixer->sinks[idx]; idx++) {
+            for (int jdx = 0; jdx < mixer->sinks[idx]->ccount; jdx++) {
+                if (mixer->sinks[idx]->channels[jdx]->uid && !strcasecmp(channel, mixer->sinks[idx]->channels[jdx]->uid)) {
+                    return mixer->sinks[idx]->sndcard->params;
+                }
             }
         }
     }
+    return NULL;
+}
+
+PUBLIC AlsaSndPcmT  *ApiSinkGetByUid(SoftMixerT *mixer, const char *target) {
+    // if no attached zone found, then try direct sink attachment
+    for (int idx = 0; mixer->sinks[idx]; idx++) {
+        if (mixer->sinks[idx]->uid && !strcasecmp(mixer->sinks[idx]->uid, target)) {
+            return mixer->sinks[idx];
+        }
+    }
+    
     return NULL;
 }
 

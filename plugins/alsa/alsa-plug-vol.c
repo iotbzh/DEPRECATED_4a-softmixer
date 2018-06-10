@@ -22,25 +22,14 @@
 
 ALSA_PLUG_PROTO(softvol); // stream uses softvol plugin
 
-PUBLIC AlsaPcmCtlT *AlsaCreateSoftvol(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaSndZoneT *zone, AlsaSndCtlT *sndcard, char* ctlName, int max, int open) {
+PUBLIC AlsaPcmCtlT *AlsaCreateSoftvol(SoftMixerT *mixer, AlsaStreamAudioT *stream, char* slaveid, AlsaSndCtlT *sndcard, char* ctlName, int max, int open) {
     snd_config_t *streamConfig, *elemConfig, *slaveConfig, *controlConfig,*pcmConfig;
     AlsaPcmCtlT *pcmVol= calloc(1,sizeof(AlsaPcmCtlT));
     int error = 0;
-
-    // assert static/global softmixer handle get requited info
-    AlsaSndZoneT **pcmZones = mixer->zones;
-    if (!pcmZones) {
-        AFB_ApiError(mixer->api, "AlsaCreateSoftvol:%s(stream) No Zone found [should Registry zones first]", stream->uid);
-        goto OnErrorExit;
-    }
-       
+     
     char *cardid;
     (void) asprintf(&cardid, "softvol-%s", stream->uid);
     pcmVol->cid.cardid = (const char *) cardid;
-    
-    char *slaveid;
-    (void)asprintf(&slaveid, "route-%s", zone->uid);
-    // Fulup debug (void) asprintf(&slaveid, "dmix-%s", "8CH-USB");
     
     // refresh global alsalib config and create PCM top config
     snd_config_update();

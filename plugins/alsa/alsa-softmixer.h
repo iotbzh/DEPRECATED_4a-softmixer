@@ -265,7 +265,7 @@ PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT 
 // alsa-plug-*.c _snd_pcm_PLUGIN_open_ see macro ALSA_PLUG_PROTO(plugin)
 PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, AlsaPcmHwInfoT *opts);
 PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *streamAudio, AlsaPcmCtlT *pcmIn, AlsaPcmCtlT *pcmOut, AlsaPcmHwInfoT * opts);
-PUBLIC AlsaPcmCtlT* AlsaCreateSoftvol(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaSndZoneT *zone, AlsaSndCtlT *sndcard, char* ctlName, int max, int open);
+PUBLIC AlsaPcmCtlT* AlsaCreateSoftvol(SoftMixerT *mixer, AlsaStreamAudioT *stream, char *slaveid, AlsaSndCtlT *sndcard, char* ctlName, int max, int open);
 PUBLIC AlsaPcmCtlT* AlsaCreateRoute(SoftMixerT *mixer, AlsaSndZoneT *zone, int open);
 PUBLIC AlsaPcmCtlT* AlsaCreateRate(SoftMixerT *mixer, const char* pcmName, AlsaPcmCtlT *pcmSlave, AlsaPcmHwInfoT *params, int open);
 PUBLIC AlsaPcmCtlT* AlsaCreateDmix(SoftMixerT *mixer, const char* pcmName, AlsaSndPcmT *pcmSlave, int open);
@@ -279,6 +279,7 @@ PUBLIC AlsaVolRampT *ApiRampGetByUid(SoftMixerT *mixer, const char *uid);
 PUBLIC int ApiRampAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, json_object *argsJ);
 PUBLIC AlsaPcmHwInfoT *ApiSinkGetParamsByZone(SoftMixerT *mixer, const char *target);
 PUBLIC int ApiSinkAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, json_object * argsJ);
+PUBLIC AlsaSndPcmT  *ApiSinkGetByUid(SoftMixerT *mixer, const char *target);
 PUBLIC AlsaSndCtlT *ApiSourceFindSubdev(SoftMixerT *mixer, const char *target);
 PUBLIC int ApiSourceAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, json_object * argsJ);
 PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, const char *prefix, json_object * argsJ);

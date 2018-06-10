@@ -188,7 +188,9 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     AlsaSndCtlT *captureCard;
     AlsaDevInfoT *captureDev = alloca(sizeof (AlsaDevInfoT));
     AlsaLoopSubdevT *loopDev;
-    char * captureName;
+    AlsaSndZoneT *zone;
+    char *volSlaveId;
+    char *captureName;
 
     loopDev = ApiLoopFindSubdev(mixer, stream->uid, stream->source, &loop);
     if (loopDev) {
@@ -225,15 +227,37 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
         if (error) goto OnErrorExit;
     }
 
-    AlsaSndZoneT *zone = ApiZoneGetByUid(mixer, stream->sink);
-    if (!zone) {
-        AFB_ApiError(mixer->api, "CreateOneStream: mixer=%s stream=%s fail to find sink zone='%s'", mixer->uid, stream->uid, stream->sink);
-        goto OnErrorExit;
+    if (mixer->zones[0]) {
+        // if zones exist then retrieve zone pcmid and channel count
+        zone = ApiZoneGetByUid(mixer, stream->sink);
+        if (!zone) {
+            AFB_ApiError(mixer->api, "CreateOneStream: mixer=%s stream=%s fail to find sink zone='%s'", mixer->uid, stream->uid, stream->sink);
+            goto OnErrorExit;
+        }
+
+        // route PCM should have been create during zones attach phase.
+        (void) asprintf(&volSlaveId, "route-%s", zone->uid);
+
+    } else {
+        AlsaSndPcmT *playback = ApiSinkGetByUid(mixer, stream->sink);
+        if (!playback) {
+            AFB_ApiError(mixer->api, "CreateOneStream: mixer=%s stream=%s fail to find sink playback='%s'", mixer->uid, stream->uid, stream->sink);
+            goto OnErrorExit;
+        }
+
+        // retrieve channel count from route and push it to stream
+        (void) asprintf(&volSlaveId, "dmix-%s", playback->uid);
+        
+        // create a fake zone for rate converter selection
+        zone=alloca(sizeof(AlsaSndZoneT));
+        zone->uid= playback->uid;
+        zone->params = playback->sndcard->params;
+        zone->ccount = playback->ccount;
     }
 
     // retrieve channel count from route and push it to stream
     stream->params->channels = zone->ccount;
-
+        
     // create mute control and Registry it as pause/resume ctl)
     char *runName;
     (void) asprintf(&runName, "pause-%s", stream->uid);
@@ -249,7 +273,7 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     (void) asprintf(&volName, "vol-%s", stream->uid);
 
     // create stream and delay pcm opening until vol control is created
-    streamPcm = AlsaCreateSoftvol(mixer, stream, zone, captureCard, volName, VOL_CONTROL_MAX, 0);
+    streamPcm = AlsaCreateSoftvol(mixer, stream, volSlaveId, captureCard, volName, VOL_CONTROL_MAX, 0);
     if (!streamPcm) {
         AFB_ApiError(mixer->api, "CreateOneStream: mixer=%s stream=%s fail to create stream", mixer->uid, stream->uid);
         goto OnErrorExit;

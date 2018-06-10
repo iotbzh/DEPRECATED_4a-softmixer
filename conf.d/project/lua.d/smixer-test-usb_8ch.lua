@@ -42,9 +42,9 @@ function _mixer_simple_test_ (source, args)
     -- ==================== Default rate ===========================
 
     local audio_params ={
-        defaults = { ["rate"] = 48000 },
-        standard = { ["rate"] = 44100 },
-        basic    = { ["rate"] = 8000  },
+        R48000 = { ["rate"] = 48000 },
+        R44100 = { ["rate"] = 44100 },
+        R8000  = { ["rate"] = 8000  },
     }  
 
     local volume_ramps = {
@@ -58,7 +58,7 @@ function _mixer_simple_test_ (source, args)
     local snd_usb_8ch= {
         ["uid"]= "8CH-USB",
         ["path"]= "/dev/snd/by-id/usb-0d8c_USB_Sound_Device-00",
-        ["params"] = audio_params.default,
+        ["params"] = audio_params.R48000,
         ["sink"] = {
             ["controls"]= {
                 ["volume"] = {["name"]= "Speaker Playback Volume", ["value"]=80},
@@ -128,20 +128,21 @@ function _mixer_simple_test_ (source, args)
 
     -- =================== Audio Streams ============================
     local stream_music= {
-        ["uid"] = "stream-multimedia",
+        ["uid"]  = "stream-multimedia",
         ["verb"] = "multimedia",
-        ["zone"]= "full-stereo",
+        ["zone"] = "full-stereo",
         ["volume"]= 80,
         ["mute"]  = false,
-        ["params"]= audio_params.standard,
+        ["params"] = audio_params.R48000,
     }
     
     local stream_navigation= {
-        ["uid"]   = "stream-navigation",
+        ["uid"]  = "stream-navigation",
         ["verb"] = "navigation",
-        ["zone"]= "front-seats",
+        ["zone"] = "front-seats",
         ["volume"]= 80,
         ["mute"]  = false,
+        ["params"] = audio_params.R48000,
     }
     
     local stream_emergency= {
@@ -150,6 +151,7 @@ function _mixer_simple_test_ (source, args)
         ["zone"]  = "front-seats",
         ["volume"]= 80,
         ["mute"]  = false,
+        ["params"] = audio_params.R48000,
     }
             
     -- Force Pulse to attach a well known Loop subdev to get a fix Alsa cardid 
@@ -160,6 +162,7 @@ function _mixer_simple_test_ (source, args)
         ["source"]= "loop-legacy",
         ["volume"]= 80,
         ["mute"]  = false,
+        ["params"] = audio_params.R48000,
     }
     
     --- ================ Create Mixer =========================

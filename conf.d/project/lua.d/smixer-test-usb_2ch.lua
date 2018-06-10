@@ -44,7 +44,7 @@ function _mixer_simple_test_ (source, args)
     local audio_params ={
         defaults = { ["rate"] = 48000 },
         standard = { ["rate"] = 44100 },
-        basic= { ["rate"] = 8000 },
+        basic    = { ["rate"] = 8000  },
     }  
 
     local volume_ramps = {
@@ -53,66 +53,19 @@ function _mixer_simple_test_ (source, args)
             {["uid"]="ramp-normal", ["delay"]= 100, ["up"]=06,["down"]=2},
     }
 
-    -- ======================= Loop PCM ===========================
-    local snd_aloop = {
-        ["uid"]     = "Alsa-Loop",
-        ["path"]= "/dev/snd/by-path/platform-snd_aloop.0",
-        ["devices"] = {["playback"]=0,["capture"]=1},
-        ["subdevs"] = {
-            {["subdev"]= 0, ["numid"]= 51, ["uid"]= "loop-legacy"},
-            {["subdev"]= 1, ["numid"]= 57, ["uid"]= "loop-multimedia"},
-            {["subdev"]= 2, ["numid"]= 63},
-            {["subdev"]= 3, ["numid"]= 69},
-            {["subdev"]= 4, ["numid"]= 75},
-            {["subdev"]= 5, ["numid"]= 81},
-            {["subdev"]= 6, ["numid"]= 87},
-            {["subdev"]= 7, ["numid"]= 93},
-        },
-    }
-
-
     -- ============================= Backend (Sound Cards) ===================  
 
-    local snd_yamaha = {
-        ["uid"]= "YAMAHA-APU70",
-        ["path"]= "/dev/snd/by-id/usb-YAMAHA_Corporation_YAMAHA_AP-U70_USB_Audio_00-00",
-        ["params"]= audio_params.default,
-        ["sink"] = {
-            ["channels"] = {
-                {["uid"]= "front-right", ["port"]= 0},
-                {["uid"]= "front-left", ["port"]= 1},
-            },
-        }
-    }
-
-    local snd_usb_8ch= {
-        ["uid"]= "8CH-USB",
-        ["path"]= "/dev/snd/by-id/usb-0d8c_USB_Sound_Device-00",
-        ["params"] = audio_params.default,
+    local snd_usb_2ch= {
+        ["uid"]= "STEREO-USB",
+        ["path"]= "/dev/snd/by-id/usb-0b0e_Jabra_SOLEMATE_v1.34.0-00",
         ["sink"] = {
             ["controls"]= {
-                ["volume"] = {["name"]= "Speaker Playback Volume", ["value"]=80},
-                ["mute"]   = {["name"]= "Speaker Playback Switch"},
+                ["volume"] = {["name"]= "Playback Volume", ["value"]=80},
+                ["mute"]   = {["name"]= "Playback Switch"},
             },
             ["channels"] = {
                 {["uid"]= "front-right", ["port"]= 0},
                 {["uid"]= "front-left" , ["port"]= 1},
-                {["uid"]= "middle-right", ["port"]= 2},
-                {["uid"]= "middle-left" , ["port"]= 3},
-                {["uid"]= "back-right", ["port"]= 4},
-                {["uid"]= "back-left" , ["port"]= 5},
-                {["uid"]= "centre-left" , ["port"]= 6},
-                {["uid"]= "centre-left" , ["port"]= 7},
-            },
-        },
-        ["source"] = {
-            ["controls"]= {
-                ["volume"] = {["name"]= "Capture Volume"},
-                ["mute"]   = {["name"]= "Capture Switch"},
-            },
-            ["channels"] = {
-                {["uid"]= "mic-right", ["port"]= 0},
-                {["uid"]= "mic-left" , ["port"]= 1},
             },
         }
     }
@@ -124,83 +77,39 @@ function _mixer_simple_test_ (source, args)
         ["sink"] = {
             {["target"]="front-right",["channel"]=0},
             {["target"]="front-left" ,["channel"]=1},
-            {["target"]="middle-right",["channel"]=0},
-            {["target"]="middle-left" ,["channel"]=1},
-            {["target"]="back-right",["channel"]=0},
-            {["target"]="back-left" ,["channel"]=1},
         }
     }
 
-    local zone_front= {
-        ["uid"]  = "front-seats",
-        ["sink"] = {
-            {["target"]="front-right",["channel"]=0},
-            {["target"]="front-left" ,["channel"]=1},
-        }
-    }
-
-    local zone_middle= {
-        ["uid"]  = "middle-seats",
-        ["sink"] = {
-            {["target"]="middle-right",["channel"]=0},
-            {["target"]="middle-left" ,["channel"]=1},
-        }
-    }
-
-    local zone_back= {
-        ["uid"]  = "back-seats",
-        ["sink"] = {
-            {["target"]="back-right",["channel"]=0},
-            {["target"]="back-left" ,["channel"]=1},
-        }
-    }
-
-    local zone_driver= {
-        ["uid"]  = "driver-seat",
-        ["source"] = {
-            {["target"]="mic-right",["channel"]=0},
-        },
-        ["sink"] = {
-            {["target"]="front-right",["channel"]=0},
-        }
-    }
-
-    -- =================== Audio Stream ============================
+    -- =================== Audio Streams ============================
     local stream_music= {
-        ["uid"] = "multimedia",
-        ["zone"]= "full-stereo",
-        ["source"]= "loop-multimedia",
+        ["uid"] = "stream-multimedia",
+        ["verb"] = "multimedia",
+        ["zone"]= "JABRA-USB",
         ["volume"]= 80,
         ["mute"]  = false,
-        ["params"]= audio_params.standard,
     }
     
     local stream_navigation= {
-        ["uid"]   = "navigation",
-        ["zone"]= "front-seats",
+        ["uid"]   = "stream-navigation",
+        ["verb"] = "navigation",
+        ["zone"]= "JABRA-USB",
         ["volume"]= 80,
         ["mute"]  = false,
     }
     
     local stream_emergency= {
-        ["uid"]   = "emergency",
-        ["zone"]  = "driver-seat",
-        ["volume"]= 80,
-        ["mute"]  = false,
-        --["params"]= audio_params.basic,
-    }
-        
-    local stream_radio= {
-        ["uid"]   = "radio",
-        ["zone"]  = "full-stereo",
-        --["source"]= snd_usb_8ch.uid,
+        ["uid"]   = "stream-emergency",
+        ["verb"] = "emergency",
+        ["zone"]  = "JABRA-USB",
         ["volume"]= 80,
         ["mute"]  = false,
     }
-    
+            
+    -- Force Pulse to attach a well known Loop subdev to get a fix Alsa cardid 
     local stream_pulse= {
-        ["uid"]   = "pulseaudio",
-        ["zone"]  = "back-seats",
+        ["uid"]   = "stream-pulseaudio",
+        ["verb"] = "legacy",
+        ["zone"]  = "JABRA-USB",
         ["source"]= "loop-legacy",
         ["volume"]= 80,
         ["mute"]  = false,
@@ -208,25 +117,19 @@ function _mixer_simple_test_ (source, args)
     
     --- ================ Create Mixer =========================
     local MyTestHal= {
-        ["uid"]= "MyMixer",
-        ["ramps"]= volume_ramps,
-        ["playbacks"] = {snd_usb_8ch},
-        ["captures"]= {snd_usb_8ch},
-        ["loops"]  = {snd_aloop},
-        ["zones"]   = {zone_stereo, zone_front, zone_back, zone_middle, zone_driver},
-        ["streams"] = {stream_pulse, stream_music, stream_navigation },
-        -- ["streams"] = {stream_pulse, stream_music, stream_navigation, stream_emergency, stream_radio },
-
+        ["uid"]      = "HAL-LUA-2CH-USB",
+        ["prefix"]   = "default",
+        ["ramps"]    = volume_ramps,
+        ["playbacks"]= {snd_usb_2ch },
+        ["streams"]  = {stream_pulse, stream_music, stream_navigation, stream_emergency },
     }
-
-
 
     error,result= AFB:servsync(source, "smixer", "attach", MyTestHal)
     if (error) then 
-        AFB:error (source, "--InLua-- API MyMixer/attach fail error=%d", error)
+        AFB:error (source, "--InLua-- API smixer/attach fail error=%d %s", error, Dump_Table(result))
         goto OnErrorExit
     else
-        AFB:notice (source, "--InLua-- MyMixer/attach done result=%s\n", Dump_Table(result))
+        AFB:notice (source, "--InLua-- smixer/attach done result=%s\n", Dump_Table(result))
     end
   
     -- ================== Happy End =============================
@@ -236,9 +139,9 @@ function _mixer_simple_test_ (source, args)
     -- ================= Unhappy End ============================
     ::OnErrorExit::
         local response=result["request"]
-        printf ("--InLua-- ------------STATUS= %s --------------", result["status"])
+        printf ("--InLua-- ------------STATUS= %s --------------", response["status"])
         printf ("--InLua-- ++ INFO= %s", Dump_Table(response["info"]))
-        printf ("--InLua-- ----------TEST %s-------------", result["status"])
+        printf ("--InLua-- ----------TEST %s-------------", response["status"])
 
         AFB:error (source, "--InLua-- Test Fail")
         return 1 -- unhappy end --
