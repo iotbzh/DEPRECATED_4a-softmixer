@@ -54,7 +54,7 @@ STATIC AlsaVolRampT *AttachOneRamp(SoftMixerT *mixer, const char *uid, json_obje
         goto OnErrorExit;
     }
 
-    ramp->delay = ramp->delay * 100; // move from ms to us
+    ramp->delay = ramp->delay * 1000; // move from ms to us
     ramp->uid = strdup(rampUid);
     return ramp;
 
