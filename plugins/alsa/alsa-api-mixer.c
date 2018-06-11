@@ -484,8 +484,8 @@ STATIC void MixerInfoAction(AFB_ReqT request, json_object * argsJ) {
             , "zones", &zonesJ
             );
     if (error) {
-        AFB_ReqFailF(request, "invalid-syntax", "list missing 'quiet|stream|backend|source' argsJ=%s", json_object_get_string(argsJ));
-        goto OnErrorExit;
+        AFB_ReqFailF(request, "invalid-syntax", "list missing 'verbose|streams|ramps|captures|playbacks|zones' argsJ=%s", json_object_get_string(argsJ));
+        return;
     }
 
     json_object *responseJ = json_object_new_object();
@@ -493,8 +493,8 @@ STATIC void MixerInfoAction(AFB_ReqT request, json_object * argsJ) {
     if (streamsJ) {
         json_object *resultJ = MixerInfoStreams(mixer, streamsJ, verbose);
         if (!resultJ) {
-            AFB_ReqFailF(request, "invalid-object", "streams should be boolean or string argsJ=%s", json_object_get_string(streamsJ));
-            goto OnErrorExit;
+            AFB_ReqFailF(request, "not-found", "fail to find streams (should be a boolean, a string, or an array of them) argsJ=%s", json_object_get_string(streamsJ));
+            return;
         }
         json_object_object_add(responseJ, "streams", resultJ);
     }
@@ -522,9 +522,6 @@ STATIC void MixerInfoAction(AFB_ReqT request, json_object * argsJ) {
 
     AFB_ReqSuccess(request, responseJ, NULL);
     return;
-
-OnErrorExit:
-    AFB_ReqFail(request, "internal-error", "fail to get mixer info");
 }
 
 STATIC void MixerInfoVerb(AFB_ReqT request) {
