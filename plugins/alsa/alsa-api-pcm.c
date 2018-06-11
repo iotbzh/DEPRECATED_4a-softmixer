@@ -417,6 +417,7 @@ OnErrorExit:
 PUBLIC AlsaSndPcmT * ApiPcmAttachOne(SoftMixerT *mixer, const char *uid, snd_pcm_stream_t direction, json_object * argsJ) {
     AlsaSndPcmT *pcm = calloc(1, sizeof (AlsaSndPcmT));
     json_object *sourceJ = NULL, *paramsJ = NULL, *sinkJ = NULL, *targetJ = NULL;
+    char *apiVerb = NULL, *apiInfo = NULL;
     int error;
 
     pcm->sndcard = (AlsaSndCtlT*) calloc(1, sizeof (AlsaSndCtlT));
@@ -518,13 +519,16 @@ PUBLIC AlsaSndPcmT * ApiPcmAttachOne(SoftMixerT *mixer, const char *uid, snd_pcm
         if (error) goto OnErrorExit;
 
         // create master control for this sink
-        char *apiVerb, *apiInfo;
         if (direction == SND_PCM_STREAM_PLAYBACK) {
-            (void) asprintf(&apiVerb, "%s:playback", pcm->uid);
-            (void) asprintf(&apiInfo, "HAL:%s SND_PCM_STREAM_PLAYBACK", uid);
+            if (asprintf(&apiVerb, "%s:playback", pcm->uid) == -1)
+                goto OnErrorExit;
+            if (asprintf(&apiInfo, "HAL:%s SND_PCM_STREAM_PLAYBACK", uid) == -1)
+                goto OnErrorExit;
         } else {
-            (void) asprintf(&apiVerb, "%s:capture", pcm->uid);
-            (void) asprintf(&apiInfo, "HAL:%s SND_PCM_STREAM_PLAYBACK", uid);
+            if (asprintf(&apiVerb, "%s:capture", pcm->uid) == -1)
+                goto OnErrorExit;
+            if (asprintf(&apiInfo, "HAL:%s SND_PCM_STREAM_PLAYBACK", uid) == -1)
+                goto OnErrorExit;
         }     
         
         apiVerbHandleT *handle = calloc(1, sizeof (apiVerbHandleT));
@@ -546,6 +550,8 @@ PUBLIC AlsaSndPcmT * ApiPcmAttachOne(SoftMixerT *mixer, const char *uid, snd_pcm
 
 OnErrorExit:
     free(pcm);
+    free(apiVerb);
+    free(apiInfo);
     return NULL;
 }
 

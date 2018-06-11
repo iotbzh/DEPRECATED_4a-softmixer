@@ -189,8 +189,10 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     AlsaDevInfoT *captureDev = alloca(sizeof (AlsaDevInfoT));
     AlsaLoopSubdevT *loopDev;
     AlsaSndZoneT *zone;
-    char *volSlaveId;
-    char *captureName;
+    char *volSlaveId = NULL;
+    char *captureName = NULL;
+    char *runName = NULL;
+    char *volName = NULL;
 
     loopDev = ApiLoopFindSubdev(mixer, stream->uid, stream->source, &loop);
     if (loopDev) {
@@ -236,7 +238,8 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
         }
 
         // route PCM should have been create during zones attach phase.
-        (void) asprintf(&volSlaveId, "route-%s", zone->uid);
+        if (asprintf(&volSlaveId, "route-%s", zone->uid) == -1)
+            goto OnErrorExit;
 
     } else {
         AlsaSndPcmT *playback = ApiSinkGetByUid(mixer, stream->sink);
@@ -246,7 +249,8 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
         }
 
         // retrieve channel count from route and push it to stream
-        (void) asprintf(&volSlaveId, "dmix-%s", playback->uid);
+        if (asprintf(&volSlaveId, "dmix-%s", playback->uid) == -1)
+            goto OnErrorExit;
         
         // create a fake zone for rate converter selection
         zone=alloca(sizeof(AlsaSndZoneT));
@@ -259,8 +263,9 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     stream->params->channels = zone->ccount;
         
     // create mute control and Registry it as pause/resume ctl)
-    char *runName;
-    (void) asprintf(&runName, "pause-%s", stream->uid);
+    if (asprintf(&runName, "pause-%s", stream->uid) == -1)
+        goto OnErrorExit;
+
     int pauseNumid = AlsaCtlCreateControl(mixer, captureCard, runName, 1, 0, 1, 1, stream->mute);
     if (pauseNumid <= 0) goto OnErrorExit;
 
@@ -268,9 +273,8 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     error = AlsaCtlRegister(mixer, captureCard, capturePcm, FONTEND_NUMID_PAUSE, pauseNumid);
     if (error) goto OnErrorExit;
 
-
-    char *volName;
-    (void) asprintf(&volName, "vol-%s", stream->uid);
+    if (asprintf(&volName, "vol-%s", stream->uid) == -1)
+        goto OnErrorExit;
 
     // create stream and delay pcm opening until vol control is created
     streamPcm = AlsaCreateSoftvol(mixer, stream, volSlaveId, captureCard, volName, VOL_CONTROL_MAX, 0);
@@ -285,7 +289,8 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
 
     if ((zone->params->rate != stream->params->rate) || (zone->params->format != stream->params->format)) {
         char *rateName;
-        (void) asprintf(&rateName, "rate-%s", stream->uid);
+        if (asprintf(&rateName, "rate-%s", stream->uid) == -1)
+            goto OnErrorExit;
         streamPcm = AlsaCreateRate(mixer, rateName, streamPcm, zone->params, 0);
         if (!streamPcm) {
             AFB_ApiError(mixer->api, "StreamsAttach: mixer=%s stream=%s fail to create rate converter", mixer->uid, stream->uid);
@@ -323,9 +328,11 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     }
 
     if (loop) {
-        (void) asprintf((char**) &stream->source, "hw:%d,%d,%d", captureDev->cardidx, loop->playback, capturePcm->cid.subdev);
+        if (asprintf((char**) &stream->source, "hw:%d,%d,%d", captureDev->cardidx, loop->playback, capturePcm->cid.subdev))
+            goto OnErrorExit;
     } else {
-        (void) asprintf((char**) &stream->source, "hw:%d,%d,%d", captureDev->cardidx, captureDev->device, captureDev->subdev);
+        if (asprintf((char**) &stream->source, "hw:%d,%d,%d", captureDev->cardidx, captureDev->device, captureDev->subdev))
+            goto OnErrorExit;
     }
 
     // create a dedicated verb for this stream 
@@ -355,6 +362,9 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     return 0;
 
 OnErrorExit:
+	free(volSlaveId);
+	free(runName);
+	free(volName);
     return -1;
 }
 
@@ -398,10 +408,17 @@ STATIC AlsaStreamAudioT * AttachOneStream(SoftMixerT *mixer, const char *uid, co
 
     // Prefix verb with uid|prefix
     if (prefix) {
-        if (stream->verb) asprintf((char**) &stream->verb, "%s:%s", prefix, stream->verb);
-        else asprintf((char**) &stream->verb, "%s:%s", prefix, stream->uid);
+        if (stream->verb) {
+            if (asprintf((char**) &stream->verb, "%s:%s", prefix, stream->verb) == -1)
+                goto OnErrorExit;
+        }
+        else {
+            if (asprintf((char**) &stream->verb, "%s:%s", prefix, stream->uid) == -1)
+                goto OnErrorExit;
+        }
     } else {
-        if (!stream->verb) stream->verb = strdup(stream->uid);
+        if (!stream->verb)
+            stream->verb = strdup(stream->uid);
     }
 
     // implement stream PCM with corresponding thread and controls
@@ -433,7 +450,7 @@ PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid,
     }
 
     switch (json_object_get_type(argsJ)) {
-            long count;
+        long count;
 
         case json_type_object:
             mixer->streams[index] = AttachOneStream(mixer, uid, prefix, argsJ);

@@ -61,13 +61,22 @@ OnErrorExit:
 PUBLIC AlsaPcmCtlT *AlsaByPathOpenPcm(SoftMixerT *mixer, AlsaDevInfoT *pcmDev, snd_pcm_stream_t direction) {
     int error;
     AlsaPcmCtlT *pcmCtl = calloc(1, sizeof (AlsaPcmCtlT));
+    char *cardid = NULL;
 
     if (!pcmDev->cardid) {
-        char *cardid;
-        if (pcmDev->subdev) (void)asprintf(&cardid, "hw:%i,%i,%i", pcmDev->cardidx, pcmDev->device, pcmDev->subdev);
-        else if (pcmDev->device) (void) asprintf(&cardid, "hw:%i,%i", pcmDev->cardidx, pcmDev->device);
-        else (void) asprintf(&cardid, "hw:%i", pcmDev->cardidx);
-        pcmDev->cardid= (const char*)cardid;
+        if (pcmDev->subdev) {
+            if (asprintf(&cardid, "hw:%i,%i,%i", pcmDev->cardidx, pcmDev->device, pcmDev->subdev) == -1)
+                goto OnErrorExit;
+        }
+        else if (pcmDev->device) {
+            if (asprintf(&cardid, "hw:%i,%i", pcmDev->cardidx, pcmDev->device) == -1)
+                goto OnErrorExit;
+        }
+        else {
+            if (asprintf(&cardid, "hw:%i", pcmDev->cardidx) == -1)
+                goto OnErrorExit;
+        }
+        pcmDev->cardid = (const char*)cardid;
     }
 
     // inherit CID fropm pcmDev
@@ -89,6 +98,7 @@ PUBLIC AlsaPcmCtlT *AlsaByPathOpenPcm(SoftMixerT *mixer, AlsaDevInfoT *pcmDev, s
 
 OnErrorExit:
     free(pcmCtl);
+    free(cardid);
     return NULL;
 }
 
@@ -116,7 +126,8 @@ PUBLIC snd_ctl_t *AlsaByPathOpenCtl(SoftMixerT *mixer, const char *uid, AlsaSndC
     dev->cid.longname = strdup(snd_ctl_card_info_get_longname(cardInfo));
 
     // build a valid name and open sndcard
-    (void) asprintf((char**) &dev->cid.cardid, "hw:%i", dev->cid.cardidx);
+    if (asprintf((char**) &dev->cid.cardid, "hw:%i", dev->cid.cardidx) == -1)
+        goto OnErrorExit;
 
     if ((err = snd_ctl_open(&handle, dev->cid.cardid, 0)) < 0) {
         AFB_ApiError(mixer->api, "AlsaByPathOpenCtl uid=%s sndcard open fail cardid=%s longname=%s error=%s", uid, dev->cid.cardid, dev->cid.longname, snd_strerror(err));

@@ -70,14 +70,17 @@ PUBLIC AlsaPcmCtlT* AlsaCreateRoute(SoftMixerT *mixer, AlsaSndZoneT *zone, int o
     int scount=0, error = 0;
     ChannelCardPortT slave, channel;
     AlsaPcmCtlT *pcmRoute = calloc(1, sizeof (AlsaPcmCtlT));
+    char *cardid = NULL;
+    char *dmixUid = NULL;
 
     if (!mixer->sinks) {
         AFB_ApiError(mixer->api, "AlsaCreateRoute: mixer=%s zone(%s)(zone) No sink found [should Registry sound card first]", mixer->uid, zone->uid);
         goto OnErrorExit;
     }
 
-    char *cardid;
-    (void) asprintf(&cardid, "route-%s", zone->uid);
+    if (asprintf(&cardid, "route-%s", zone->uid) == -1)
+        goto OnErrorExit;
+
     pcmRoute->cid.cardid = (const char *) cardid;
     
     pcmRoute->params = ApiSinkGetParamsByZone(mixer, zone->uid);
@@ -91,8 +94,8 @@ PUBLIC AlsaPcmCtlT* AlsaCreateRoute(SoftMixerT *mixer, AlsaSndZoneT *zone, int o
     }
     
     // move from hardware to DMIX attach to sndcard
-    char *dmixUid;
-    (void) asprintf(&dmixUid, "dmix-%s", slave.uid);
+    if (asprintf(&dmixUid, "dmix-%s", slave.uid) == -1)
+        goto OnErrorExit;
 
     // temporary store to unable multiple channel to route to the same port
     snd_config_t **cports = alloca(slave.ccount * sizeof (void*));
@@ -177,6 +180,8 @@ PUBLIC AlsaPcmCtlT* AlsaCreateRoute(SoftMixerT *mixer, AlsaSndZoneT *zone, int o
 
 OnErrorExit:
     free(pcmRoute);
+    free(cardid);
+    free(dmixUid);
     AlsaDumpCtlConfig(mixer, "plug-pcm", snd_config, 1);
     AlsaDumpCtlConfig(mixer, "plug-route", routeConfig, 1);
     AFB_ApiNotice(mixer->api, "AlsaCreateRoute:zone(%s) OnErrorExit\n", zone->uid);

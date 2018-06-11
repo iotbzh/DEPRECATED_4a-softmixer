@@ -27,8 +27,10 @@ PUBLIC AlsaPcmCtlT *AlsaCreateSoftvol(SoftMixerT *mixer, AlsaStreamAudioT *strea
     AlsaPcmCtlT *pcmVol= calloc(1,sizeof(AlsaPcmCtlT));
     int error = 0;
      
-    char *cardid;
-    (void) asprintf(&cardid, "softvol-%s", stream->uid);
+    char *cardid = NULL;
+    if (asprintf(&cardid, "softvol-%s", stream->uid) == -1)
+        goto OnErrorExit;
+
     pcmVol->cid.cardid = (const char *) cardid;
     
     // refresh global alsalib config and create PCM top config
@@ -80,6 +82,7 @@ PUBLIC AlsaPcmCtlT *AlsaCreateSoftvol(SoftMixerT *mixer, AlsaStreamAudioT *strea
     return pcmVol;
 
 OnErrorExit:
+	free(cardid);
     //AlsaDumpCtlConfig (mixer, "plug-config", pcmConfig, 1);
     AlsaDumpCtlConfig(mixer, "plug-softvol", streamConfig, 1);
     AFB_ApiNotice(mixer->api, "AlsaCreateSoftvol:%s(stream) OnErrorExit\n", stream->uid);

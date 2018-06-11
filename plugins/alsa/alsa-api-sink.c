@@ -55,6 +55,8 @@ PUBLIC AlsaSndPcmT  *ApiSinkGetByUid(SoftMixerT *mixer, const char *target) {
 PUBLIC int ApiSinkAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, json_object * argsJ) {
 
     int index;
+    char *dmixUid = NULL;
+
     for (index = 0; index < mixer->max.sinks; index++) {
         if (!mixer->sinks[index]) break;
     }
@@ -66,7 +68,7 @@ PUBLIC int ApiSinkAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
 
     switch (json_object_get_type(argsJ)) {
             long count;
-            char *dmixUid;
+
             AlsaPcmCtlT* dmixConfig;
 
         case json_type_object:
@@ -77,7 +79,8 @@ PUBLIC int ApiSinkAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
             }
 
             // move from hardware to DMIX attach to sndcard
-            (void) asprintf(&dmixUid, "dmix-%s", mixer->sinks[index]->uid);
+            if (asprintf(&dmixUid, "dmix-%s", mixer->sinks[index]->uid) == -1)
+                goto OnErrorExit;
 
             dmixConfig = AlsaCreateDmix(mixer, dmixUid, mixer->sinks[index], 0);
             if (!dmixConfig) {
@@ -103,7 +106,8 @@ PUBLIC int ApiSinkAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
                 }
 
                 // move from hardware to DMIX attach to sndcard
-                (void) asprintf(&dmixUid, "dmix-%s", mixer->sinks[index]->uid);
+                if (asprintf(&dmixUid, "dmix-%s", mixer->sinks[index]->uid) == -1)
+                    goto OnErrorExit;
 
                 dmixConfig = AlsaCreateDmix(mixer, dmixUid, mixer->sinks[index], 0);
                 if (!dmixConfig) {
@@ -120,5 +124,6 @@ PUBLIC int ApiSinkAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
     return 0;
 
 OnErrorExit:
+	free(dmixUid);
     return -1;
 }
