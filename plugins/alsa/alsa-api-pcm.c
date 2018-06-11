@@ -152,7 +152,7 @@ OnErrorExit:
 STATIC int PcmSetControl(SoftMixerT *mixer, AlsaSndCtlT *sndcard, AlsaSndControlT *control, volumeT volType, int *newvol, int *oldval) {
     snd_ctl_elem_id_t* elemId = NULL;
     snd_ctl_elem_info_t *elemInfo;
-    int error, value;
+    int error, value = 0;
     long curval;
 
     assert(control->numid);

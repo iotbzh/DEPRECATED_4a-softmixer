@@ -401,7 +401,7 @@ STATIC AlsaStreamAudioT * AttachOneStream(SoftMixerT *mixer, const char *uid, co
         if (stream->verb) asprintf((char**) &stream->verb, "%s:%s", prefix, stream->verb);
         else asprintf((char**) &stream->verb, "%s:%s", prefix, stream->uid);
     } else {
-        if (!stream->verb) asprintf((char**) &stream->verb, stream->uid);
+        if (!stream->verb) stream->verb = strdup(stream->uid);
     }
 
     // implement stream PCM with corresponding thread and controls
