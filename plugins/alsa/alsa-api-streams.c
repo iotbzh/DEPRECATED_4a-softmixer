@@ -409,11 +409,11 @@ STATIC AlsaStreamAudioT * AttachOneStream(SoftMixerT *mixer, const char *uid, co
     // Prefix verb with uid|prefix
     if (prefix) {
         if (stream->verb) {
-            if (asprintf((char**) &stream->verb, "%s:%s", prefix, stream->verb) == -1)
+            if (asprintf((char**) &stream->verb, "%s#%s", prefix, stream->verb) == -1)
                 goto OnErrorExit;
         }
         else {
-            if (asprintf((char**) &stream->verb, "%s:%s", prefix, stream->uid) == -1)
+            if (asprintf((char**) &stream->verb, "%s#%s", prefix, stream->uid) == -1)
                 goto OnErrorExit;
         }
     } else {
