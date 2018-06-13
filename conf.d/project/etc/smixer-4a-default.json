@@ -11,7 +11,7 @@
             "uid": "softmixer",
             "info": "Map alsa-loop subdevices to 4A HAL streams",
             "spath": "./package/lib/plugins:./package/var:./lib/plugins:./var",
-            "libs": ["alsa-softmixer.ctlso"],
+            "libs": ["alsa-softmixer.ctlso"]
         }
     ],
     "onload": [
@@ -26,7 +26,7 @@
                 "max_source": 8,
                 "max_zone": 8,
                 "max_stream": 8,
-                "max_ramp": 4,
+                "max_ramp": 6
             }
         },
         {
