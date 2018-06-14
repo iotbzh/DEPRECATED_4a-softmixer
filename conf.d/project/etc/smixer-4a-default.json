@@ -10,7 +10,7 @@
         {
             "uid": "softmixer",
             "info": "Map alsa-loop subdevices to 4A HAL streams",
-            "spath": "./package/lib/plugins:./package/var:./lib/plugins:./var",
+            "spath": "./package/lib/plugins:./package/var:./lib/plugins:./var:/usr/libexec/agl/smixer",
             "libs": ["alsa-softmixer.ctlso"]
         }
     ],
