@@ -153,8 +153,8 @@ PUBLIC AlsaPcmCtlT* AlsaCreateRoute(SoftMixerT *mixer, AlsaSndZoneT *zone, int o
     error += snd_config_make_compound(&slaveConfig, "slave", 0);
     error += snd_config_imake_string(&elemConfig, "pcm", dmixUid);
     error += snd_config_add(slaveConfig, elemConfig);
-//    error += snd_config_imake_integer(&elemConfig, "channels", scount);
-//    error += snd_config_add(slaveConfig, elemConfig);
+    error += snd_config_imake_integer(&elemConfig, "channels", slave.ccount);
+    error += snd_config_add(slaveConfig, elemConfig);
     error += snd_config_add(routeConfig, slaveConfig);
     error += snd_config_add(routeConfig, tableConfig);
     if (error) goto OnErrorExit;
