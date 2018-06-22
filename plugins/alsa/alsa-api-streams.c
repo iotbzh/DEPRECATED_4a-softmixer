@@ -172,7 +172,6 @@ STATIC void StreamApiVerbCB(AFB_ReqT request) {
         wrap_json_pack(&responseJ, "{si,sb}", "volume", volume, "mute", !mute);
     }
 
-
     AFB_ReqSuccess(request, responseJ, NULL);
     return;
 
@@ -190,9 +189,13 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     AlsaLoopSubdevT *loopDev;
     AlsaSndZoneT *zone;
     char *volSlaveId = NULL;
-    char *captureName = NULL;
+    char *playbackName = NULL;
     char *runName = NULL;
     char *volName = NULL;
+
+    AFB_ApiInfo(mixer->api,
+                "%s, stream %s %s, source %s, sink %s\n",
+                __func__,uid, stream->uid, stream->source, stream->sink);
 
     loopDev = ApiLoopFindSubdev(mixer, stream->uid, stream->source, &loop);
     if (loopDev) {
@@ -203,8 +206,15 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
         captureDev->device = loop->capture;
         captureDev->subdev = loopDev->index;
         captureCard = loop->sndcard;
+
+        AFB_ApiInfo(mixer->api,
+                    "%s: found loopdev %d,%d\n",
+                    __func__, loop->capture, loopDev->index);
+
     } else {
         // if capture UID is not present in loop search on sources
+        AFB_ApiInfo(mixer->api,"%s: %s not found in loop, look in sources\n", __func__, uid);
+
         AlsaSndCtlT *sourceDev = ApiSourceFindSubdev(mixer, stream->source);
         if (sourceDev) {
             captureDev->devpath = NULL;
@@ -213,8 +223,11 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
             captureDev->device = sourceDev->cid.device;
             captureDev->subdev = sourceDev->cid.subdev;
             captureCard = sourceDev;
+            AFB_ApiInfo(mixer->api, "%s found capture %s", __func__, uid);
         } else {
-            AFB_ApiError(mixer->api, "CreateOneStream: mixer=%s stream=%s not found in loops/sources", mixer->uid, stream->uid);
+            AFB_ApiError(mixer->api,
+                         "%s: mixer=%s stream=%s not found in loops/sources",
+                         __func__, mixer->uid, stream->uid);
             goto OnErrorExit;
         }
     }
@@ -233,7 +246,9 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
         // if zones exist then retrieve zone pcmid and channel count
         zone = ApiZoneGetByUid(mixer, stream->sink);
         if (!zone) {
-            AFB_ApiError(mixer->api, "CreateOneStream: mixer=%s stream=%s fail to find sink zone='%s'", mixer->uid, stream->uid, stream->sink);
+            AFB_ApiError(mixer->api,
+                         "%s: mixer=%s stream=%s fail to find sink zone='%s'",
+                         __func__, mixer->uid, stream->uid, stream->sink);
             goto OnErrorExit;
         }
 
@@ -244,7 +259,9 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     } else {
         AlsaSndPcmT *playback = ApiSinkGetByUid(mixer, stream->sink);
         if (!playback) {
-            AFB_ApiError(mixer->api, "CreateOneStream: mixer=%s stream=%s fail to find sink playback='%s'", mixer->uid, stream->uid, stream->sink);
+            AFB_ApiError(mixer->api,
+                         "%s: mixer=%s stream=%s fail to find sink playback='%s'",
+						 __func__, mixer->uid, stream->uid, stream->sink);
             goto OnErrorExit;
         }
 
@@ -267,11 +284,17 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
         goto OnErrorExit;
 
     int pauseNumid = AlsaCtlCreateControl(mixer, captureCard, runName, 1, 0, 1, 1, stream->mute);
-    if (pauseNumid <= 0) goto OnErrorExit;
+    if (pauseNumid <= 0) {
+        AFB_ApiError(mixer->api, "%s: Failed to create pause control", __func__);
+        goto OnErrorExit;
+    }
 
     // Registry stop/play as a pause/resume control
     error = AlsaCtlRegister(mixer, captureCard, capturePcm, FONTEND_NUMID_PAUSE, pauseNumid);
-    if (error) goto OnErrorExit;
+    if (error) {
+        AFB_ApiError(mixer->api, "%s: Failed to register pause control", __func__);
+        goto OnErrorExit;
+    }
 
     if (asprintf(&volName, "vol-%s", stream->uid) == -1)
         goto OnErrorExit;
@@ -279,41 +302,73 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     // create stream and delay pcm opening until vol control is created
     streamPcm = AlsaCreateSoftvol(mixer, stream, volSlaveId, captureCard, volName, VOL_CONTROL_MAX, 0);
     if (!streamPcm) {
-        AFB_ApiError(mixer->api, "CreateOneStream: mixer=%s stream=%s fail to create stream", mixer->uid, stream->uid);
+        AFB_ApiError(mixer->api, "%s failed to create soft volume PCM", __func__);
         goto OnErrorExit;
     }
 
     // create volume control before softvol pcm is opened
-    int volNumid = AlsaCtlCreateControl(mixer, captureCard, volName, stream->params->channels, VOL_CONTROL_MIN, VOL_CONTROL_MAX, VOL_CONTROL_STEP, stream->volume);
-    if (volNumid <= 0) goto OnErrorExit;
+    int volNumid = AlsaCtlCreateControl(mixer,
+                                        captureCard,
+                                        volName,
+                                        stream->params->channels,
+                                        VOL_CONTROL_MIN,
+                                        VOL_CONTROL_MAX,
+                                        VOL_CONTROL_STEP,
+                                        stream->volume);
+    if (volNumid <= 0) {
+        AFB_ApiError(mixer->api, "%s failed add volume control on capture card", __func__);
+        goto OnErrorExit;
+    }
 
-    if ((zone->params->rate != stream->params->rate) || (zone->params->format != stream->params->format)) {
+    if ((zone->params->rate   != stream->params->rate) ||
+        (zone->params->format != stream->params->format)) {
+        AFB_ApiNotice(mixer->api,
+                      "%s: Instanciate a RATE CONVERTER (stream [%d,%s(%d)], zone [%d,%s(%d)])",
+                      __func__,
+                      stream->params->rate,
+                      stream->params->formatS,
+                      stream->params->format,
+                      zone->params->rate,
+                      zone->params->formatS,
+                      zone->params->format);
+
         char *rateName;
         if (asprintf(&rateName, "rate-%s", stream->uid) == -1)
             goto OnErrorExit;
         streamPcm = AlsaCreateRate(mixer, rateName, streamPcm, zone->params, 0);
         if (!streamPcm) {
-            AFB_ApiError(mixer->api, "StreamsAttach: mixer=%s stream=%s fail to create rate converter", mixer->uid, stream->uid);
+            AFB_ApiError(mixer->api, "%s: fail to create rate converter", __func__);
             goto OnErrorExit;
         }
-        captureName = rateName;
+        playbackName = rateName;
     } else {
-        captureName = (char*) streamPcm->cid.cardid;
+        AFB_ApiNotice(mixer->api, "%s: no need for a converter", __func__);
+        playbackName = (char*) streamPcm->cid.cardid;
     }
 
-    // everything is now ready to open playback pcm in BLOCKING_MODE this time
-    error = snd_pcm_open(&streamPcm->handle, captureName, SND_PCM_STREAM_PLAYBACK, 0);
+    AFB_ApiInfo(mixer->api, "%s: Opening PCM PLAYBACK name %s\n", __func__, playbackName);
+
+    // everything is now ready to open playback pcm in BLOCKING mode this time
+    error = snd_pcm_open(&streamPcm->handle, playbackName, SND_PCM_STREAM_PLAYBACK, 0 /* will block*/ );
     if (error) {
-        AFB_ApiError(mixer->api, "CreateOneStream: mixer=%s stream=%s fail to open capturePcm=%s error=%s", mixer->uid, stream->uid, streamPcm->cid.cardid, snd_strerror(error));
+        AFB_ApiError(mixer->api,
+                     "%s: mixer=%s stream=%s fail to open capturePcm=%s error=%s",
+                     __func__, mixer->uid, stream->uid, streamPcm->cid.cardid, snd_strerror(error));
         goto OnErrorExit;
     }
 
     // start stream pcm copy (at this both capturePcm & sink pcm should be open, we use output params to configure both in+outPCM)
     error = AlsaPcmCopy(mixer, stream, capturePcm, streamPcm, stream->params);
-    if (error) goto OnErrorExit;
+    if (error) {
+        AFB_ApiError(mixer->api, "%s: Failed to launch copy", __func__);
+        goto OnErrorExit;
+    }
 
     error = AlsaCtlRegister(mixer, captureCard, capturePcm, FONTEND_NUMID_IGNORE, volNumid);
-    if (error) goto OnErrorExit;
+    if (error) {
+        AFB_ApiError(mixer->api, "%s: register control on capture", __func__);
+        goto OnErrorExit;
+    }
 
     // when using loopdev check if subdev is active or not to prevent thread from reading empty packet
     if (loopDev && loopDev->numid) {
@@ -349,7 +404,9 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
 
     error = afb_dynapi_add_verb(mixer->api, stream->verb, stream->info, StreamApiVerbCB, apiHandle, NULL, 0);
     if (error) {
-        AFB_ApiError(mixer->api, "CreateOneStream mixer=%s fail to Register API verb stream=%s", mixer->uid, stream->uid);
+        AFB_ApiError(mixer->api,
+                     "%s mixer=%s fail to Register API verb stream=%s",
+                     __func__, mixer->uid, stream->uid);
         goto OnErrorExit;
     }
 
@@ -357,7 +414,9 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     //AlsaDumpElemConfig (source, "\n\nAlsa_Config\n------------\n", "pcm");
     //AlsaDumpPcmInfo(source, "\n\nPcm_config\n-----------\n", streamPcm->handle);
 
-    AFB_ApiNotice(mixer->api, "CreateOneStream: mixer=%s stream=%s done", mixer->uid, stream->uid);
+    AFB_ApiNotice(mixer->api,
+                  "%s: mixer=%s stream=%s done",
+                  __func__, mixer->uid, stream->uid);
 
     return 0;
 
@@ -391,13 +450,17 @@ STATIC AlsaStreamAudioT * AttachOneStream(SoftMixerT *mixer, const char *uid, co
             );
 
     if (error) {
-        AFB_ApiNotice(mixer->api, "ProcessOneStream hal=%s missing 'uid|[info]|zone|source||[volume]|[mute]|[params]' error=%s stream=%s", uid, wrap_json_get_error_string(error), json_object_get_string(streamJ));
+        AFB_ApiNotice(mixer->api,
+                       "%s: hal=%s missing 'uid|[info]|zone|source||[volume]|[mute]|[params]' error=%s stream=%s",
+                       __func__, uid, wrap_json_get_error_string(error), json_object_get_string(streamJ));
         goto OnErrorExit;
     }
 
     stream->params = ApiPcmSetParams(mixer, stream->uid, paramsJ);
     if (!stream->params) {
-        AFB_ApiError(mixer->api, "ProcessOneSndCard: hal=%s stream=%s invalid params=%s", uid, stream->uid, json_object_get_string(paramsJ));
+        AFB_ApiError(mixer->api,
+                     "%s: hal=%s stream=%s invalid params=%s",
+                     __func__, uid, stream->uid, json_object_get_string(paramsJ));
         goto OnErrorExit;
     }
 
@@ -423,16 +486,22 @@ STATIC AlsaStreamAudioT * AttachOneStream(SoftMixerT *mixer, const char *uid, co
 
     // implement stream PCM with corresponding thread and controls
     error = CreateOneStream(mixer, uid, stream);
-    if (error) goto OnErrorExit;
+    if (error) {
+        AFB_ApiError(mixer->api, "%s: failed to create stream", __func__);
+        goto OnErrorExit;
+    }
 
     return stream;
 
 OnErrorExit:
     free(stream);
+    AFB_ApiError(mixer->api, "%s fail\n", __func__);
     return NULL;
 }
 
 PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, const char *prefix, json_object * argsJ) {
+
+	AFB_ApiInfo(mixer->api, "%s: %s prefix %s\n", __func__, uid, prefix);
 
     if (!mixer->loops) {
         AFB_ApiError(mixer->api, "StreamsAttach: mixer=%s No Loop found [should Registry snd_loop first]", mixer->uid);
@@ -464,7 +533,9 @@ PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid,
 
             count = json_object_array_length(argsJ);
             if (count > (mixer->max.streams - index)) {
-                AFB_ReqFailF(request, "too-small", "mixer=%s max stream=%d", mixer->uid, mixer->max.streams);
+                AFB_ReqFailF(request,
+                             "too-small",
+                             "mixer=%s max stream=%d", mixer->uid, mixer->max.streams);
                 goto OnErrorExit;
             }
 
@@ -472,13 +543,18 @@ PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid,
                 json_object *streamJ = json_object_array_get_idx(argsJ, idx);
                 mixer->streams[index + idx] = AttachOneStream(mixer, uid, prefix, streamJ);
                 if (!mixer->streams[index + idx]) {
-                    AFB_ReqFailF(request, "invalid-syntax", "mixer=%s invalid stream= %s", mixer->uid, json_object_get_string(streamJ));
+                    AFB_ReqFailF(request,
+                                 "invalid-syntax",
+                                 "%s: mixer=%s invalid stream= %s",
+                                 __func__, mixer->uid, json_object_get_string(streamJ));
                     goto OnErrorExit;
                 }
             }
             break;
         default:
-            AFB_ReqFailF(request, "invalid-syntax", "mixer=%s streams invalid argsJ= %s", mixer->uid, json_object_get_string(argsJ));
+            AFB_ReqFailF(request,
+                         "invalid-syntax",
+                         "mixer=%s streams invalid argsJ= %s", mixer->uid, json_object_get_string(argsJ));
             goto OnErrorExit;
     }
 
