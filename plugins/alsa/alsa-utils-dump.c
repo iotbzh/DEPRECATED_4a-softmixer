@@ -70,18 +70,22 @@ OnErrorExit:
     return NULL;
 }
 
-PUBLIC void AlsaDumpFormats(SoftMixerT *mixer, snd_pcm_t *pcmHandle) {
+PUBLIC void AlsaDumpFormats(SoftMixerT *mixer, snd_pcm_t *pcm) {
     char string[32];
+    int ret;
     snd_pcm_format_t format;
     snd_pcm_hw_params_t *pxmHwParams;
 
-    // retrieve hadware config from PCM
+    // retrieve hardware config from PCM
     snd_pcm_hw_params_alloca(&pxmHwParams);
-    snd_pcm_hw_params_any(pcmHandle, pxmHwParams);
+    ret = snd_pcm_hw_params_any(pcm, pxmHwParams);
+    if (ret < 0) {
+        AFB_ApiError(mixer->api, "FAILED to read params of PCM %s\n", snd_pcm_name(pcm));
+    }
 
-    AFB_ApiNotice(mixer->api, "Available formats: PCM=%s", ALSA_PCM_UID(pcmHandle, string));
+    AFB_ApiNotice(mixer->api, "Available formats: PCM=%s", ALSA_PCM_UID(pcm, string));
     for (format = 0; format <= SND_PCM_FORMAT_LAST; format++) {
-        if (snd_pcm_hw_params_test_format(pcmHandle, pxmHwParams, format) == 0) {
+        if (snd_pcm_hw_params_test_format(pcm, pxmHwParams, format) == 0) {
             AFB_ApiNotice(mixer->api, "- %s", snd_pcm_format_name(format));
         }
     }
