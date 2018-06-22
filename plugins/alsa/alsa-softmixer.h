@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <alsa/asoundlib.h>
+#include <stdbool.h>
 
 #include "ctl-plugin.h"
 #include "wrap-json.h"
@@ -44,7 +45,7 @@
 #define MAINLOOP_WATCHDOG 30000
 #define ALSA_DEFAULT_PCM_RATE 48000
 #define ALSA_DEFAULT_PCM_VOLUME 80
-#define ALSA_BUFFER_FRAMES_COUNT 1024
+
 #define ALSA_CARDID_MAX_LEN 64
 
 
@@ -82,14 +83,22 @@ typedef struct {
     snd_pcm_t *pcmOut;
     AFB_ApiT api;
     sd_event_source* evtsrc;
-    void* buffer;
-    size_t frameSize;
-    unsigned int frameCount;
+
+    size_t frame_size;
+    snd_pcm_uframes_t latency;	/* final latency in frames */
+	unsigned int latency_reqtime;	/* in us */
+
+    // IO Job
+    void * buf;
+	snd_pcm_uframes_t buf_count;	/* filled samples */
+	snd_pcm_uframes_t buf_size;	/* buffer size in frames */
+
     unsigned int channels;
     sd_event *sdLoop;
     pthread_t thread;
     int tid;
     char* info;
+
 } AlsaPcmCopyHandleT;
 
 typedef struct {
@@ -137,6 +146,7 @@ typedef struct {
     AlsaDevInfoT cid;
     snd_pcm_t *handle;
     AlsaPcmHwInfoT *params;
+    uint32_t avail_min;
 } AlsaPcmCtlT;
 
 typedef struct {
@@ -258,12 +268,10 @@ PUBLIC int AlsaCtlSubscribe(SoftMixerT *mixer, const char *uid, AlsaSndCtlT *snd
 PUBLIC int AlsaCtlRegister(SoftMixerT *mixer, AlsaSndCtlT *sndcard, AlsaPcmCtlT *pcmdev,  RegistryNumidT type, int numid);
 
 // alsa-core-pcm.c
-PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, AlsaPcmHwInfoT *opts);
+PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, AlsaPcmHwInfoT *opts, int mode);
 PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT *pcmIn, AlsaPcmCtlT *pcmOut, AlsaPcmHwInfoT * opts);
 
-
 // alsa-plug-*.c _snd_pcm_PLUGIN_open_ see macro ALSA_PLUG_PROTO(plugin)
-PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, AlsaPcmHwInfoT *opts);
 PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *streamAudio, AlsaPcmCtlT *pcmIn, AlsaPcmCtlT *pcmOut, AlsaPcmHwInfoT * opts);
 PUBLIC AlsaPcmCtlT* AlsaCreateSoftvol(SoftMixerT *mixer, AlsaStreamAudioT *stream, char *slaveid, AlsaSndCtlT *sndcard, char* ctlName, int max, int open);
 PUBLIC AlsaPcmCtlT* AlsaCreateRoute(SoftMixerT *mixer, AlsaSndZoneT *zone, int open);
