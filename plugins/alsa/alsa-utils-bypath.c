@@ -79,7 +79,7 @@ PUBLIC AlsaPcmCtlT *AlsaByPathOpenPcm(SoftMixerT *mixer, AlsaDevInfoT *pcmDev, s
         pcmDev->cardid = (const char*)cardid;
     }
 
-    // inherit CID fropm pcmDev
+    // inherit CID from pcmDev
     pcmCtl->cid.cardid = pcmDev->cardid;
     pcmCtl->cid.cardidx = pcmDev->cardidx;
     pcmCtl->cid.device = pcmDev->device;
@@ -87,9 +87,12 @@ PUBLIC AlsaPcmCtlT *AlsaByPathOpenPcm(SoftMixerT *mixer, AlsaDevInfoT *pcmDev, s
     pcmCtl->cid.name=NULL;
     pcmCtl->cid.longname=NULL;
 
-    //error = snd_pcm_open(&pcmCtl->handle, pcmCtl->cid.cardid, direction, SND_PCM_NONBLOCK);
+    AFB_ApiInfo(mixer->api,
+                "%s OPEN PCM %s, direction %s\n",
+                __func__, pcmCtl->cid.cardid, direction==SND_PCM_STREAM_PLAYBACK?"playback":"capture");
+
     error = snd_pcm_open(&pcmCtl->handle, pcmCtl->cid.cardid, direction, SND_PCM_NONBLOCK);
-    if (error) {
+    if (error < 0) {
         AFB_ApiError(mixer->api, "AlsaByPathOpenPcm: fail openpcm cardid=%s error=%s", pcmCtl->cid.cardid, snd_strerror(error));
         goto OnErrorExit;
     }
@@ -115,7 +118,9 @@ PUBLIC snd_ctl_t *AlsaByPathOpenCtl(SoftMixerT *mixer, const char *uid, AlsaSndC
         cardInfo = AlsaCtlGetInfo(mixer, dev->cid.cardid);
 
     if (!cardInfo) {
-        AFB_ApiError(mixer->api, "AlsaByPathOpenCtl: uid=%s fail to find sndcard by path=%s id=%s", uid, dev->cid.devpath, dev->cid.cardid);
+        AFB_ApiError(mixer->api,
+                     "%s: uid=%s fail to find sndcard by path=%s id=%s",
+                     __func__, uid, dev->cid.devpath, dev->cid.cardid);
         goto OnErrorExit;
     }
 
@@ -130,11 +135,15 @@ PUBLIC snd_ctl_t *AlsaByPathOpenCtl(SoftMixerT *mixer, const char *uid, AlsaSndC
         goto OnErrorExit;
 
     if ((err = snd_ctl_open(&handle, dev->cid.cardid, 0)) < 0) {
-        AFB_ApiError(mixer->api, "AlsaByPathOpenCtl uid=%s sndcard open fail cardid=%s longname=%s error=%s", uid, dev->cid.cardid, dev->cid.longname, snd_strerror(err));
+        AFB_ApiError(mixer->api,
+                     "%s uid=%s sndcard open fail cardid=%s longname=%s error=%s",
+                     __func__, uid, dev->cid.cardid, dev->cid.longname, snd_strerror(err));
         goto OnErrorExit;
     }
 
-    AFB_ApiNotice(mixer->api, "AlsaCtlOpenByPath: uid=%s cardid=%s cardname=%s", uid, dev->cid.cardid, dev->cid.longname);
+    AFB_ApiNotice(mixer->api,
+                  "%s: uid=%s cardid=%s cardname=%s",
+                  __func__, uid, dev->cid.cardid, dev->cid.longname);
     free(cardInfo);
     return handle;
 
