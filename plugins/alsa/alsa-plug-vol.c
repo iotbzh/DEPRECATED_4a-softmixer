@@ -27,6 +27,8 @@ PUBLIC AlsaPcmCtlT *AlsaCreateSoftvol(SoftMixerT *mixer, AlsaStreamAudioT *strea
     AlsaPcmCtlT *pcmVol= calloc(1,sizeof(AlsaPcmCtlT));
     int error = 0;
      
+    AFB_ApiInfo(mixer->api, "%s create SOFTVOL on %s\n", __func__, slaveid);
+
     char *cardid = NULL;
     if (asprintf(&cardid, "softvol-%s", stream->uid) == -1)
         goto OnErrorExit;
@@ -61,7 +63,9 @@ PUBLIC AlsaPcmCtlT *AlsaCreateSoftvol(SoftMixerT *mixer, AlsaStreamAudioT *strea
     
     if (open) error = _snd_pcm_softvol_open(&pcmVol->handle, stream->uid, snd_config, streamConfig, SND_PCM_STREAM_PLAYBACK , SND_PCM_NONBLOCK); 
     if (error) {
-        AFB_ApiError(mixer->api, "AlsaCreateSoftvol:%s(stream) fail to create Plug=%s Slave=%s error=%s", stream->uid, pcmVol->cid.cardid, sndcard->cid.cardid, snd_strerror(error));
+        AFB_ApiError(mixer->api,
+                     "%s: %s(stream) fail to create Plug=%s Slave=%s error=%s",
+                     __func__, stream->uid, pcmVol->cid.cardid, sndcard->cid.cardid, snd_strerror(error));
         goto OnErrorExit;
     }
   
@@ -71,20 +75,22 @@ PUBLIC AlsaPcmCtlT *AlsaCreateSoftvol(SoftMixerT *mixer, AlsaStreamAudioT *strea
     error += snd_config_search(snd_config, "pcm", &pcmConfig);    
     error += snd_config_add(pcmConfig, streamConfig);
     if (error) {
-        AFB_ApiError(mixer->api, "AlsaCreateSoftvol:%s(stream) fail to add config error=%s", stream->uid, snd_strerror(error));
+        AFB_ApiError(mixer->api,
+                     "%s: %s(stream) fail to add config error=%s",
+                     __func__, stream->uid, snd_strerror(error));
         goto OnErrorExit;
     }
     
     // Debug config & pcm
     //AlsaDumpCtlConfig (mixer, "plug-config", pcmConfig, 1);
-    //AlsaDumpCtlConfig(mixer, "plug-softvol", streamConfig, 1);
-    AFB_ApiNotice(mixer->api, "AlsaCreateSoftvol:%s(stream) done\n", stream->uid);
+    AlsaDumpCtlConfig(mixer, "plug-softvol", streamConfig, 1);
+    AFB_ApiNotice(mixer->api, "%s: %s(stream) done", __func__, stream->uid);
     return pcmVol;
 
 OnErrorExit:
 	free(cardid);
     //AlsaDumpCtlConfig (mixer, "plug-config", pcmConfig, 1);
     AlsaDumpCtlConfig(mixer, "plug-softvol", streamConfig, 1);
-    AFB_ApiNotice(mixer->api, "AlsaCreateSoftvol:%s(stream) OnErrorExit\n", stream->uid);
+    AFB_ApiNotice(mixer->api, "AlsaCreateSoftvol:%s(stream) OnErrorExit", stream->uid);
     return NULL;
 }
