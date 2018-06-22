@@ -208,12 +208,12 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
         captureCard = loop->sndcard;
 
         AFB_ApiInfo(mixer->api,
-                    "%s: found loopdev %d,%d\n",
+                    "%s: found loopdev %d,%d",
                     __func__, loop->capture, loopDev->index);
 
     } else {
         // if capture UID is not present in loop search on sources
-        AFB_ApiInfo(mixer->api,"%s: %s not found in loop, look in sources\n", __func__, uid);
+        AFB_ApiInfo(mixer->api,"%s: %s not found in loop, look in sources", __func__, uid);
 
         AlsaSndCtlT *sourceDev = ApiSourceFindSubdev(mixer, stream->source);
         if (sourceDev) {
@@ -278,7 +278,7 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
 
     // retrieve channel count from route and push it to stream
     stream->params->channels = zone->ccount;
-        
+
     // create mute control and Registry it as pause/resume ctl)
     if (asprintf(&runName, "pause-%s", stream->uid) == -1)
         goto OnErrorExit;
@@ -346,7 +346,7 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
         playbackName = (char*) streamPcm->cid.cardid;
     }
 
-    AFB_ApiInfo(mixer->api, "%s: Opening PCM PLAYBACK name %s\n", __func__, playbackName);
+    AFB_ApiInfo(mixer->api, "%s: Opening PCM PLAYBACK name %s", __func__, playbackName);
 
     // everything is now ready to open playback pcm in BLOCKING mode this time
     error = snd_pcm_open(&streamPcm->handle, playbackName, SND_PCM_STREAM_PLAYBACK, 0 /* will block*/ );
@@ -495,16 +495,16 @@ STATIC AlsaStreamAudioT * AttachOneStream(SoftMixerT *mixer, const char *uid, co
 
 OnErrorExit:
     free(stream);
-    AFB_ApiError(mixer->api, "%s fail\n", __func__);
+    AFB_ApiError(mixer->api, "%s fail", __func__);
     return NULL;
 }
 
 PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, const char *prefix, json_object * argsJ) {
 
-	AFB_ApiInfo(mixer->api, "%s: %s prefix %s\n", __func__, uid, prefix);
+	AFB_ApiInfo(mixer->api, "%s: %s prefix %s", __func__, uid, prefix);
 
     if (!mixer->loops) {
-        AFB_ApiError(mixer->api, "StreamsAttach: mixer=%s No Loop found [should Registry snd_loop first]", mixer->uid);
+        AFB_ApiError(mixer->api, "%s: mixer=%s No Loop found [should Registry snd_loop first]", __func__, mixer->uid);
         goto OnErrorExit;
     }
 

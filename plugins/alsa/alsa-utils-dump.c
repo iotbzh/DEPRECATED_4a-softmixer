@@ -80,7 +80,7 @@ PUBLIC void AlsaDumpFormats(SoftMixerT *mixer, snd_pcm_t *pcm) {
     snd_pcm_hw_params_alloca(&pxmHwParams);
     ret = snd_pcm_hw_params_any(pcm, pxmHwParams);
     if (ret < 0) {
-        AFB_ApiError(mixer->api, "FAILED to read params of PCM %s\n", snd_pcm_name(pcm));
+        AFB_ApiError(mixer->api, "FAILED to read params of PCM %s", snd_pcm_name(pcm));
     }
 
     AFB_ApiNotice(mixer->api, "Available formats: PCM=%s", ALSA_PCM_UID(pcm, string));
@@ -153,7 +153,7 @@ PUBLIC void AlsaDumpPcmParams(SoftMixerT *mixer, snd_pcm_hw_params_t *pcmHwParam
     snd_output_buffer_open(&output);
     snd_pcm_hw_params_dump(pcmHwParams, output);
     snd_output_buffer_string(output, &buffer);
-    AFB_ApiNotice(mixer->api, "AlsaPCMDump: %s", buffer);
+    AFB_ApiNotice(mixer->api, "%s:\n%s",__func__, buffer);
     snd_output_close(output);
 }
 
@@ -164,11 +164,11 @@ PUBLIC void AlsaDumpPcmInfo(SoftMixerT *mixer, const char* info, snd_pcm_t *pcm)
     // create an output buffer an dump PCM config
     snd_output_buffer_open(&out);
     snd_output_printf(out, "%s", info);
-    snd_output_printf(out, ": ");
+    snd_output_printf(out, ":\n");
     snd_pcm_dump(pcm, out);
 
     snd_output_buffer_string(out, &buffer);
-    AFB_ApiNotice(mixer->api, "AlsaPCMDump: %s", buffer);
+    AFB_ApiNotice(mixer->api, "%s:\n%s", __func__, buffer);
     snd_output_close(out);
 }
 

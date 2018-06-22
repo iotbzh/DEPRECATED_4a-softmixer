@@ -27,7 +27,7 @@ PUBLIC AlsaPcmCtlT *AlsaCreateSoftvol(SoftMixerT *mixer, AlsaStreamAudioT *strea
     AlsaPcmCtlT *pcmVol= calloc(1,sizeof(AlsaPcmCtlT));
     int error = 0;
      
-    AFB_ApiInfo(mixer->api, "%s create SOFTVOL on %s\n", __func__, slaveid);
+    AFB_ApiInfo(mixer->api, "%s create SOFTVOL on %s", __func__, slaveid);
 
     char *cardid = NULL;
     if (asprintf(&cardid, "softvol-%s", stream->uid) == -1)
@@ -49,6 +49,7 @@ PUBLIC AlsaPcmCtlT *AlsaCreateSoftvol(SoftMixerT *mixer, AlsaStreamAudioT *strea
     error += snd_config_make_compound(&slaveConfig, "slave", 0);
     error += snd_config_imake_string(&elemConfig, "pcm", slaveid);
     error += snd_config_add(slaveConfig, elemConfig);
+
     error += snd_config_add(streamConfig, slaveConfig);
     if (error) goto OnErrorExit;
     

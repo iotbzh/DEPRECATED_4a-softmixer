@@ -72,11 +72,11 @@ PUBLIC AlsaPcmCtlT* AlsaCreateRate(SoftMixerT *mixer, const char* pcmName, AlsaP
     // Debug config & pcm
     //AlsaDumpCtlConfig(mixer, "plug-rate", pcmConfig, 1);
     //AlsaDumpCtlConfig (mixer, "plug-rate", rateConfig, 1);
-    AFB_ApiNotice(mixer->api, "AlsaCreateRate: %s done\n", pcmPlug->cid.cardid);
+    AFB_ApiNotice(mixer->api, "AlsaCreateRate: %s done", pcmPlug->cid.cardid);
     return pcmPlug;
 
 OnErrorExit:
     AlsaDumpCtlConfig(mixer, "plug-rate", rateConfig, 1);
-    AFB_ApiNotice(mixer->api, "AlsaCreateRate: OnErrorExit\n");
+    AFB_ApiNotice(mixer->api, "AlsaCreateRate: OnErrorExit");
     return NULL;
 }
