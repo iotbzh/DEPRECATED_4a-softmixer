@@ -99,21 +99,21 @@ PUBLIC int ApiSinkAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
 
             for (int idx = 0; idx < count; idx++) {
                 json_object *sinkJ = json_object_array_get_idx(argsJ, idx);
-                mixer->sinks[index + idx] = ApiPcmAttachOne(mixer, uid, SND_PCM_STREAM_PLAYBACK, sinkJ);
-                if (!mixer->sinks[index + idx]) {
+                AlsaSndPcmT * pcm = ApiPcmAttachOne(mixer, uid, SND_PCM_STREAM_PLAYBACK, sinkJ);
+                if (!pcm) {
                     AFB_ReqFailF(request, "invalid-syntax", "mixer=%s invalid sink= %s", mixer->uid, json_object_get_string(sinkJ));
                     goto OnErrorExit;
                 }
-
                 // move from hardware to DMIX attach to sndcard
-                if (asprintf(&dmixUid, "dmix-%s", mixer->sinks[index]->uid) == -1)
+                if (asprintf(&dmixUid, "dmix-%s", pcm->uid) == -1)
                     goto OnErrorExit;
 
-                dmixConfig = AlsaCreateDmix(mixer, dmixUid, mixer->sinks[index], 0);
+                dmixConfig = AlsaCreateDmix(mixer, dmixUid, pcm, 0);
                 if (!dmixConfig) {
-                    AFB_ReqFailF(request, "internal-error", "mixer=%s sink=%s fail to create DMIX config", mixer->uid, mixer->sinks[index]->uid);
+                    AFB_ReqFailF(request, "internal-error", "mixer=%s sink=%s fail to create DMIX config", mixer->uid, pcm->uid);
                     goto OnErrorExit;
                 }
+                mixer->sinks[index + idx] = pcm;
             }
             break;
         default:
