@@ -130,6 +130,7 @@ OnErrorExit:
 PUBLIC int ApiZoneAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, json_object * argsJ) {
 
     int index;
+
     for (index = 0; index < mixer->max.zones; index++) {
         if (!mixer->zones[index]) break;
     }
@@ -142,42 +143,48 @@ PUBLIC int ApiZoneAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
     switch (json_object_get_type(argsJ)) {
             long count;
 
-        case json_type_object:
-            mixer->zones[index] = AttacheOneZone(mixer, uid, argsJ);
-            if (!mixer->zones[index]) {
+        case json_type_object: {
+            AlsaSndZoneT * zone = AttacheOneZone(mixer, uid, argsJ);
+            if (!zone) {
                 AFB_ReqFailF(request, "invalid-syntax", "mixer=%s invalid zone= %s", mixer->uid, json_object_get_string(argsJ));
                 goto OnErrorExit;
             }
 
-            AlsaPcmCtlT *routeConfig = AlsaCreateRoute(mixer, mixer->zones[index], 0);
+            // must be set now; AlsaCreateRoute needs it !
+            mixer->zones[index] = zone;
+            AlsaPcmCtlT *routeConfig = AlsaCreateRoute(mixer, zone, 0);
             if (!routeConfig) {
-                AFB_ApiError(mixer->api, "AttacheOneZone: Mixer=%s Hal=%s zone=%s Fail to attach PCM Route", mixer->uid, uid, mixer->zones[index]->uid);
+                AFB_ApiError(mixer->api,
+                             "%s: Mixer=%s Hal=%s zone=%s Fail to attach PCM Route",
+                             __func__, mixer->uid, uid, zone->uid);
                 goto OnErrorExit;
             }
-
             break;
-
+        }
         case json_type_array:
             count = json_object_array_length(argsJ);
             if (count > (mixer->max.zones - index)) {
                 AFB_ReqFailF(request, "too-small", "mixer=%s max zone=%d", mixer->uid, mixer->max.zones);
                 goto OnErrorExit;
-
             }
 
             for (int idx = 0; idx < count; idx++) {
                 json_object *zoneJ = json_object_array_get_idx(argsJ, idx);
-                mixer->zones[index + idx] = AttacheOneZone(mixer, uid, zoneJ);
-                if (!mixer->zones[index + idx]) {
+                AlsaSndZoneT * zone = AttacheOneZone(mixer, uid, zoneJ);
+                if (!zone) {
                     AFB_ReqFailF(request, "invalid-syntax", "mixer=%s invalid zone= %s", mixer->uid, json_object_get_string(zoneJ));
                     goto OnErrorExit;
                 }
                 
-                AlsaPcmCtlT *routeConfig = AlsaCreateRoute(mixer, mixer->zones[idx], 0);
+                mixer->zones[index + idx] = zone;
+                AlsaPcmCtlT *routeConfig = AlsaCreateRoute(mixer, zone, 0);
                 if (!routeConfig) {
-                    AFB_ApiError(mixer->api, "AttacheOneZone: Mixer=%s Hal=%s zone=%s Fail to attach PCM Route", mixer->uid, uid, mixer->zones[idx]->uid);
+                    AFB_ApiError(mixer->api,
+                                 "%s: Mixer=%s Hal=%s zone=%s Fail to attach PCM Route",
+                                 __func__, mixer->uid, uid, zone->uid);
                     goto OnErrorExit;
                 }
+
             }
             break;
         default:
