@@ -31,32 +31,63 @@ PUBLIC AlsaPcmCtlT* AlsaCreateDmix(SoftMixerT *mixer, const char* pcmName, AlsaS
     AlsaPcmCtlT *pcmPlug= calloc(1,sizeof(AlsaPcmCtlT));
     AlsaSndCtlT *sndSlave=pcmSlave->sndcard;
     pcmPlug->cid.cardid=pcmName;
+
     int error=0;
 
+    AFB_ApiInfo(mixer->api, "%s:  %s, slave %s, cardid %s\n", __func__, pcmName, pcmSlave->uid, pcmSlave->sndcard->cid.cardid);
+
     error += snd_config_top(&dmixConfig);
+    if (error) goto OnErrorExit;
     error += snd_config_set_id (dmixConfig, pcmPlug->cid.cardid);
+    if (error) goto OnErrorExit;
     error += snd_config_imake_string(&elemConfig, "type", "dmix");
+    if (error) goto OnErrorExit;
     error += snd_config_add(dmixConfig, elemConfig);
+    if (error) goto OnErrorExit;
     error += snd_config_imake_integer(&elemConfig, "ipc_key", uniqueIpcIndex++);
+    if (error) goto OnErrorExit;
     error += snd_config_add(dmixConfig, elemConfig);
     if (error) goto OnErrorExit;
 
     error += snd_config_make_compound(&slaveConfig, "slave", 0);
+    if (error) goto OnErrorExit;
     error += snd_config_imake_string(&elemConfig, "pcm", sndSlave->cid.cardid);
-    if (sndSlave->params->rate) {
-        error += snd_config_add(slaveConfig, elemConfig);
-        error += snd_config_imake_integer(&elemConfig, "rate", sndSlave->params->rate);
-    }
+    if (error) goto OnErrorExit;
     error += snd_config_add(slaveConfig, elemConfig);
     if (error) goto OnErrorExit;
 
-    // add leaf into config
+    if (sndSlave->params->rate) {
+        error += snd_config_imake_integer(&elemConfig, "rate", sndSlave->params->rate);
+        if (error) goto OnErrorExit;
+        error += snd_config_add(slaveConfig, elemConfig);
+        if (error) goto OnErrorExit;
+    }
+
+    if (sndSlave->params->format) {
+        error += snd_config_imake_string(&elemConfig, "format", sndSlave->params->formatS);
+        if (error) goto OnErrorExit;
+        error += snd_config_add(slaveConfig, elemConfig);
+        if (error) goto OnErrorExit;
+    }
+
+    /* It is critical to set the right number of channels ... know.
+     * Trying to set another value later leads to silent failure
+     * */
+
+    error += snd_config_imake_integer(&elemConfig, "channels", pcmSlave->ccount);
+    if (error) goto OnErrorExit;
+    error += snd_config_add(slaveConfig, elemConfig);
+    if (error) goto OnErrorExit;
+
+    // add slave leaf into config
     error += snd_config_add(dmixConfig, slaveConfig);
     if (error) goto OnErrorExit;
-       
+
     if (open) error = _snd_pcm_dmix_open(&pcmPlug->handle, pcmPlug->cid.cardid, snd_config, dmixConfig, SND_PCM_STREAM_PLAYBACK , SND_PCM_NONBLOCK); 
     if (error) {
-        AFB_ApiError(mixer->api, "AlsaCreateDmix: fail to create Dmix=%s Slave=%s Error=%s", sndSlave->cid.cardid, sndSlave->cid.cardid, snd_strerror(error));
+        AFB_ApiError(mixer->api,
+                     "%s: fail to create Dmix=%s Slave=%s Error=%s",
+                     __func__, sndSlave->cid.cardid, sndSlave->cid.cardid, snd_strerror(error));
         goto OnErrorExit;
     }
     
@@ -64,18 +95,18 @@ PUBLIC AlsaPcmCtlT* AlsaCreateDmix(SoftMixerT *mixer, const char* pcmName, AlsaS
     error += snd_config_search(snd_config, "pcm", &pcmConfig);    
     error += snd_config_add(pcmConfig, dmixConfig);
     if (error) {
-        AFB_ApiError(mixer->api, "AlsaCreateDmix: fail to add configDMIX=%s", pcmPlug->cid.cardid);
+        AFB_ApiError(mixer->api, "%s: fail to add configDMIX=%s", __func__, pcmPlug->cid.cardid);
         goto OnErrorExit;
     }
     
     // Debug config & pcm
-    //AlsaDumpCtlConfig (mixer, "plug-dmix", dmixConfig, 1);
-    AFB_ApiNotice(mixer->api, "AlsaCreateDmix: %s done\n", pcmPlug->cid.cardid);
+    AlsaDumpCtlConfig(mixer, "plug-dmix", dmixConfig, 1);
+    AFB_ApiNotice(mixer->api, "%s: %s done", __func__, pcmPlug->cid.cardid);
     return pcmPlug;
 
 OnErrorExit:
     AlsaDumpCtlConfig(mixer, "plug-pcm", pcmConfig, 1);
     AlsaDumpCtlConfig(mixer, "plug-dmix", dmixConfig, 1);
-    AFB_ApiNotice(mixer->api, "AlsaCreateDmix: OnErrorExit\n");
+    AFB_ApiNotice(mixer->api, "%s: FAIL", __func__);
     return NULL;
 }
