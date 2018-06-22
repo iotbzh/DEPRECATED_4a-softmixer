@@ -107,7 +107,6 @@ STATIC json_object * MixerInfoStreams(SoftMixerT *mixer, json_object *streamsJ, 
             // list every existing stream
             responseJ = json_object_new_array();
             for (int idx = 0; streams[idx]; idx++) {
-
                 valueJ = MixerInfoOneStream(streams[idx], verbose);
                 json_object_array_add(responseJ, valueJ);
             }
@@ -125,7 +124,9 @@ STATIC json_object * MixerInfoStreams(SoftMixerT *mixer, json_object *streamsJ, 
         case json_type_object:
             error = wrap_json_unpack(streamsJ, "{ss}", "uid", &key);
             if (error) {
-                AFB_ApiError(mixer->api, "MixerInfoStreams: missing 'uid' request streamJ=%s error=%s position=%d", json_object_get_string(streamsJ), wrap_json_get_error_string(error), wrap_json_get_error_position(error));
+                AFB_ApiError(mixer->api,
+                             "%s: missing 'uid' request streamJ=%s error=%s position=%d",
+                             __func__, json_object_get_string(streamsJ), wrap_json_get_error_string(error), wrap_json_get_error_position(error));
                 goto OnErrorExit;
             }
             for (int idx = 0; streams[idx]; idx++) {
@@ -142,7 +143,9 @@ STATIC json_object * MixerInfoStreams(SoftMixerT *mixer, json_object *streamsJ, 
 
                 valueJ = MixerInfoStreams(mixer, streamJ, verbose);
                 if (!valueJ) {
-                    AFB_ApiError(mixer->api, "MixerInfoStreams: fail to find stream=%s", json_object_get_string(streamsJ));
+                    AFB_ApiError(mixer->api,
+                                 "%s: fail to find stream=%s",
+                                 __func__, json_object_get_string(streamsJ));
                     goto OnErrorExit;
                 }
                 json_object_array_add(responseJ, valueJ);
@@ -321,7 +324,9 @@ STATIC json_object *MixerInfoZones(SoftMixerT *mixer, json_object *zonesJ, int v
         case json_type_object:
             error = wrap_json_unpack(zonesJ, "{ss}", "uid", &key);
             if (error) {
-                AFB_ApiError(mixer->api, "MixerInfoZones: missing 'uid' request zoneJ=%s error=%s position=%d", json_object_get_string(zonesJ), wrap_json_get_error_string(error), wrap_json_get_error_position(error));
+                AFB_ApiError(mixer->api,
+                             "%s: missing 'uid' request zoneJ=%s error=%s position=%d",
+                             __func__ ,json_object_get_string(zonesJ), wrap_json_get_error_string(error), wrap_json_get_error_position(error));
                 goto OnErrorExit;
             }
             for (int idx = 0; zones[idx]; idx++) {
@@ -372,6 +377,7 @@ STATIC json_object *MixerInfoOnePcm(AlsaSndPcmT *pcm, int verbose) {
                 ,"device", pcm->sndcard->cid.device
                 ,"subdev", pcm->sndcard->cid.subdev
                 );
+
         wrap_json_pack(&alsaJ, "{ss,ss,so}"
                 , "volume", pcm->volume
                 , "mute", pcm->mute
@@ -395,7 +401,6 @@ STATIC json_object *MixerInfoPcms(SoftMixerT *mixer, json_object *pcmsJ, snd_pcm
     AlsaSndPcmT **pcms;
 
     switch (direction) {
-
         case SND_PCM_STREAM_PLAYBACK:
             pcms = mixer->sinks;
             break;
@@ -407,7 +412,6 @@ STATIC json_object *MixerInfoPcms(SoftMixerT *mixer, json_object *pcmsJ, snd_pcm
             AFB_ApiError(mixer->api, "MixerInfoPcms: invalid Direction should be SND_PCM_STREAM_PLAYBACK|SND_PCM_STREAM_capture");
             goto OnErrorExit;
     }
-
 
     switch (json_object_get_type(pcmsJ)) {
 
@@ -434,7 +438,9 @@ STATIC json_object *MixerInfoPcms(SoftMixerT *mixer, json_object *pcmsJ, snd_pcm
         case json_type_object:
             error = wrap_json_unpack(pcmsJ, "{ss}", "uid", &key);
             if (error) {
-                AFB_ApiError(mixer->api, "MixerInfoPcms: missing 'uid' request pcmJ=%s error=%s position=%d", json_object_get_string(pcmsJ), wrap_json_get_error_string(error), wrap_json_get_error_position(error));
+                AFB_ApiError(mixer->api,
+                             "%s: missing 'uid' request pcmJ=%s error=%s position=%d",
+                             __func__, json_object_get_string(pcmsJ), wrap_json_get_error_string(error), wrap_json_get_error_position(error));
                 goto OnErrorExit;
             }
             for (int idx = 0; pcms[idx]; idx++) {
@@ -451,7 +457,8 @@ STATIC json_object *MixerInfoPcms(SoftMixerT *mixer, json_object *pcmsJ, snd_pcm
 
                 valueJ = MixerInfoPcms(mixer, pcmJ, direction, verbose);
                 if (!valueJ) {
-                    AFB_ApiError(mixer->api, "MixerInfoPcms: fail to find playback=%s", json_object_get_string(pcmsJ));
+                    AFB_ApiError(mixer->api, "%s: fail to find %s=%s",
+                                 __func__, direction==SND_PCM_STREAM_PLAYBACK?"playback":"capture", json_object_get_string(pcmJ));
                     goto OnErrorExit;
                 }
                 json_object_array_add(responseJ, valueJ);
@@ -459,7 +466,9 @@ STATIC json_object *MixerInfoPcms(SoftMixerT *mixer, json_object *pcmsJ, snd_pcm
             break;
 
         default:
-            AFB_ApiError(mixer->api, "MixerInfoPcms: unsupported json type pcmsJ=%s", json_object_get_string(pcmsJ));
+            AFB_ApiError(mixer->api,
+                         "%s: unsupported json type pcmsJ=%s",
+                         __func__, json_object_get_string(pcmsJ));
             goto OnErrorExit;
     }
 
@@ -519,7 +528,6 @@ STATIC void MixerInfoAction(AFB_ReqT request, json_object * argsJ) {
         json_object_object_add(responseJ, "captures", resultJ);
     }
 
-
     AFB_ReqSuccess(request, responseJ, NULL);
     return;
 }
@@ -549,15 +557,22 @@ STATIC void MixerAttachVerb(AFB_ReqT request) {
             , "streams", &streamsJ
             );
     if (error) {
-        AFB_ReqFailF(request, "invalid-syntax", "mixer=%s missing 'uid|ramps|playbacks|captures|zones|streams' error=%s args=%s", mixer->uid, wrap_json_get_error_string(error), json_object_get_string(argsJ));
+        AFB_ReqFailF(request,
+                     "invalid-syntax",
+					 "mixer=%s missing 'uid|ramps|playbacks|captures|zones|streams' error=%s args=%s",
+                     mixer->uid, wrap_json_get_error_string(error), json_object_get_string(argsJ));
         goto OnErrorExit;
     }
+
+    AFB_ApiInfo(mixer->api, "%s set LOOPS", __func__);
 
     if (loopsJ) {
         error = ApiLoopAttach(mixer, request, uid, loopsJ);
         if (error) goto OnErrorExit;
     }
     
+    AFB_ApiInfo(mixer->api, "%s set PLAYBACK", __func__);
+
     if (playbacksJ) {
         error = ApiSinkAttach(mixer, request, uid, playbacksJ);
         if (error) goto OnErrorExit;
@@ -566,13 +581,20 @@ STATIC void MixerAttachVerb(AFB_ReqT request) {
         json_object_object_add(responseJ, "playbacks", resultJ);
     }
 
+    AFB_ApiInfo(mixer->api, "%s set CAPTURE", __func__);
+
     if (capturesJ) {
         error = ApiSourceAttach(mixer, request, uid, capturesJ);
-        if (error) goto OnErrorExit;
+        if (error) {
+            AFB_ApiError(mixer->api,"%s: source attach failed", __func__);
+            goto OnErrorExit;
+        }
 
         json_object *resultJ = MixerInfoPcms(mixer, capturesJ, SND_PCM_STREAM_CAPTURE, 0);
         json_object_object_add(responseJ, "captures", resultJ);
     }
+
+    AFB_ApiInfo(mixer->api, "%s set ZONES", __func__);
 
     if (zonesJ) {
         error = ApiZoneAttach(mixer, request, uid, zonesJ);
@@ -582,6 +604,8 @@ STATIC void MixerAttachVerb(AFB_ReqT request) {
         json_object_object_add(responseJ, "zone", resultJ);
     }
 
+    AFB_ApiInfo(mixer->api, "%s set RAMPS", __func__);
+
     if (rampsJ) {
         error = ApiRampAttach(mixer, request, uid, rampsJ);
         if (error) goto OnErrorExit;
@@ -589,6 +613,8 @@ STATIC void MixerAttachVerb(AFB_ReqT request) {
         json_object *resultJ = MixerInfoRamps(mixer, rampsJ, 0);
         json_object_object_add(responseJ, "ramps", resultJ);
     }
+
+    AFB_ApiInfo(mixer->api,"%s set STREAMS", __func__);
 
     if (streamsJ) {
         error = ApiStreamAttach(mixer, request, uid, prefix, streamsJ);
@@ -598,9 +624,10 @@ STATIC void MixerAttachVerb(AFB_ReqT request) {
         json_object_object_add(responseJ, "streams", resultJ);
     }
 
-    AFB_ApiNotice(mixer->api, "responseJ=%s\n", json_object_get_string(responseJ));
+    AFB_ApiNotice(mixer->api, "%s responseJ=%s\n", __func__, json_object_get_string(responseJ));
     AFB_ReqSuccess(request, responseJ, NULL);
 
+    AFB_ApiInfo(mixer->api,"%s DONE\n", __func__);
     return;
 
 OnErrorExit:
@@ -610,6 +637,7 @@ OnErrorExit:
 STATIC void MixerPingVerb(AFB_ReqT request) {
     static int count = 0;
     count++;
+
     AFB_ReqInfo(request, "MixerAttachVerb: Controller:ping count=%d\n", count);
     AFB_ReqSuccess(request, json_object_new_int(count), NULL);
 
