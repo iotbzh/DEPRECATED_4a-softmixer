@@ -72,14 +72,15 @@ STATIC int PcmAttachOneCtl(SoftMixerT *mixer, AlsaSndCtlT *sndcard, json_object 
     long value = ALSA_DEFAULT_PCM_VOLUME;
     const char *name;
 
-
     int error = wrap_json_unpack(argsJ, "{s?i,s?s,s?i !}"
             , "numid", &numid
             , "name", &name
             , "value", &value
             );
     if (error || (!numid && !name)) {
-        AFB_ApiError(mixer->api, "PcmAttachOneCtl: cardid=%s channel: missing (numid|name|value) error=%s json=%s", sndcard->cid.name, wrap_json_get_error_string(error), json_object_get_string(argsJ));
+        AFB_ApiError(mixer->api,
+        		     "%s: cardid=%s channel: missing (numid|name|value) error=%s json=%s",
+					 __func__, sndcard->cid.name, wrap_json_get_error_string(error), json_object_get_string(argsJ));
         goto OnErrorExit;
     }
 
@@ -131,7 +132,8 @@ STATIC int PcmAttachOneCtl(SoftMixerT *mixer, AlsaSndCtlT *sndcard, json_object 
             break;
 
         default:
-            AFB_ApiError(mixer->api, "PcmAttachOneCtl: sndard=%s numid=%d name='%s' invalid/unsupported type=%d", sndcard->cid.cardid, control->numid, control->name, snd_ctl_elem_info_get_type(elemInfo));
+            AFB_ApiError(mixer->api, "PcmAttachOneCtl: sndard=%s numid=%d name='%s' invalid/unsupported type=%d",
+            		     sndcard->cid.cardid, control->numid, control->name, snd_ctl_elem_info_get_type(elemInfo));
             goto OnErrorExit;
     }
 
@@ -315,6 +317,10 @@ STATIC void ApiPcmVerbCB(AFB_ReqT request) {
                 volType = RVOL_ABS;
                 newvol = json_object_get_int(volumeJ);
                 break;
+            case json_type_null:
+                volType=RVOL_ADD;
+                newvol=0;
+                break;
             default:
                 AFB_ReqFailF(request, "not-integer", "volume should be string or integer value=%s", json_object_get_string(volumeJ));
                 goto OnErrorExit;
@@ -351,7 +357,12 @@ PUBLIC AlsaPcmHwInfoT * ApiPcmSetParams(SoftMixerT *mixer, const char *uid, json
     params->sampleSize = 0;
 
     if (paramsJ) {
-        int error = wrap_json_unpack(paramsJ, "{s?i,s?i, s?s, s?s !}", "rate", &params->rate, "channels", &params->channels, "format", &format, "access", &access);
+        int error =
+        	wrap_json_unpack(paramsJ, "{s?i,s?i, s?s, s?s !}",
+        		             "rate",    &params->rate,
+				             "channels",&params->channels,
+				             "format",  &format,
+				             "access",  &access);
         if (error) {
             AFB_ApiError(mixer->api, "ApiPcmSetParams: sndcard=%s invalid params=%s", uid, json_object_get_string(paramsJ));
             goto OnErrorExit;
@@ -541,6 +552,9 @@ PUBLIC AlsaSndPcmT * ApiPcmAttachOne(SoftMixerT *mixer, const char *uid, snd_pcm
             AFB_ApiError(mixer->api, "ApiPcmAttachOne mixer=%s verb=%s fail to Register Master control ", mixer->uid, apiVerb);
             goto OnErrorExit;
         }
+    } else {
+    	/* no controls -> put dummy verb */
+    	pcm->verb = "none";
     }
 
     // free useless resource and secure others
