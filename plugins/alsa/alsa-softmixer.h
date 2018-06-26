@@ -22,13 +22,13 @@
 #define _ALSA_SOFTMIXER_
 
 #include <afb/afb-binding.h>
-#include <systemd/sd-event.h>
 #include <json-c/json_object.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
 #include <alsa/asoundlib.h>
 #include <stdbool.h>
+#include <systemd/sd-event.h>
 
 #include "ctl-plugin.h"
 #include "wrap-json.h"
@@ -91,13 +91,19 @@ typedef struct {
     // IO Job
     void * buf;
 	snd_pcm_uframes_t buf_count;	/* filled samples */
-	snd_pcm_uframes_t buf_size;	/* buffer size in frames */
+	snd_pcm_uframes_t buf_pos;		/* begin of data */
+	snd_pcm_uframes_t buf_size;		/* buffer size in frames */
+	uint32_t		  write_err_count;
+	uint32_t		  read_err_count;
 
     unsigned int channels;
     sd_event *sdLoop;
     pthread_t thread;
     int tid;
     char* info;
+    struct pollfd * pollFds;
+    int pcmInCount;
+
 
 } AlsaPcmCopyHandleT;
 
