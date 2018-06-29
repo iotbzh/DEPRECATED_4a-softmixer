@@ -21,7 +21,7 @@
 #ifndef _ALSA_SOFTMIXER_
 #define _ALSA_SOFTMIXER_
 
-#include <afb/afb-binding.h>
+//#include <afb/afb-binding.h>
 #include <json-c/json_object.h>
 #include <stdlib.h>
 #include <stdio.h>
