@@ -135,7 +135,7 @@ add_definitions(-DCONTROL_PLUGIN_PATH="${CMAKE_BINARY_DIR}/package/lib/plugins:$
 add_definitions(-DCONTROL_CONFIG_PATH="${CMAKE_SOURCE_DIR}/conf.d/project/etc:${CMAKE_BINARY_DIR}/package/etc:${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/etc:${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}")
 add_definitions(-DCONTROL_LUA_PATH="${CMAKE_SOURCE_DIR}/conf.d/project/lua.d:${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/var:${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}")
 add_definitions(-DCTL_PLUGIN_MAGIC=987456123)
-add_definitions(-DUSE_API_DYN=1 -DAFB_BINDING_VERSION=0)
+add_definitions(-DUSE_API_DYN=1 -DAFB_BINDING_VERSION=3 -DAFB_BINDING_WANT_DYNAPI=1)
 
 
 # (BUG!!!) as PKG_CONFIG_PATH does not work [should be an env variable]

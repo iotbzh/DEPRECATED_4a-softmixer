@@ -634,21 +634,9 @@ OnErrorExit:
     return;
 }
 
-STATIC void MixerPingVerb(AFB_ReqT request) {
-    static int count = 0;
-    count++;
-
-    AFB_ReqInfo(request, "MixerAttachVerb: Controller:ping count=%d", count);
-    AFB_ReqSuccess(request, json_object_new_int(count), NULL);
-
-    return;
-}
-
-
 // Every HAL export the same API & Interface Mapping from SndCard to AudioLogic is done through alsaHalSndCardT
 STATIC AFB_ApiVerbs CtrlApiVerbs[] = {
     /* VERB'S NAME         FUNCTION TO CALL         SHORT DESCRIPTION */
-    { .verb = "ping", .callback = MixerPingVerb, .info = "ping count test"},
     { .verb = "attach", .callback = MixerAttachVerb, .info = "attach resources to mixer"},
     { .verb = "remove", .callback = MixerRemoveVerb, .info = "remove existing mixer streams, zones, ..."},
     { .verb = "info", .callback = MixerInfoVerb, .info = "list existing mixer streams, zones, ..."},

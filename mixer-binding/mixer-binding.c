@@ -93,8 +93,7 @@ OnErrorExit:
     return 1;
 }
 
-
-PUBLIC int afbBindingVdyn(afb_dynapi *apiHandle) {
+PUBLIC int afbBindingEntry(afb_dynapi *apiHandle) {
 
     AFB_default = apiHandle;
     AFB_ApiNotice (apiHandle, "Controller in afbBindingVdyn");
