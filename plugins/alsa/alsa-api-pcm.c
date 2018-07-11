@@ -521,7 +521,9 @@ PUBLIC AlsaSndPcmT * ApiPcmAttachOne(SoftMixerT *mixer, const char *uid, snd_pcm
                 , "mute", &muteJ
                 );
         if (error) {
-            AFB_ApiNotice(mixer->api, "ApiPcmAttachOne: source missing [volume]|[mute] error=%s control=%s", wrap_json_get_error_string(error), json_object_get_string(controlsJ));
+            AFB_ApiNotice(mixer->api,
+            		      "%s: source missing [volume]|[mute] error=%s control=%s",
+            		      __func__, wrap_json_get_error_string(error), json_object_get_string(controlsJ));
             goto OnErrorExit;
         }
 

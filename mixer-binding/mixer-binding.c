@@ -56,7 +56,12 @@ STATIC int CtrlLoadStaticVerbs (afb_dynapi *apiHandle, AFB_ApiVerbs *verbs) {
     int errcount=0;
 
     for (int idx=0; verbs[idx].verb; idx++) {
-        errcount+= afb_dynapi_add_verb(apiHandle, CtrlApiVerbs[idx].verb, CtrlApiVerbs[idx].info, CtrlApiVerbs[idx].callback, (void*)&CtrlApiVerbs[idx], CtrlApiVerbs[idx].auth, 0);
+        errcount+= afb_dynapi_add_verb(apiHandle,
+        		                       CtrlApiVerbs[idx].verb,
+									   CtrlApiVerbs[idx].info,
+									   CtrlApiVerbs[idx].callback,
+									   (void*)&CtrlApiVerbs[idx],
+									   CtrlApiVerbs[idx].auth, 0);
     }
 
     return errcount;
@@ -96,7 +101,8 @@ OnErrorExit:
 PUBLIC int afbBindingEntry(afb_dynapi *apiHandle) {
 
     AFB_default = apiHandle;
-    AFB_ApiNotice (apiHandle, "Controller in afbBindingVdyn");
+
+    AFB_ApiNotice (apiHandle, "Controller in afbBindingEntry");
 
     const char *dirList= getenv("CONTROL_CONFIG_PATH");
     if (!dirList) dirList=CONTROL_CONFIG_PATH;
@@ -121,6 +127,7 @@ PUBLIC int afbBindingEntry(afb_dynapi *apiHandle) {
     
     AFB_ApiNotice (apiHandle, "Controller API='%s' info='%s'", ctrlConfig->api, ctrlConfig->info);
     // create one API per config file (Pre-V3 return code ToBeChanged)
+
     int status = afb_dynapi_new_api(apiHandle, ctrlConfig->api, ctrlConfig->info, 1, CtrlLoadOneApi, ctrlConfig);
 
     // config exec should be done after api init in order to enable onload to use newly defined ctl API.

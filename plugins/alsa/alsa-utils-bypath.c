@@ -88,12 +88,12 @@ PUBLIC AlsaPcmCtlT *AlsaByPathOpenPcm(SoftMixerT *mixer, AlsaDevInfoT *pcmDev, s
     pcmCtl->cid.longname=NULL;
 
     AFB_ApiInfo(mixer->api,
-                "%s OPEN PCM %s, direction %s",
+                "%s OPEN PCM '%s', direction %s",
                 __func__, pcmCtl->cid.cardid, direction==SND_PCM_STREAM_PLAYBACK?"playback":"capture");
 
     error = snd_pcm_open(&pcmCtl->handle, pcmCtl->cid.cardid, direction, SND_PCM_NONBLOCK);
     if (error < 0) {
-        AFB_ApiError(mixer->api, "AlsaByPathOpenPcm: fail openpcm cardid=%s error=%s", pcmCtl->cid.cardid, snd_strerror(error));
+        AFB_ApiError(mixer->api, "%s: fail openpcm cardid=%s error=%s", __func__, pcmCtl->cid.cardid, snd_strerror(error));
         goto OnErrorExit;
     }
 

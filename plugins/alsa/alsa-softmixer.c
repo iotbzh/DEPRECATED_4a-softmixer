@@ -25,8 +25,8 @@
 CTLP_LUA_REGISTER("alsa-softmixer")
 
 // Call at initialisation time
-CTLP_ONLOAD(plugin, callbacks) {
-    AFB_ApiDebug(plugin->api, "SoftMixer Plugin Registered: uid='%s' 'info='%s'", plugin->uid, plugin->info);
+CTLP_ONLOAD(plugin, callbacks){
+//    AFB_ApiDebug(plugin->api, "SoftMixer Plugin Registered: uid='%s' 'info='%s'", plugin->uid, plugin->info);
     return 0;
 }
 

@@ -31,6 +31,7 @@ static void MixerRemoveVerb(AFB_ReqT request) {
 
     for (int idx = 0; mixer->streams[idx]->uid; idx++) {
         AlsaStreamAudioT *stream = mixer->streams[idx];
+        AlsaPcmCopyHandleT * copy = stream->copy;
 
         AFB_ApiNotice(mixer->api, "cleaning mixer=%s stream=%s", mixer->uid, stream->uid);
 
@@ -47,10 +48,10 @@ static void MixerRemoveVerb(AFB_ReqT request) {
         }
 
         // free audio-stream dynamic structures
-        snd_pcm_close(mixer->streams[idx]->copy->pcmIn);
-        snd_pcm_close(mixer->streams[idx]->copy->pcmOut);
-        if (stream->copy->evtsrc) sd_event_source_unref(stream->copy->evtsrc);
-        if (stream->copy->sdLoop) sd_event_unref(stream->copy->sdLoop);
+        snd_pcm_close(copy->pcmIn->handle);
+        snd_pcm_close(copy->pcmOut->handle);
+        if (copy->evtsrc) sd_event_source_unref(copy->evtsrc);
+        if (copy->sdLoop) sd_event_unref(copy->sdLoop);
     }
 
     //    // (Fulup to be Done) registry is attached to source

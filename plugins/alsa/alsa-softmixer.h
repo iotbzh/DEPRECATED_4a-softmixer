@@ -79,8 +79,37 @@ typedef enum {
 } RegistryNumidT;
 
 typedef struct {
-    snd_pcm_t *pcmIn;
-    snd_pcm_t *pcmOut;
+    int cardidx;
+    const char *devpath;
+    const char *cardid;
+    const char *name;
+    const char *longname;
+    int device;
+    int subdev;
+} AlsaDevInfoT;
+
+typedef struct {
+    unsigned int rate;
+    unsigned int channels;
+    const char *formatS;
+    snd_pcm_format_t format;
+    snd_pcm_access_t access;
+    size_t sampleSize;
+} AlsaPcmHwInfoT;
+
+typedef struct {
+    int ccount;
+    bool mute;
+    AlsaDevInfoT cid;
+    snd_pcm_t *handle;
+    AlsaPcmHwInfoT *params;
+
+    void * mixer;
+} AlsaPcmCtlT;
+
+typedef struct {
+	AlsaPcmCtlT *pcmIn;
+	AlsaPcmCtlT *pcmOut;
     AFB_ApiT api;
     sd_event_source* evtsrc;
 
@@ -121,14 +150,7 @@ typedef struct {
     int port;
 } AlsaPcmChannelT;
 
-typedef struct {
-    unsigned int rate;
-    unsigned int channels;
-    const char *formatS;
-    snd_pcm_format_t format;
-    snd_pcm_access_t access;
-    size_t sampleSize;
-} AlsaPcmHwInfoT;
+
 
 typedef struct {
     const char *uid;
@@ -137,23 +159,9 @@ typedef struct {
     int stepUp; // linear %
 } AlsaVolRampT;
 
-typedef struct {
-    int cardidx;
-    const char *devpath;
-    const char *cardid;
-    const char *name;
-    const char *longname;
-    int device;
-    int subdev;
-} AlsaDevInfoT;
 
-typedef struct {
-    int ccount;
-    AlsaDevInfoT cid;
-    snd_pcm_t *handle;
-    AlsaPcmHwInfoT *params;
-    uint32_t avail_min;
-} AlsaPcmCtlT;
+
+
 
 typedef struct {
     int numid;
@@ -274,7 +282,7 @@ PUBLIC int AlsaCtlSubscribe(SoftMixerT *mixer, const char *uid, AlsaSndCtlT *snd
 PUBLIC int AlsaCtlRegister(SoftMixerT *mixer, AlsaSndCtlT *sndcard, AlsaPcmCtlT *pcmdev,  RegistryNumidT type, int numid);
 
 // alsa-core-pcm.c
-PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, AlsaPcmHwInfoT *opts, int mode);
+PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode);
 PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT *pcmIn, AlsaPcmCtlT *pcmOut, AlsaPcmHwInfoT * opts);
 
 // alsa-plug-*.c _snd_pcm_PLUGIN_open_ see macro ALSA_PLUG_PROTO(plugin)

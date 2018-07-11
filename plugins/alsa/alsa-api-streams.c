@@ -20,6 +20,7 @@
 
 #include "alsa-softmixer.h"
 #include <string.h>
+#include <stdbool.h>
 
 // Set stream volume control in %
 #define VOL_CONTROL_MAX  100
@@ -56,6 +57,7 @@ STATIC void StreamApiVerbCB(AFB_ReqT request) {
             , "volume", &volumeJ
             , "ramp", &rampJ
             );
+
     if (error) {
         AFB_ReqFailF(request, "syntax-error", "Missing 'close|mute|volume|verbose' args=%s", json_object_get_string(argsJ));
         goto OnErrorExit;
@@ -82,9 +84,9 @@ STATIC void StreamApiVerbCB(AFB_ReqT request) {
     }
 
     if (doMute != -1) {
-        error = AlsaCtlNumidSetLong(mixer, handle->sndcard, handle->stream->mute, !mute);
+        error = AlsaCtlNumidSetLong(mixer, handle->sndcard, handle->stream->mute, doMute);
         if (error) {
-            AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to set stream volume numid=%d value=%d", handle->stream->volume, !mute);
+            AFB_ReqFailF(request, "StreamApiVerbCB", "Fail to set stream volume numid=%d value=%d", handle->stream->volume, !doMute);
             goto OnErrorExit;
         }
 
@@ -194,8 +196,8 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     char *volName = NULL;
 
     AFB_ApiInfo(mixer->api,
-                "%s, stream %s %s, source %s, sink %s\n",
-                __func__,uid, stream->uid, stream->source, stream->sink);
+                "%s, stream %s %s, source %s, sink %s, mute %d",
+                __func__,uid, stream->uid, stream->source, stream->sink, stream->mute);
 
     loopDev = ApiLoopFindSubdev(mixer, stream->uid, stream->source, &loop);
     if (loopDev) {
@@ -235,6 +237,8 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     // check PCM is valid and get its full name
     AlsaPcmCtlT *capturePcm = AlsaByPathOpenPcm(mixer, captureDev, SND_PCM_STREAM_CAPTURE);
     if (!capturePcm) goto OnErrorExit;
+
+    capturePcm->mute = stream->mute;
 
     // Registry capturePcm PCM for active/pause event
     if (loopDev && loopDev->numid) {
