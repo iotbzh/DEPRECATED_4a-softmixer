@@ -147,13 +147,18 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
         };
     }
 
-    int err;
+    /* The following code, that
+     * 1) sets period time/size; buffer time/size hardware params
+     * 2) sets start and stop threashold in software params
+     * ... is taken as such from 'aplay' in alsa-utils */
+
     unsigned buffer_time = 0;
     unsigned period_time = 0;
     snd_pcm_uframes_t buffer_frames = 0;
     snd_pcm_uframes_t period_frames = 0;
 
-	err = snd_pcm_hw_params_get_buffer_time_max(pxmHwParams, &buffer_time, 0);
+	error = snd_pcm_hw_params_get_buffer_time_max(pxmHwParams, &buffer_time, 0);
+
 	if (buffer_time > 500000)
 		buffer_time = 500000;
 
@@ -163,25 +168,36 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
 		else
 			period_frames = buffer_frames / 4;
 	}
+
 	if (period_time > 0)
-		err = snd_pcm_hw_params_set_period_time_near(pcm->handle, pxmHwParams, &period_time, 0);
+		error = snd_pcm_hw_params_set_period_time_near(pcm->handle, pxmHwParams, &period_time, 0);
 	else
-		err = snd_pcm_hw_params_set_period_size_near(pcm->handle, pxmHwParams, &period_frames, 0);
+		error = snd_pcm_hw_params_set_period_size_near(pcm->handle, pxmHwParams, &period_frames, 0);
 
-	assert(err >= 0);
-
-	if (buffer_time > 0) {
-		err = snd_pcm_hw_params_set_buffer_time_near(pcm->handle, pxmHwParams, &buffer_time, 0);
-	} else {
-		err = snd_pcm_hw_params_set_buffer_size_near(pcm->handle, pxmHwParams, &buffer_frames);
+	if (error < 0) {
+        AFB_ApiError(mixer->api,
+        		     "%s: mixer=%s cardid=%s Fail to set period in hwparams error=%s",
+        		     __func__, mixer->uid, pcm->cid.cardid, snd_strerror(error));
+        goto OnErrorExit;
 	}
 
-	assert(err >= 0);
+	if (buffer_time > 0) {
+		error = snd_pcm_hw_params_set_buffer_time_near(pcm->handle, pxmHwParams, &buffer_time, 0);
+	} else {
+		error = snd_pcm_hw_params_set_buffer_size_near(pcm->handle, pxmHwParams, &buffer_frames);
+	}
+
+	if (error < 0) {
+        AFB_ApiError(mixer->api,
+        		     "%s: mixer=%s cardid=%s Fail to set buffer in hwparams error=%s",
+        		     __func__, mixer->uid, pcm->cid.cardid, snd_strerror(error));
+        goto OnErrorExit;
+	}
 
     // store selected values
     if ((error = snd_pcm_hw_params(pcm->handle, pxmHwParams)) < 0) {
         AFB_ApiError(mixer->api,
-        		     "%s: mixer=%s cardid=%s Fail apply hwparams error=%s",
+        		     "%s: mixer=%s cardid=%s Fail to apply hwparams error=%s",
         		     __func__, mixer->uid, pcm->cid.cardid, snd_strerror(error));
         goto OnErrorExit;
     }
@@ -193,6 +209,9 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
     snd_pcm_hw_params_get_channels(pxmHwParams, &opts->channels);
     snd_pcm_hw_params_get_format(pxmHwParams, &opts->format);
     snd_pcm_hw_params_get_rate(pxmHwParams, &opts->rate, 0);
+
+	AFB_ApiInfo(mixer->api, "rate is %d", opts->rate);
+
     opts->sampleSize = AlsaPeriodSize(opts->format);
     if (opts->sampleSize == 0) {
         AFB_ApiError(mixer->api,
@@ -201,16 +220,76 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
         goto OnErrorExit;
     }
 
+    snd_pcm_uframes_t chunk_size, buffer_size;
+
+    snd_pcm_hw_params_get_period_size(pxmHwParams, &chunk_size, 0);
+    snd_pcm_hw_params_get_buffer_size(pxmHwParams, &buffer_size);
+    if (chunk_size == buffer_size) {
+    	AFB_ApiError(mixer->api,
+    			     "Can't use period equal to buffer size (%lu == %lu)",
+    	              chunk_size, buffer_size);
+    	goto OnErrorExit;
+    }
+
+    int avail_min = -1;
+    size_t n;
+    int rate = opts->rate;
+
+	if (avail_min < 0)
+		n = chunk_size;
+	else
+		n = (size_t) ((double)rate * avail_min / 1000000);
+
     // retrieve software config from PCM
     snd_pcm_sw_params_alloca(&pxmSwParams);
     snd_pcm_sw_params_current(pcm->handle, pxmSwParams);
 
-    if ((error = snd_pcm_sw_params_set_avail_min(pcm->handle, pxmSwParams, 6000)) < 0) {
+    if ((error = snd_pcm_sw_params_set_avail_min(pcm->handle, pxmSwParams, n)) < 0) {
         AFB_ApiError(mixer->api,
                      "%s: mixer=%s cardid=%s Fail set_buffersize error=%s",
 					 __func__, mixer->uid, pcm->cid.cardid, snd_strerror(error));
         goto OnErrorExit;
     };
+
+    int start_delay = 0;
+    int stop_delay = 0;
+	snd_pcm_uframes_t start_threshold, stop_threshold;
+
+    /* round up to closest transfer boundary */
+    n = buffer_size;
+    if (start_delay <= 0) {
+    	start_threshold = n + (size_t)((double)rate * start_delay / 1000000);
+    } else
+    	start_threshold = (size_t)((double)rate * start_delay / 1000000);
+    if (start_threshold < 1)
+    	start_threshold = 1;
+
+    if (start_threshold > n)
+    	start_threshold = n;
+
+	AFB_ApiInfo(mixer->api, "Set start threshold to %ld", start_threshold);
+
+    error = snd_pcm_sw_params_set_start_threshold(pcm->handle, pxmSwParams, start_threshold);
+    if (error < 0) {
+    	AFB_ApiError(mixer->api,
+    	             "%s: mixer=%s cardid=%s failed set start_threshold, error=%s",
+    				 __func__, mixer->uid, pcm->cid.cardid, snd_strerror(error));
+    	goto OnErrorExit;
+    }
+
+    if (stop_delay <= 0)
+    	stop_threshold = buffer_size + (size_t)((double)rate * stop_delay / 1000000);
+    else
+    	stop_threshold = (size_t)((double)rate * stop_delay / 1000000);
+
+	AFB_ApiInfo(mixer->api, "Set stop threshold to %ld", stop_threshold);
+    error = snd_pcm_sw_params_set_stop_threshold(pcm->handle, pxmSwParams, stop_threshold);
+    if (error < 0) {
+    	AFB_ApiError(mixer->api,
+    	             "%s: mixer=%s cardid=%s failed set stop_threshold, error=%s",
+    				 __func__, mixer->uid, pcm->cid.cardid, snd_strerror(error));
+    	goto OnErrorExit;
+    }
 
     // push software params into PCM
     if ((error = snd_pcm_sw_params(pcm->handle, pxmSwParams)) < 0) {
@@ -221,7 +300,7 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
     };
 
     AFB_ApiNotice(mixer->api,
-    		      "%s: mixer=%s cardid=%s Done channels=%d rate=%d format=%d access=%d done",
+    		      "%s: mixer=%s cardid=%s Done channels=%d rate=%d format=%d access=%d ... done !",
 				  __func__, mixer->uid, pcm->cid.cardid, opts->channels, opts->rate, opts->format, opts->access);
     return 0;
 
@@ -322,7 +401,6 @@ STATIC int AlsaPcmReadCB( struct pollfd * pfd, AlsaPcmCopyHandleT * pcmCopyHandl
 	}
 
 	if (availOut == 0) {
-		printf("No space on playback\n");
 		goto ExitOnSuccess;
 	}
 
