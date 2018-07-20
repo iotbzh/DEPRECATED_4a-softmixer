@@ -19,7 +19,7 @@
 
 PROJECT_TARGET_ADD(alsa-softmixer)
 
-        file(GLOB SOURCE_FILES "alsa-*.c")
+        file(GLOB SOURCE_FILES "alsa-*.c" ringbuf.c time_utils.c)
 
 	# Define targets
 	ADD_LIBRARY(${TARGET_NAME} MODULE ${SOURCE_FILES})
