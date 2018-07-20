@@ -1,10 +1,16 @@
 Softmixer controller for 4A (AGL Advance Audio Architecture).
 ------------------------------------------------------------
 
- * Object: Simulate a hardware mixer through and Alsa-Loop driver and a user space mixer
+ * Object: Simulate a hardware mixer through and snd-aloop driver and a user space mixer
  * Status: In Progress
  * Author: Fulup Ar Foll fulup@iot.bzh
- * Date  : April-2018
+ * Author: Thierry Bultel thierry.bultel@iot.bzh
+ * Date  : July-2018
+
+## Features
+ * Definition of multiple audio zones, and multiple audio cards
+ * Usage of streams to access audio zones
+ * Direct read from HW capture devices (eg radio chips & microphones)
 
 ## Compile
 ```
@@ -14,10 +20,10 @@ Softmixer controller for 4A (AGL Advance Audio Architecture).
     make
 ```
 
-## Install Alsa Loopback
+## Install Alsa Loopback Driver
 
 ```
-    sudo modprobe alsa-aloop
+    sudo modprobe snd-aloop
 ```
 
 ## Assert LUA config file match your config 
@@ -46,28 +52,31 @@ Softmixer controller for 4A (AGL Advance Audio Architecture).
     # volid: volume alsa control you may change it from 'alsamixer -Dhw:Loppback' or with 'amixer -D hw:Loopback cset numid=103 NN (o-100%)
 ```
 
-
-
-
 Retrieve audio-stream alsa endpoint from response to 'L2C:snd_streams' command. Depending on your config 'hw:XXX' will change. 
 Alsa snd-aloop impose '0' as playback device. Soft mixer will start from last subdevice and allocates one subdev for each audio-stream.
 
 
 ## Play some music
 
-Current version does not handle audio rate conversion, using gstreamer or equivalent to match with audio hardware params is mandatory.
+snd-aloop only supports these audio formats:
+
+S16_LE
+S16_BE
+S32_LE
+S32_BE
+FLOAT_LE
+FLOAT_BE
+
+Using gstreamer is a simple way to perform the conversion, if your audio file is not of one of these.
+
 ```
-    export PROJECT_ROOT=`pwd`
-    gst123 --audio-output alsa=hw:Loopback,0,0 $PROJECT_ROOT/conf.d/project/sounds/trio-divi-alkazabach.mp3
+    gst-launch-1.0 filesrc location=insane.wav ! wavparse ! audioconvert ! audioresample ! alsasink device=hw:Loopback,0,2
 
-    gst123 --audio-output alsa=hw:XXX,0,??? other sound file
-
-    speaker-test -D hw:XXX:0:??? -twav -c!! 'cc' is the number of channel and depends on the audio stream zone target.
 ```
 
 ## Warning
 
-Alsa try top automatically store current state into /var/lib/alsa/asound.state when developing/testing this may create impossible
+Alsa tries to automatically store current state into /var/lib/alsa/asound.state when developing/testing this may create impossible
 situation. In order to clean up your Alsa snd-aloop config, a simple "rmmod" might not be enough in some case you may have to delete
 /var/lib/alsa/asound.state before applying "modprobe".
 
@@ -77,8 +86,11 @@ rmmod snd-aloop && modprobe --first-time  snd-aloop && amixer -D hw:Loopback con
 ```
 
 
-Work in Progress 
+## Work in Progress 
+ * Support capture from bluez
 
-  mise en place control pour master sur la carte playback/source
-  integration du cas d'un stream avec source non loop
-  test du rate converter
+## Known issues
+ * From times to times, playing an audio file make the sound output with higher	pitch
+ * The playback loop could be improved, using direct access to the ring buffer instead 
+   of copies to stack (could save some CPU time)
+
