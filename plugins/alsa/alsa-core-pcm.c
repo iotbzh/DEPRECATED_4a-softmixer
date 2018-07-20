@@ -29,13 +29,10 @@ for the specific language governing permissions and
 #include <sys/syscall.h>
 #include <sched.h>
 
-static int xrun(snd_pcm_t * pcm);
-static int suspend(snd_pcm_t * pcm);
+#include "time_utils.h"
 
-static inline snd_pcm_uframes_t buf_avail(AlsaPcmCopyHandleT * chandle)
-{
-	return chandle->buf_size - chandle->buf_count;
-}
+static int xrun(snd_pcm_t * pcm, int error);
+static int suspend(snd_pcm_t * pcm, int error);
 
 
 STATIC int AlsaPeriodSize(snd_pcm_format_t pcmFormat) {
@@ -53,6 +50,13 @@ STATIC int AlsaPeriodSize(snd_pcm_format_t pcmFormat) {
         case SND_PCM_FORMAT_S16_LE:
         case SND_PCM_FORMAT_S16_BE:
             pcmSampleSize = 2;
+            break;
+
+        case SND_PCM_FORMAT_U24_LE:
+        case SND_PCM_FORMAT_U24_BE:
+        case SND_PCM_FORMAT_S24_LE:
+        case SND_PCM_FORMAT_S24_BE:
+            pcmSampleSize = 3;
             break;
 
         case SND_PCM_FORMAT_U32_LE:
@@ -78,9 +82,11 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
 
     AlsaPcmHwInfoT * opts = pcm->params;
 
+    const char * modeS = mode==SND_PCM_STREAM_PLAYBACK?"PLAYBACK":"CAPTURE";
+
     AFB_ApiInfo(mixer->api,
-                "%s: mixer info %s uid %s , pcm %s, mode %d",
-                __func__, mixer->info, mixer->uid, pcm->cid.cardid, mode);
+                "%s: mixer info %s uid %s , pcm %s, mode %s",
+                __func__, mixer->info, mixer->uid, pcm->cid.cardid, modeS);
 
     // retrieve hardware config from PCM
     snd_pcm_hw_params_alloca(&pxmHwParams);
@@ -159,6 +165,8 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
 
 	error = snd_pcm_hw_params_get_buffer_time_max(pxmHwParams, &buffer_time, 0);
 
+	printf("HW_BUFFER_TIME MAX is %d\n", buffer_time);
+
 	if (buffer_time > 500000)
 		buffer_time = 500000;
 
@@ -169,10 +177,14 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
 			period_frames = buffer_frames / 4;
 	}
 
-	if (period_time > 0)
+	if (period_time > 0) {
+		printf("SET PERIOD TIME to %d\n", period_time);
 		error = snd_pcm_hw_params_set_period_time_near(pcm->handle, pxmHwParams, &period_time, 0);
-	else
+	}
+	else {
+		printf("SET PERIOD SIZE\n");
 		error = snd_pcm_hw_params_set_period_size_near(pcm->handle, pxmHwParams, &period_frames, 0);
+	}
 
 	if (error < 0) {
         AFB_ApiError(mixer->api,
@@ -182,8 +194,10 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
 	}
 
 	if (buffer_time > 0) {
+		printf("SET BUFFER TIME to %d\n", buffer_time);
 		error = snd_pcm_hw_params_set_buffer_time_near(pcm->handle, pxmHwParams, &buffer_time, 0);
 	} else {
+		printf("SET BUFFER SIZE\n");
 		error = snd_pcm_hw_params_set_buffer_size_near(pcm->handle, pxmHwParams, &buffer_frames);
 	}
 
@@ -244,6 +258,9 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
     snd_pcm_sw_params_alloca(&pxmSwParams);
     snd_pcm_sw_params_current(pcm->handle, pxmSwParams);
 
+    // available_min is the minimum number of frames available to read,
+    // when the call to poll returns. Assume this is the same for playback (not checked that)
+
     if ((error = snd_pcm_sw_params_set_avail_min(pcm->handle, pxmSwParams, n)) < 0) {
         AFB_ApiError(mixer->api,
                      "%s: mixer=%s cardid=%s Fail set_buffersize error=%s",
@@ -251,9 +268,11 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
         goto OnErrorExit;
     };
 
+    snd_pcm_sw_params_get_avail_min(pxmSwParams, &pcm->avail_min);
+    printf("GET AVAILABLE MIN: %ld\n", n);
+
     int start_delay = 0;
-    int stop_delay = 0;
-	snd_pcm_uframes_t start_threshold, stop_threshold;
+	snd_pcm_uframes_t start_threshold;
 
     /* round up to closest transfer boundary */
     n = buffer_size;
@@ -264,32 +283,23 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
     if (start_threshold < 1)
     	start_threshold = 1;
 
-    if (start_threshold > n)
-    	start_threshold = n;
+    if (start_threshold > n/2)
+    	start_threshold = n/2;
 
-	AFB_ApiInfo(mixer->api, "Set start threshold to %ld", start_threshold);
+    printf("CALCULATED START THRESHOLD: %ld\n", start_threshold);
 
-    error = snd_pcm_sw_params_set_start_threshold(pcm->handle, pxmSwParams, start_threshold);
-    if (error < 0) {
-    	AFB_ApiError(mixer->api,
-    	             "%s: mixer=%s cardid=%s failed set start_threshold, error=%s",
-    				 __func__, mixer->uid, pcm->cid.cardid, snd_strerror(error));
-    	goto OnErrorExit;
-    }
+	if (mode == SND_PCM_STREAM_PLAYBACK) {
+		start_threshold = 1;
+	}
 
-    if (stop_delay <= 0)
-    	stop_threshold = buffer_size + (size_t)((double)rate * stop_delay / 1000000);
-    else
-    	stop_threshold = (size_t)((double)rate * stop_delay / 1000000);
-
-	AFB_ApiInfo(mixer->api, "Set stop threshold to %ld", stop_threshold);
-    error = snd_pcm_sw_params_set_stop_threshold(pcm->handle, pxmSwParams, stop_threshold);
-    if (error < 0) {
-    	AFB_ApiError(mixer->api,
-    	             "%s: mixer=%s cardid=%s failed set stop_threshold, error=%s",
-    				 __func__, mixer->uid, pcm->cid.cardid, snd_strerror(error));
-    	goto OnErrorExit;
-    }
+	AFB_ApiInfo(mixer->api, "%s: Set start threshold to %ld", modeS, start_threshold);
+   	error = snd_pcm_sw_params_set_start_threshold(pcm->handle, pxmSwParams, start_threshold);
+   	if (error < 0) {
+   		AFB_ApiError(mixer->api,
+   	             	 "%s: mixer=%s cardid=%s failed set start_threshold, error=%s",
+					 __func__, mixer->uid, pcm->cid.cardid, snd_strerror(error));
+   		goto OnErrorExit;
+   	}
 
     // push software params into PCM
     if ((error = snd_pcm_sw_params(pcm->handle, pxmSwParams)) < 0) {
@@ -311,11 +321,12 @@ OnErrorExit:
 STATIC int AlsaPcmReadCB( struct pollfd * pfd, AlsaPcmCopyHandleT * pcmCopyHandle) {
 	char string[32];
 
-	snd_pcm_sframes_t availIn, availOut, availInBuf;
-	int err;
-
+	snd_pcm_sframes_t availIn;
 	snd_pcm_t * pcmIn = pcmCopyHandle->pcmIn->handle;
-	snd_pcm_t * pcmOut= pcmCopyHandle->pcmOut->handle;
+	alsa_ringbuf_t * rbuf = pcmCopyHandle->rbuf;
+	snd_pcm_uframes_t bufSize = alsa_ringbuf_buffer_size(rbuf);
+
+	int err;
 
 	// PCM has was closed
 	if ((pfd->revents & POLLHUP) != 0) {
@@ -325,152 +336,109 @@ STATIC int AlsaPcmReadCB( struct pollfd * pfd, AlsaPcmCopyHandleT * pcmCopyHandl
 		goto ExitOnSuccess;
 	}
 
-	// ignore any non input events
+	// ignore any non input events. This is not supposed to happen ever
 	if ((pfd->revents & EPOLLIN) == 0) {
 		goto ExitOnSuccess;
 	}
 
-	// do we have waiting frame
+	// do we have waiting frames ?
 	availIn = snd_pcm_avail_update(pcmIn);
 	if (availIn <= 0) {
 		if (availIn == -EPIPE) {
-			int ret = xrun(pcmIn);
-			printf("XXX read EPIPE (recov=%d)\n", ret);
+			int ret = xrun(pcmIn, (int)availIn);
+			printf("XXX read EPIPE (recov=%d) !\n", ret);
+
+			// For some (undocumented...) reason, a start is mandatory.
+			snd_pcm_start(pcmIn);
 		}
 		goto ExitOnSuccess;
 	}
 
-	availInBuf = buf_avail(pcmCopyHandle);
+	pthread_mutex_lock(&pcmCopyHandle->mutex);
+	snd_pcm_sframes_t availInBuf = alsa_ringbuf_frames_free(rbuf);
+	pthread_mutex_unlock(&pcmCopyHandle->mutex);
 
 	/* we get too much data, take what we can now,
 	 * hopefully we will have more luck next time */
 
-	if (availIn > availInBuf)
+	if (availIn > availInBuf) {
+		printf("INCOMING BUFFER TOO SMALL !\n");
 		availIn = availInBuf;
+	}
 
-	snd_pcm_sframes_t totalRead = 0;
-	snd_pcm_sframes_t totalWrite = 0;
+	while (true) {
 
-	while (availIn > 0) {
-		snd_pcm_sframes_t r = buf_avail(pcmCopyHandle);
-		if (r + pcmCopyHandle->buf_pos > pcmCopyHandle->buf_size)
-			r = pcmCopyHandle->buf_size - pcmCopyHandle->buf_pos;
-		if (r > availIn)
+		pthread_mutex_lock(&pcmCopyHandle->mutex);
+		snd_pcm_sframes_t r = alsa_ringbuf_frames_free(rbuf);
+
+		if (r <= 0) {
+			pthread_mutex_unlock(&pcmCopyHandle->mutex);
+			// Wakeup the reader, in case it would be sleeping,
+			// that lets it an opportunity to pop.
+			sem_post(&pcmCopyHandle->sem);
+			break;
+		}
+
+		if (r < availIn)
 			r = availIn;
-		r = snd_pcm_readi(pcmIn,
-				pcmCopyHandle->buf +
-				pcmCopyHandle->buf_pos *
-				pcmCopyHandle->frame_size, r);
-		if (r == 0)
-			goto ExitOnSuccess;
+
+		char buf[r*pcmCopyHandle->frame_size];
+		pthread_mutex_unlock(&pcmCopyHandle->mutex);
+
+		r = snd_pcm_readi(pcmIn, buf, r);
+		if (r == 0) {
+			break;
+		}
 		if (r < 0) {
 			if (r == -EPIPE) {
-				printf("read EPIPE (%d), recov %d\n", ++pcmCopyHandle->read_err_count, xrun(pcmIn));
+				err = xrun(pcmIn, (int)r);
+				printf("read EPIPE (%d), recov %d\n", ++pcmCopyHandle->read_err_count, err);
 				goto ExitOnSuccess;
 			} else if (r == -ESTRPIPE) {
 				printf("read ESTRPIPE\n");
-				if ((err = suspend(pcmIn)) < 0)
+				if ((err = suspend(pcmIn, (int)r)) < 0)
 					goto ExitOnSuccess;
 				r = 0;
 			} else {
-				goto ExitOnSuccess;;
-			}
-		}
-
-		totalRead += r;
-
-		pcmCopyHandle->buf_count += r;
-		pcmCopyHandle->buf_pos += r;
-		pcmCopyHandle->buf_pos %= pcmCopyHandle->buf_size;
-		availIn -= r;
-	}
-
-	// do we have space to push frame
-	availOut = snd_pcm_avail_update(pcmOut);
-	if (availOut < 0) {
-		if (availOut == -EPIPE) {
-			printf("write update EPIPE\n");
-			xrun(pcmOut);
-			goto ExitOnSuccess;
-		}
-		if (availOut == -ESTRPIPE) {
-			printf("write update ESTRPIPE\n");
-			suspend(pcmOut);
-			goto ExitOnSuccess;
-		}
-	}
-
-	if (availOut == 0) {
-		goto ExitOnSuccess;
-	}
-
-	while (pcmCopyHandle->buf_count > 0) {
-		// In/Out frames transfer through buffer copy
-		snd_pcm_sframes_t r = pcmCopyHandle->buf_count;
-
-		if (r + pcmCopyHandle->buf_pos > pcmCopyHandle->buf_size)
-			r = pcmCopyHandle->buf_size - pcmCopyHandle->buf_pos;
-		if (r > availOut)
-			r = availOut;
-
-		r = snd_pcm_writei(
-				pcmOut,
-				pcmCopyHandle->buf +
-				pcmCopyHandle->buf_pos *
-				pcmCopyHandle->frame_size, r);
-		if (r <= 0) {
-			if (r == -EPIPE) {
-				printf("XXX write EPIPE (%d), recov %d\n", ++pcmCopyHandle->write_err_count , xrun(pcmOut));
-
-				continue;
-			} else if (r == -ESTRPIPE) {
-				printf("XXX write ESTRPIPE\n");
 				goto ExitOnSuccess;
 			}
-			printf("Unhandled error %s\n", strerror(errno));
-			goto ExitOnSuccess;
+		}
+		pthread_mutex_lock(&pcmCopyHandle->mutex);
+		alsa_ringbuf_frames_push(rbuf, buf, r);
+		snd_pcm_uframes_t used = alsa_ringbuf_frames_used(rbuf);
+		pthread_mutex_unlock(&pcmCopyHandle->mutex);
+
+		// Wait for having the buffer full enough before waking up the playback
+		// else it will starve immediately.
+		if (used > 0.8 * (double)bufSize) {
+			sem_post(&pcmCopyHandle->sem);
 		}
 
-		totalWrite += r;
+		availIn -= r;
 
-		pcmCopyHandle->buf_count -= r;
-		pcmCopyHandle->buf_pos += r;
-		pcmCopyHandle->buf_pos %= pcmCopyHandle->buf_size;
-
-		/* We evaluate the available space on device again,
-		 * because it may have grown since the measured the value
-		 * before the loop. If we ignore a new bigger value, we will keep
-		 * writing small chunks, keep in tight loops and stave the CPU */
-
-		snd_pcm_sframes_t newAvailOut = snd_pcm_avail(pcmOut);
-
-		if (newAvailOut == 0) {
-			snd_pcm_wait(pcmOut, 5);
-		} else if (newAvailOut > 0) {
-			availOut = newAvailOut;
+		// completed, we have read everything
+		if (availIn <= 0) {
+			break;
 		}
+
 	}
 
-	return 0;
-
-	// Cannot handle error in callback
 ExitOnSuccess:
 	return 0;
 }
 
 
-static int xrun( snd_pcm_t * pcm)
+static int xrun( snd_pcm_t * pcm, int error)
 {
 	int err;
 
-	if ((err = snd_pcm_prepare(pcm)) < 0) {
+	if ((err = snd_pcm_recover(pcm, error, 1)) < 0) {
 		return err;
 	}
-
 	return 0;
 }
 
-static int suspend( snd_pcm_t * pcm)
+static int suspend( snd_pcm_t * pcm, int error)
 {
 	int err;
 
@@ -478,107 +446,50 @@ static int suspend( snd_pcm_t * pcm)
 		usleep(1);
 	}
 	if (err < 0)
-		return xrun(pcm);
+		return xrun(pcm, error);
 	return 0;
 }
 
-static int capturePcmReopen(AlsaPcmCopyHandleT * pcmCopyHandle) {
-	int res = -1;
-	int err;
-	char string[32];
 
-	err = snd_pcm_open(&pcmCopyHandle->pcmIn->handle,
-			pcmCopyHandle->pcmIn->cid.cardid,
-			SND_PCM_STREAM_CAPTURE, SND_PCM_NONBLOCK);
+static void readSuspend(AlsaPcmCopyHandleT * pcmCopyHandle) {
 
-	if (err < 0) {
-		AFB_ApiError(pcmCopyHandle->api, "%s: failed to re-open pcm", __func__);
-		goto OnErrorExit;
-	};
+	// will be deaf
+	pcmCopyHandle->saveFd = pcmCopyHandle->pollFds[0].fd;
+	pcmCopyHandle->pollFds[0].fd = -1;
 
-	// prepare PCM for capture
-	err = AlsaPcmConf(pcmCopyHandle->pcmIn->mixer, pcmCopyHandle->pcmIn, SND_PCM_STREAM_CAPTURE);
-	if (err) {
-		AFB_ApiError(pcmCopyHandle->api, "%s: PCM configuration failed", __func__);
-		goto OnErrorExit;
-	}
-
-	err = snd_pcm_prepare(pcmCopyHandle->pcmIn->handle);
-	if (err < 0) {
-		AFB_ApiError(pcmCopyHandle->api, "%s: failed to prepare PCM, %s", __func__, snd_strerror(err));
-		goto OnErrorExit;
-	};
-
-	err = snd_pcm_start(pcmCopyHandle->pcmIn->handle);
-	if (err < 0) {
-		AFB_ApiError(pcmCopyHandle->api, "%s: failed start capture PCM: %s",__func__,  snd_strerror(err));
-		goto OnErrorExit;
-	};
-
-	struct pollfd * pcmInFds;
-
-	int pcmInCount = snd_pcm_poll_descriptors_count(pcmCopyHandle->pcmIn->handle);
-	pcmInFds = malloc(sizeof (*pcmInFds) * pcmInCount);
-
-	if ((err = snd_pcm_poll_descriptors(pcmCopyHandle->pcmIn->handle, pcmInFds, pcmInCount)) < 0) {
-		AFB_ApiError(pcmCopyHandle->api, "%s: Fail pcmIn=%s get pollfds error=%s",
-				      __func__, ALSA_PCM_UID(pcmCopyHandle->pcmIn->handle, string), snd_strerror(err));
-		goto OnErrorExit;
-	};
-
-	/* free old descriptors */
-	free(pcmCopyHandle->pollFds);
-	pcmCopyHandle->pollFds = pcmInFds;
-	pcmCopyHandle->pcmInCount = pcmInCount;
-
-	res = 0;
-
-OnErrorExit:
-	return res;
+	AFB_ApiNotice(pcmCopyHandle->api, "capture muted");
 }
 
-static void *LoopInThread(void *handle) {
+static void readResume(AlsaPcmCopyHandleT * pcmCopyHandle) {
+
+	// undeaf it
+	pcmCopyHandle->pollFds[0].fd = pcmCopyHandle->saveFd;
+	AFB_ApiNotice(pcmCopyHandle->api, "capture unmuted");
+}
+
+
+static void *readThreadEntry(void *handle) {
 #define LOOP_TIMEOUT_MSEC	10*1000
 
     AlsaPcmCopyHandleT *pcmCopyHandle = (AlsaPcmCopyHandleT*) handle;
     pcmCopyHandle->tid = (int) syscall(SYS_gettid);
 
     AFB_ApiNotice(pcmCopyHandle->api,
-                  "%s :%s/%d Started, mute %d",
+                  "%s :%s/%d Started, muted=%d",
                   __func__, pcmCopyHandle->info, pcmCopyHandle->tid, pcmCopyHandle->pcmIn->mute);
 
-    for (int ix=0; ix<pcmCopyHandle->pcmInCount; ix++) {
-    	struct pollfd * pfd = &pcmCopyHandle->pollFds[ix];
-    	pfd->events = POLLIN | POLLHUP;
-    }
+   	struct pollfd * mutePfd = &pcmCopyHandle->pollFds[1];
+   	mutePfd->events = POLLIN | POLLHUP;
 
-    bool muted = false;
+   	bool muted = pcmCopyHandle->pcmIn->mute;
+
+  	if (muted)
+   		readSuspend(pcmCopyHandle);
 
     /* loop until end */
     for (;;) {
 
-    	if (pcmCopyHandle->pcmIn->mute) {
-    		if (!muted) {
-    			int err;
-    			muted = true;
-
-        		err = snd_pcm_close(pcmCopyHandle->pcmIn->handle);
-        		if (err < 0) AFB_ApiNotice(pcmCopyHandle->api, "failed to close capture fd\n");
-
-    			AFB_ApiNotice(pcmCopyHandle->api, "capture muted");
-    		}
-    		sleep(1);
-    		continue;
-    	}
-
-    	if (muted) {
-    		if (capturePcmReopen(pcmCopyHandle) < 0)
-    			goto OnErrorExit;
-
-    		muted = false;
-    	}
-
-    	int err = poll(pcmCopyHandle->pollFds, pcmCopyHandle->pcmInCount, LOOP_TIMEOUT_MSEC);
+    	int err = poll(pcmCopyHandle->pollFds, 2, LOOP_TIMEOUT_MSEC);
     	if (err < 0) {
     		AFB_ApiError(pcmCopyHandle->api, "%s: poll err %s", __func__, strerror(errno));
     		continue;
@@ -590,23 +501,117 @@ static void *LoopInThread(void *handle) {
     		continue;
     	}
 
-    	for (int ix=0;ix<pcmCopyHandle->pcmInCount; ix++)
-    		AlsaPcmReadCB(&pcmCopyHandle->pollFds[ix], pcmCopyHandle);
+    	// handle the un/mute order
+    	if ((mutePfd->revents & EPOLLIN) != 0) {
+    		bool mute;
+
+    		size_t ret = read(mutePfd->fd, &mute, sizeof(mute));
+    		if (ret <= 0)
+    			continue;
+
+    		if (mute == muted)
+    			continue;
+
+    		muted = mute;
+
+    		if (muted) {
+    	   		readSuspend(pcmCopyHandle);
+    		} else {
+    			readResume(pcmCopyHandle);
+    		}
+    		continue;
     	}
 
-OnErrorExit:
-      pthread_exit(0);
+   		AlsaPcmReadCB(&pcmCopyHandle->pollFds[0], pcmCopyHandle);
+    }
+
+	pthread_exit(0);
+	return NULL;
 }
 
-static inline snd_pcm_uframes_t time_to_frames(unsigned int rate,
-					       unsigned long long time)
-{
-	return (time * rate) / 1000000ULL;
+
+static void *writeThreadEntry(void *handle) {
+    AlsaPcmCopyHandleT *pcmCopyHandle = (AlsaPcmCopyHandleT*) handle;
+	snd_pcm_t * pcmOut = pcmCopyHandle->pcmOut->handle;
+
+	alsa_ringbuf_t * rbuf = pcmCopyHandle->rbuf;
+
+	const snd_pcm_sframes_t threshold = 1000;
+
+	for (;;) {
+
+		sem_wait(&pcmCopyHandle->sem);
+
+		while (true) {
+			snd_pcm_sframes_t r;
+			snd_pcm_sframes_t availOut = snd_pcm_avail(pcmOut);
+
+			if (availOut < 0) {
+				if (availOut == -EPIPE) {
+					printf("write update EPIPE\n");
+					xrun(pcmOut, (int)availOut);
+					continue;
+				}
+				if (availOut == -ESTRPIPE) {
+					printf("write update ESTRPIPE\n");
+					suspend(pcmOut, (int)availOut);
+					continue;
+				}
+			}
+
+			// no space for output
+			if (availOut <= threshold) {
+				usleep(500);
+				continue;
+			}
+
+			pthread_mutex_lock(&pcmCopyHandle->mutex);
+			r = alsa_ringbuf_frames_used(rbuf);
+			if (r <= 0) {
+				pthread_mutex_unlock(&pcmCopyHandle->mutex);
+				break; // will wait again
+			}
+
+			if (r > availOut)
+				r = availOut;
+
+			char buf[r*pcmCopyHandle->frame_size];
+			alsa_ringbuf_frames_pop(rbuf, buf, r);
+			pthread_mutex_unlock(&pcmCopyHandle->mutex);
+
+			r = snd_pcm_writei( pcmOut, buf, r);
+			if (r <= 0) {
+				if (r == -EPIPE) {
+					int err = xrun(pcmOut, (int)r);
+					printf("XXX write EPIPE (%d), recov %d\n", ++pcmCopyHandle->write_err_count , err);
+
+					continue;
+				} else if (r == -ESTRPIPE) {
+					printf("XXX write ESTRPIPE\n");
+					break;
+				}
+				printf("Unhandled error %s\n", strerror(errno));
+				break;
+			}
+
+		}
+
+	}
+
+   	pthread_exit(0);
+   	return NULL;
 }
+
+
+PUBLIC int AlsaPcmCopyMuteSignal(SoftMixerT *mixer, AlsaPcmCtlT *pcmIn, bool mute) {
+	ssize_t ret = write(pcmIn->muteFd, &mute, sizeof(mute));
+	(void) ret;
+	return 0;
+}
+
 
 PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT *pcmIn, AlsaPcmCtlT *pcmOut, AlsaPcmHwInfoT * opts) {
     char string[32];
-    struct pollfd *pcmInFds; 
     int error;
     
     // Fulup need to check https://www.alsa-project.org/alsa-doc/alsa-lib/group___p_c_m___direct.html
@@ -674,23 +679,18 @@ PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT 
     cHandle->api = mixer->api;
     cHandle->channels = opts->channels;
 
-    cHandle->latency_reqtime = 10000;
-    cHandle->latency = time_to_frames(opts->rate, cHandle->latency_reqtime);
-    AFB_ApiInfo(mixer->api, "%s: Latency = %ld", __func__, cHandle->latency);
-
 	cHandle->frame_size = (snd_pcm_format_physical_width(opts->format) / 8) * opts->channels;
 
 	AFB_ApiInfo(mixer->api, "%s: Frame size is %zu", __func__, cHandle->frame_size);
 
-    size_t size = cHandle->latency * 2;
-    cHandle->buf = calloc(1, size*cHandle->frame_size);
-    cHandle->buf_count = 0;
-    cHandle->buf_pos   = 0;
-    cHandle->buf_size  = size;
+	snd_pcm_uframes_t nbFrames = 2 * opts->rate; // Exactly 2 second of buffer
+
+    cHandle->rbuf = alsa_ringbuf_new(nbFrames, cHandle->frame_size);
+
     cHandle->read_err_count  = 0;
     cHandle->write_err_count = 0;
     
-    AFB_ApiInfo(mixer->api, "%s Copy buf size is %zu", __func__, size);
+    AFB_ApiInfo(mixer->api, "%s Copy buffer nbframes is %zu", __func__, nbFrames);
 
     // get FD poll descriptor for capture PCM
     int pcmInCount = snd_pcm_poll_descriptors_count(pcmIn->handle);
@@ -701,34 +701,93 @@ PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT 
         goto OnErrorExit;
     };
 
-    pcmInFds = malloc(sizeof (*pcmInFds) * pcmInCount);
-    if ((error = snd_pcm_poll_descriptors(pcmIn->handle, pcmInFds, pcmInCount)) < 0) {
+    if (pcmInCount > 1) {
+    	AFB_ApiError(mixer->api,
+    	             "%s: Fail, pcmIn=%s; having more than one FD on capture PCM is not supported",
+    	             __func__, ALSA_PCM_UID(pcmOut->handle, string) );
+    	goto OnErrorExit;
+    }
+
+    struct pollfd pcmInFds[1];
+    if ((error = snd_pcm_poll_descriptors(pcmIn->handle, pcmInFds, 1)) < 0) {
         AFB_ApiError(mixer->api,
                      "%s: Fail pcmIn=%s get pollfds error=%s",
                      __func__, ALSA_PCM_UID(pcmOut->handle, string), snd_strerror(error));
         goto OnErrorExit;
     };
 
-    cHandle->pollFds = pcmInFds;
-    cHandle->pcmInCount = pcmInCount;
+    // create the mute pipe
+    int pFd[2];
+    error = pipe(pFd);
+    if (error < 0) {
+    	AFB_ApiError(mixer->api,
+    	             "Unable to create the mute signaling pipe\n");
+    	goto OnErrorExit;
+    }
 
-    // start a thread with a mainloop to monitor Audio-Agent
-    if ((error = pthread_create(&cHandle->thread, NULL, &LoopInThread, cHandle)) < 0) {
+    struct pollfd pipePoll;
+    pipePoll.fd = pFd[0];
+    pipePoll.events = POLLIN;
+    pipePoll.revents = 0;
+
+    pcmIn->muteFd = pFd[1];
+
+    cHandle->pollFds[0] = pcmInFds[0];
+    cHandle->pollFds[1] = pipePoll;
+
+    error = sem_init(&cHandle->sem, 0 , 0);
+    if (error < 0) {
+    	AFB_ApiError(mixer->api,
+    	                     "%s Fail initialize loop semaphore pcmIn=%s err=%d",
+    	                     __func__, ALSA_PCM_UID(pcmIn->handle, string), error);
+    	goto OnErrorExit;
+    }
+
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT);
+
+    error = pthread_mutex_init(&cHandle->mutex, &attr);
+    if (error < 0) {
+    	AFB_ApiError(mixer->api,
+    	                     "%s Fail initialize loop mutex pcmIn=%s err=%d",
+    	                     __func__, ALSA_PCM_UID(pcmIn->handle, string), error);
+    }
+
+    /// start a thread for writing
+    if ((error = pthread_create(&cHandle->wthread, NULL, &readThreadEntry, cHandle)) < 0) {
         AFB_ApiError(mixer->api,
                      "%s Fail create waiting thread pcmIn=%s err=%d",
                      __func__, ALSA_PCM_UID(pcmIn->handle, string), error);
         goto OnErrorExit;
     }
-    
+
+    // start a thread for reading
+    if ((error = pthread_create(&cHandle->rthread, NULL, &writeThreadEntry, cHandle)) < 0) {
+        AFB_ApiError(mixer->api,
+                     "%s Fail create waiting thread pcmIn=%s err=%d",
+                     __func__, ALSA_PCM_UID(pcmIn->handle, string), error);
+        goto OnErrorExit;
+    }
+
     // request a higher priority for each audio stream thread
     struct sched_param params;
     params.sched_priority = sched_get_priority_max(SCHED_FIFO);
-    error= pthread_setschedparam(cHandle->thread, SCHED_FIFO, &params);
+
+    error= pthread_setschedparam(cHandle->rthread, SCHED_FIFO, &params);
     if (error) {
         AFB_ApiWarning(mixer->api,
-                       "%s: Failed to increase stream thread priority pcmIn=%s err=%s",
+                       "%s: Failed to increase stream read thread priority pcmIn=%s err=%s",
                        __func__, ALSA_PCM_UID(pcmIn->handle, string), strerror(error));
     }
+
+    error= pthread_setschedparam(cHandle->wthread, SCHED_FIFO, &params);
+    if (error) {
+        AFB_ApiWarning(mixer->api,
+                       "%s: Failed to increase stream write thread priority pcmIn=%s err=%s",
+                       __func__, ALSA_PCM_UID(pcmIn->handle, string), strerror(error));
+    }
+
     return 0;
 
 OnErrorExit:

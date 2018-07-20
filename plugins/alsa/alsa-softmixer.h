@@ -29,10 +29,12 @@
 #include <alsa/asoundlib.h>
 #include <stdbool.h>
 #include <systemd/sd-event.h>
+#include <semaphore.h>
 
 #include "ctl-plugin.h"
 #include "wrap-json.h"
 
+#include "alsa-ringbuf.h"
 
 #ifndef PUBLIC
 #define PUBLIC
@@ -100,11 +102,14 @@ typedef struct {
 typedef struct {
     int ccount;
     bool mute;
+    int muteFd;
     AlsaDevInfoT cid;
     snd_pcm_t *handle;
     AlsaPcmHwInfoT *params;
 
     void * mixer;
+
+    snd_pcm_uframes_t avail_min;
 } AlsaPcmCtlT;
 
 typedef struct {
@@ -115,24 +120,27 @@ typedef struct {
 
     size_t frame_size;
     snd_pcm_uframes_t latency;	/* final latency in frames */
-	unsigned int latency_reqtime;	/* in us */
 
     // IO Job
-    void * buf;
-	snd_pcm_uframes_t buf_count;	/* filled samples */
-	snd_pcm_uframes_t buf_pos;		/* begin of data */
-	snd_pcm_uframes_t buf_size;		/* buffer size in frames */
+	alsa_ringbuf_t * rbuf;
+
 	uint32_t		  write_err_count;
 	uint32_t		  read_err_count;
 
     unsigned int channels;
     sd_event *sdLoop;
-    pthread_t thread;
+
+    pthread_t rthread;
+    pthread_t wthread;
+
     int tid;
     char* info;
-    struct pollfd * pollFds;
-    int pcmInCount;
+    struct pollfd pollFds[2];
 
+    sem_t sem;
+    pthread_mutex_t mutex;
+
+    int saveFd;
 
 } AlsaPcmCopyHandleT;
 
@@ -287,6 +295,7 @@ PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT 
 
 // alsa-plug-*.c _snd_pcm_PLUGIN_open_ see macro ALSA_PLUG_PROTO(plugin)
 PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *streamAudio, AlsaPcmCtlT *pcmIn, AlsaPcmCtlT *pcmOut, AlsaPcmHwInfoT * opts);
+PUBLIC int AlsaPcmCopyMuteSignal(SoftMixerT *mixer, AlsaPcmCtlT *pcmIn, bool mute);
 PUBLIC AlsaPcmCtlT* AlsaCreateSoftvol(SoftMixerT *mixer, AlsaStreamAudioT *stream, char *slaveid, AlsaSndCtlT *sndcard, char* ctlName, int max, int open);
 PUBLIC AlsaPcmCtlT* AlsaCreateRoute(SoftMixerT *mixer, AlsaSndZoneT *zone, int open);
 PUBLIC AlsaPcmCtlT* AlsaCreateRate(SoftMixerT *mixer, const char* pcmName, AlsaPcmCtlT *pcmSlave, AlsaPcmHwInfoT *params, int open);

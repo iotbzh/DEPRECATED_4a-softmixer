@@ -35,7 +35,7 @@ static void MixerRemoveVerb(AFB_ReqT request) {
 
         AFB_ApiNotice(mixer->api, "cleaning mixer=%s stream=%s", mixer->uid, stream->uid);
 
-        error = pthread_cancel(stream->copy->thread);
+        error = pthread_cancel(stream->copy->rthread);
         if (error) {
             AFB_ReqFailF(request, "internal-error", "Fail to kill audio-stream threads mixer=%s", mixer->uid);
             goto OnErrorExit;

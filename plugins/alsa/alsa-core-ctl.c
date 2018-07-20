@@ -521,20 +521,22 @@ STATIC int CtlSubscribeEventCB(sd_event_source* src, int fd, uint32_t revents, v
 
     for (index = 0; sndcard->registry[index]; index++) {
     	RegistryEntryPcmT * reg = sndcard->registry[index];
+    	snd_pcm_t * pcm = reg->pcm->handle;
         if (reg->numid == numid) {
         	int ret;
             switch (reg->type) {
                 case FONTEND_NUMID_RUN:
-                    reg->pcm->mute = !value;
-                    ret = snd_pcm_pause(reg->pcm->handle, (int) (!value));
+                    AlsaPcmCopyMuteSignal(mixer, reg->pcm, !value);
+                    ret = snd_pcm_pause(pcm, (int) (!value));
                     AFB_ApiNotice(mixer->api, "%s:%s numid=%d name=%s active=%ld ret %d",
                     		      __func__, sHandle->uid, numid, name, value, ret);
                     if (ret < 0) {
                     	AFB_ApiNotice(mixer->api, "%s error: %s", __func__, snd_strerror(ret));
                     }
+
                     break;
                 case FONTEND_NUMID_PAUSE:
-                    reg->pcm->mute = value;
+                    AlsaPcmCopyMuteSignal(mixer, reg->pcm, value);
                     ret = snd_pcm_pause(reg->pcm->handle, (int) value);
                     AFB_ApiNotice(mixer->api, "%s:%s numid=%d name=%s pause=%ld ret %d",
                     		      __func__, sHandle->uid, numid, name, value, ret);
