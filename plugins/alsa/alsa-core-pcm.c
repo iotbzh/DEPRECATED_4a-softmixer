@@ -497,7 +497,7 @@ static void *readThreadEntry(void *handle) {
 
     	if (err == 0) {
     		/* timeout */
-    		AFB_ApiInfo(pcmCopyHandle->api, "%s(%s) alive", __func__, pcmCopyHandle->pcmIn->cid.cardid );
+    		AFB_ApiDebug(pcmCopyHandle->api, "%s(%s) alive", __func__, pcmCopyHandle->pcmIn->cid.cardid );
     		continue;
     	}
 
@@ -613,9 +613,9 @@ PUBLIC int AlsaPcmCopyMuteSignal(SoftMixerT *mixer, AlsaPcmCtlT *pcmIn, bool mut
 PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT *pcmIn, AlsaPcmCtlT *pcmOut, AlsaPcmHwInfoT * opts) {
     char string[32];
     int error;
-    
+
     // Fulup need to check https://www.alsa-project.org/alsa-doc/alsa-lib/group___p_c_m___direct.html
-    
+
     AlsaDumpPcmInfo(mixer,"PcmIn",pcmIn->handle);
     AlsaDumpPcmInfo(mixer,"PcmOut",pcmOut->handle);
 
@@ -637,7 +637,7 @@ PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT 
     	AFB_ApiError(mixer->api, "%s: PCM configuration for capture failed", __func__);
     	goto OnErrorExit;
     }
-    
+
     AFB_ApiInfo(mixer->api, "%s: Configure PLAYBACK PCM", __func__);
 
     // input and output should match
@@ -670,7 +670,7 @@ PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT 
         AFB_ApiError(mixer->api, "%s: Fail to start CAPTURE PCM=%s error=%s", __func__, ALSA_PCM_UID(pcmIn->handle, string), snd_strerror(error));
         goto OnErrorExit;
     };
-    
+
     AlsaPcmCopyHandleT *cHandle= calloc(1, sizeof(AlsaPcmCopyHandleT));
 
     cHandle->info = "pcmCpy";
@@ -689,7 +689,7 @@ PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT 
 
     cHandle->read_err_count  = 0;
     cHandle->write_err_count = 0;
-    
+
     AFB_ApiInfo(mixer->api, "%s Copy buffer nbframes is %zu", __func__, nbFrames);
 
     // get FD poll descriptor for capture PCM
