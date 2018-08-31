@@ -23,8 +23,8 @@
 #include "mixer-binding.h"
 
 
-// default api to print log when apihandle not avaliable
-PUBLIC afb_dynapi *AFB_default;
+// default api to print log when apihandle not avalaible
+PUBLIC afb_api_t AFB_default;
 
 // Config Section definition (note: controls section index should match handle retrieval in HalConfigExec)
 static CtlSectionT ctrlSections[]= {
@@ -52,16 +52,16 @@ STATIC AFB_ApiVerbs CtrlApiVerbs[] = {
     { .verb = NULL} /* marker for end of the array */
 };
 
-STATIC int CtrlLoadStaticVerbs (afb_dynapi *apiHandle, AFB_ApiVerbs *verbs) {
+STATIC int CtrlLoadStaticVerbs (afb_api_t apiHandle, AFB_ApiVerbs *verbs) {
     int errcount=0;
 
     for (int idx=0; verbs[idx].verb; idx++) {
-        errcount+= afb_dynapi_add_verb(apiHandle,
-        		                       CtrlApiVerbs[idx].verb,
-									   CtrlApiVerbs[idx].info,
-									   CtrlApiVerbs[idx].callback,
-									   (void*)&CtrlApiVerbs[idx],
-									   CtrlApiVerbs[idx].auth, 0);
+        errcount+= afb_api_add_verb(apiHandle,
+        		                    CtrlApiVerbs[idx].verb,
+									CtrlApiVerbs[idx].info,
+									CtrlApiVerbs[idx].callback,
+									(void*)&CtrlApiVerbs[idx],
+									CtrlApiVerbs[idx].auth, 0, 0);
     }
 
     return errcount;
@@ -75,7 +75,7 @@ STATIC int CtrlLoadOneApi (void *cbdata, AFB_ApiT apiHandle) {
     CtlConfigT *ctrlConfig = (CtlConfigT*) cbdata;
 
     // save closure as api's data context
-    afb_dynapi_set_userdata(apiHandle, ctrlConfig);
+    afb_api_set_userdata(apiHandle, ctrlConfig);
     
     // add static controls verbs
     int error = CtrlLoadStaticVerbs (apiHandle, CtrlApiVerbs);
@@ -88,7 +88,7 @@ STATIC int CtrlLoadOneApi (void *cbdata, AFB_ApiT apiHandle) {
     error= CtlLoadSections(apiHandle, ctrlConfig, ctrlSections);
 
     // declare an event event manager for this API;
-    afb_dynapi_on_event(apiHandle, CtrlDispatchApiEvent);
+    afb_api_on_event(apiHandle, CtrlDispatchApiEvent);
 
     // should not seal API as each mixer+stream create a new verb
     // afb_dynapi_seal(apiHandle);
@@ -98,7 +98,7 @@ OnErrorExit:
     return 1;
 }
 
-PUBLIC int afbBindingEntry(afb_dynapi *apiHandle) {
+PUBLIC int afbBindingEntry(afb_api_t apiHandle) {
 
     AFB_default = apiHandle;
 
@@ -128,10 +128,12 @@ PUBLIC int afbBindingEntry(afb_dynapi *apiHandle) {
     AFB_ApiNotice (apiHandle, "Controller API='%s' info='%s'", ctrlConfig->api, ctrlConfig->info);
     // create one API per config file (Pre-V3 return code ToBeChanged)
 
-    int status = afb_dynapi_new_api(apiHandle, ctrlConfig->api, ctrlConfig->info, 1, CtrlLoadOneApi, ctrlConfig);
+    afb_api_t handle = afb_api_new_api(apiHandle, ctrlConfig->api, ctrlConfig->info, 1, CtrlLoadOneApi, ctrlConfig);
+
+    int status = 0;
 
     // config exec should be done after api init in order to enable onload to use newly defined ctl API.
-    if (!status) 
+    if (handle)
         status = CtlConfigExec (apiHandle, ctrlConfig);
     
     return status;

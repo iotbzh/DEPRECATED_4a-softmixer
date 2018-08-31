@@ -19,6 +19,8 @@
 #define _GNU_SOURCE  // needed for vasprintf
 
 #include "alsa-softmixer.h"
+#include "alsa-bluez.h"
+
 #include <string.h>
 #include <pthread.h>
 
@@ -26,7 +28,7 @@
 extern Lua2cWrapperT Lua2cWrap;
 
 static void MixerRemoveVerb(AFB_ReqT request) {
-    SoftMixerT *mixer = (SoftMixerT*) afb_request_get_vcbdata(request);
+    SoftMixerT *mixer = (SoftMixerT*) afb_req_get_vcbdata(request);
     int error;
 
     for (int idx = 0; mixer->streams[idx]->uid; idx++) {
@@ -41,7 +43,7 @@ static void MixerRemoveVerb(AFB_ReqT request) {
             goto OnErrorExit;
         }
 
-        error = afb_dynapi_sub_verb(mixer->api, stream->uid);
+        error = afb_api_del_verb(mixer->api, stream->uid, (void**)&mixer);
         if (error) {
             AFB_ReqFailF(request, "internal-error", "Mixer=%s fail to remove verb=%s error=%s", mixer->uid, stream->uid, strerror(error));
             goto OnErrorExit;
@@ -481,7 +483,7 @@ OnErrorExit:
 
 STATIC void MixerInfoAction(AFB_ReqT request, json_object * argsJ) {
 
-    SoftMixerT *mixer = (SoftMixerT*) afb_request_get_vcbdata(request);
+    SoftMixerT *mixer = (SoftMixerT*) afb_req_get_vcbdata(request);
     int error, verbose = 0;
     json_object *streamsJ = NULL, *rampsJ = NULL, *zonesJ = NULL, *capturesJ = NULL, *playbacksJ = NULL;
 
@@ -534,15 +536,15 @@ STATIC void MixerInfoAction(AFB_ReqT request, json_object * argsJ) {
 }
 
 STATIC void MixerInfoVerb(AFB_ReqT request) {
-    json_object *argsJ = afb_request_json(request);
+    json_object *argsJ = afb_req_json(request);
     MixerInfoAction(request, argsJ);
 }
 
 STATIC void MixerAttachVerb(AFB_ReqT request) {
-    SoftMixerT *mixer = (SoftMixerT*) afb_request_get_vcbdata(request);
+    SoftMixerT *mixer = (SoftMixerT*) afb_req_get_vcbdata(request);
     const char *uid = NULL, *prefix = NULL;
     json_object *playbacksJ = NULL, *capturesJ = NULL, *zonesJ = NULL, *streamsJ = NULL, *rampsJ = NULL, *loopsJ = NULL;
-    json_object *argsJ = afb_request_json(request);
+    json_object *argsJ = afb_req_json(request);
     json_object *responseJ = json_object_new_object();
     int error;
 
@@ -632,6 +634,49 @@ STATIC void MixerAttachVerb(AFB_ReqT request) {
     return;
 
 OnErrorExit:
+	AFB_ApiError(mixer->api,"%s FAILED", __func__);
+    return;
+}
+
+
+static void MixerBluezAlsaDevVerb(AFB_ReqT request) {
+    SoftMixerT *mixer = (SoftMixerT*) afb_req_get_vcbdata(request);
+
+    json_object *argsJ = afb_req_json(request);
+    json_object *responseJ = json_object_new_object();
+
+    char * interface = NULL, *device = NULL, *profile = NULL;
+
+    int error;
+
+    error = wrap_json_unpack(argsJ, "{ss,ss,ss !}"
+            , "interface", &interface
+            , "device", &device
+            , "profile", &profile
+            );
+
+    if (error) {
+        AFB_ReqFailF(request,
+                     "invalid-syntax",
+					 "mixer=%s missing 'interface|device|profile' error=%s args=%s",
+                     mixer->uid, wrap_json_get_error_string(error), json_object_get_string(argsJ));
+        goto OnErrorExit;
+    }
+
+    printf("%s: interface %s, device %s, profile %s\n", __func__, interface, device, profile);
+
+    error = alsa_bluez_set_device(interface, device, profile);
+    if (error) {
+    	AFB_ReqFailF(request,
+    	             "runtime error",
+					 "Unable to set device , err %d", error);
+    	goto OnErrorExit;
+    }
+
+
+    AFB_ReqSuccess(request, responseJ, NULL);
+
+OnErrorExit:
     return;
 }
 
@@ -641,6 +686,7 @@ STATIC AFB_ApiVerbs CtrlApiVerbs[] = {
     { .verb = "attach", .callback = MixerAttachVerb, .info = "attach resources to mixer"},
     { .verb = "remove", .callback = MixerRemoveVerb, .info = "remove existing mixer streams, zones, ..."},
     { .verb = "info", .callback = MixerInfoVerb, .info = "list existing mixer streams, zones, ..."},
+	{ .verb = "bluezalsa_dev", .callback = MixerBluezAlsaDevVerb, .info = "set bluez alsa device"},
     { .verb = NULL} /* marker for end of the array */
 };
 
@@ -648,7 +694,7 @@ STATIC int LoadStaticVerbs(SoftMixerT *mixer, AFB_ApiVerbs * verbs) {
     int errcount = 0;
 
     for (int idx = 0; verbs[idx].verb; idx++) {
-        errcount += afb_dynapi_add_verb(mixer->api, CtrlApiVerbs[idx].verb, CtrlApiVerbs[idx].info, CtrlApiVerbs[idx].callback, (void*) mixer, CtrlApiVerbs[idx].auth, 0);
+        errcount += afb_api_add_verb(mixer->api, CtrlApiVerbs[idx].verb, CtrlApiVerbs[idx].info, CtrlApiVerbs[idx].callback, (void*) mixer, CtrlApiVerbs[idx].auth, 0, 0);
     }
 
     return errcount;
@@ -757,7 +803,7 @@ CTLP_CAPI(MixerCreate, source, argsJ, responseJ) {
 
     mixer->sdLoop = AFB_GetEventLoop(source->api);
     mixer->api = source->api;
-    afb_dynapi_set_userdata(source->api, mixer);
+    afb_api_set_userdata(source->api, mixer);
 
     error = LoadStaticVerbs(mixer, CtrlApiVerbs);
     if (error) goto OnErrorExit;
@@ -767,3 +813,5 @@ CTLP_CAPI(MixerCreate, source, argsJ, responseJ) {
 OnErrorExit:
     return -1;
 }
+
+

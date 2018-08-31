@@ -27,6 +27,7 @@
 #include <sys/ioctl.h>
 
 #include "alsa-softmixer.h"
+#include "alsa-bluez.h"
 
 // extracted IOCTLs from <alsa/asoundlib.h>
 #define _IOR_HACKED(type,nr,size)       _IOC(_IOC_READ,(type),(nr),size)
@@ -62,6 +63,10 @@ PUBLIC AlsaPcmCtlT *AlsaByPathOpenPcm(SoftMixerT *mixer, AlsaDevInfoT *pcmDev, s
     int error;
     AlsaPcmCtlT *pcmCtl = calloc(1, sizeof (AlsaPcmCtlT));
     char *cardid = NULL;
+
+    if (pcmDev->pcmplug_params) {
+    	pcmDev->cardid = pcmDev->pcmplug_params;
+    }
 
     if (!pcmDev->cardid) {
         if (pcmDev->subdev) {
@@ -115,7 +120,9 @@ PUBLIC snd_ctl_t *AlsaByPathOpenCtl(SoftMixerT *mixer, const char *uid, AlsaSndC
     if (dev->cid.devpath)
         cardInfo = AlsaByPathInfo(mixer, dev->cid.devpath);
     else if (dev->cid.cardid)
-        cardInfo = AlsaCtlGetInfo(mixer, dev->cid.cardid);
+        cardInfo = AlsaCtlGetCardInfo(mixer, dev->cid.cardid);
+    else if (dev->cid.pcmplug_params)
+    	cardInfo = AlsaCtlGetCardInfo(mixer, dev->cid.pcmplug_params);
 
     if (!cardInfo) {
         AFB_ApiError(mixer->api,

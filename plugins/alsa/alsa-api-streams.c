@@ -19,8 +19,11 @@
 #define _GNU_SOURCE  // needed for vasprintf
 
 #include "alsa-softmixer.h"
+#include "alsa-bluez.h"
+
 #include <string.h>
 #include <stdbool.h>
+#include <dlfcn.h>
 
 // Set stream volume control in %
 #define VOL_CONTROL_MAX  100
@@ -39,10 +42,10 @@ typedef struct {
 } apiHandleT;
 
 STATIC void StreamApiVerbCB(AFB_ReqT request) {
-    apiHandleT *handle = (apiHandleT*) afb_request_get_vcbdata(request);
+    apiHandleT *handle = (apiHandleT*) afb_req_get_vcbdata(request);
     int error, verbose = 0, doClose = 0, doToggle = 0, doMute = -1, doInfo = 0;
     long mute, volume, curvol;
-    json_object *volumeJ = NULL, *rampJ = NULL, *argsJ = afb_request_json(request);
+    json_object *volumeJ = NULL, *rampJ = NULL, *argsJ = afb_req_json(request);
     json_object *responseJ = NULL;
     SoftMixerT *mixer = handle->mixer;
     AlsaSndCtlT *sndcard = handle->sndcard;
@@ -194,6 +197,8 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     char *playbackName = NULL;
     char *runName = NULL;
     char *volName = NULL;
+    int pauseNumid = 0;
+    int volNumid = 0;
 
     AFB_ApiInfo(mixer->api,
                 "%s, stream %s %s, source %s, sink %s, mute %d",
@@ -224,6 +229,7 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
             captureDev->cardidx = sourceDev->cid.cardidx;
             captureDev->device = sourceDev->cid.device;
             captureDev->subdev = sourceDev->cid.subdev;
+            captureDev->pcmplug_params = sourceDev->cid.pcmplug_params;
             captureCard = sourceDev;
             AFB_ApiInfo(mixer->api, "%s found capture %s", __func__, uid);
         } else {
@@ -239,6 +245,8 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     if (!capturePcm) goto OnErrorExit;
 
     capturePcm->mute = stream->mute;
+
+    AFB_ApiInfo(mixer->api,"%s: PCM opened !\n", __func__);
 
     // Registry capturePcm PCM for active/pause event
     if (loopDev && loopDev->numid) {
@@ -281,17 +289,22 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     }
 
     // retrieve channel count from route and push it to stream
+
     stream->params->channels = zone->ccount;
 
     // create mute control and Registry it as pause/resume ctl)
     if (asprintf(&runName, "pause-%s", stream->uid) == -1)
         goto OnErrorExit;
 
-    int pauseNumid = AlsaCtlCreateControl(mixer, captureCard, runName, 1, 0, 1, 1, stream->mute);
+    AFB_ApiInfo(mixer->api,"%s: create mute control !\n", __func__);
+
+    pauseNumid = AlsaCtlCreateControl(mixer, captureCard, runName, 1, 0, 1, 1, stream->mute);
     if (pauseNumid <= 0) {
         AFB_ApiError(mixer->api, "%s: Failed to create pause control", __func__);
         goto OnErrorExit;
     }
+
+    AFB_ApiInfo(mixer->api,"%s: register mute control !", __func__);
 
     // Registry stop/play as a pause/resume control
     error = AlsaCtlRegister(mixer, captureCard, capturePcm, FONTEND_NUMID_PAUSE, pauseNumid);
@@ -303,6 +316,8 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     if (asprintf(&volName, "vol-%s", stream->uid) == -1)
         goto OnErrorExit;
 
+    AFB_ApiInfo(mixer->api,"%s: create softvol", __func__);
+
     // create stream and delay pcm opening until vol control is created
     streamPcm = AlsaCreateSoftvol(mixer, stream, volSlaveId, captureCard, volName, VOL_CONTROL_MAX, 0);
     if (!streamPcm) {
@@ -310,8 +325,10 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
         goto OnErrorExit;
     }
 
+    AFB_ApiInfo(mixer->api,"%s: create softvol control", __func__);
+
     // create volume control before softvol pcm is opened
-    int volNumid = AlsaCtlCreateControl(mixer,
+    volNumid = AlsaCtlCreateControl(mixer,
                                         captureCard,
                                         volName,
                                         stream->params->channels,
@@ -406,7 +423,7 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     stream->volume = volNumid;
     stream->mute = pauseNumid;
 
-    error = afb_dynapi_add_verb(mixer->api, stream->verb, stream->info, StreamApiVerbCB, apiHandle, NULL, 0);
+    error = afb_api_add_verb(mixer->api, stream->verb, stream->info, StreamApiVerbCB, apiHandle, NULL, 0, 0);
     if (error) {
         AFB_ApiError(mixer->api,
                      "%s mixer=%s fail to Register API verb stream=%s",
@@ -565,5 +582,6 @@ PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid,
     return 0;
 
 OnErrorExit:
+	printf("%s FAILED\n", __func__);
     return -1;
 }

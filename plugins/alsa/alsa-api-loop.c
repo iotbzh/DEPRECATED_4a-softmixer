@@ -67,6 +67,7 @@ STATIC AlsaLoopSubdevT *ProcessOneSubdev(SoftMixerT *mixer, AlsaSndLoopT *loop, 
     AlsaDevInfoT loopSubdev;
     loopSubdev.devpath=NULL;
     loopSubdev.cardid=NULL;
+    loopSubdev.pcmplug_params = NULL;
     loopSubdev.cardidx = loop->sndcard->cid.cardidx;
     loopSubdev.device = loop->capture;
     loopSubdev.subdev = subdev->index;

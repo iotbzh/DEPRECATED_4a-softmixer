@@ -232,11 +232,11 @@ OnErrorExit:
 }
 
 STATIC void ApiPcmVerbCB(AFB_ReqT request) {
-    apiVerbHandleT *handle = (apiVerbHandleT*) afb_request_get_vcbdata(request);
+    apiVerbHandleT *handle = (apiVerbHandleT*) afb_req_get_vcbdata(request);
     int error, verbose = 0, doInfo = 0, doToggle = 0, doMute = -1;
     json_object *volumeJ = NULL;
     json_object *responseJ = NULL;
-    json_object *argsJ = afb_request_json(request);
+    json_object *argsJ = afb_req_json(request);
 
     SoftMixerT *mixer = handle->mixer;
     AlsaSndCtlT *sndcard = handle->pcm->sndcard;
@@ -432,8 +432,9 @@ PUBLIC AlsaSndPcmT * ApiPcmAttachOne(SoftMixerT *mixer, const char *uid, snd_pcm
     int error;
 
     pcm->sndcard = (AlsaSndCtlT*) calloc(1, sizeof (AlsaSndCtlT));
-    error = wrap_json_unpack(argsJ, "{ss,s?s,s?s,s?i,s?i,s?o,s?o,s?o !}"
+    error = wrap_json_unpack(argsJ, "{ss,s?s,s?s,s?s,s?i,s?i,s?o,s?o,s?o !}"
             , "uid", &pcm->uid
+			, "pcmplug_params", &pcm->sndcard->cid.pcmplug_params
             , "path", &pcm->sndcard->cid.devpath
             , "cardid", &pcm->sndcard->cid.cardid
             , "device", &pcm->sndcard->cid.device
@@ -549,7 +550,7 @@ PUBLIC AlsaSndPcmT * ApiPcmAttachOne(SoftMixerT *mixer, const char *uid, snd_pcm
         handle->pcm = pcm;
         handle->mixer = mixer;
         pcm->verb=apiVerb;
-        error = afb_dynapi_add_verb(mixer->api, apiVerb, apiInfo, ApiPcmVerbCB, handle, NULL, 0);
+        error = afb_api_add_verb(mixer->api, apiVerb, apiInfo, ApiPcmVerbCB, handle, NULL, 0, 0);
         if (error) {
             AFB_ApiError(mixer->api, "ApiPcmAttachOne mixer=%s verb=%s fail to Register Master control ", mixer->uid, apiVerb);
             goto OnErrorExit;

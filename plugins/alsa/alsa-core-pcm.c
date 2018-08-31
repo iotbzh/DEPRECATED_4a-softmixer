@@ -269,7 +269,6 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
     };
 
     snd_pcm_sw_params_get_avail_min(pxmSwParams, &pcm->avail_min);
-    printf("GET AVAILABLE MIN: %ld\n", n);
 
     int start_delay = 0;
 	snd_pcm_uframes_t start_threshold;
@@ -362,7 +361,7 @@ STATIC int AlsaPcmReadCB( struct pollfd * pfd, AlsaPcmCopyHandleT * pcmCopyHandl
 	 * hopefully we will have more luck next time */
 
 	if (availIn > availInBuf) {
-		printf("INCOMING BUFFER TOO SMALL !\n");
+//		printf("INCOMING BUFFER TOO SMALL !\n");
 		availIn = availInBuf;
 	}
 
@@ -373,8 +372,8 @@ STATIC int AlsaPcmReadCB( struct pollfd * pfd, AlsaPcmCopyHandleT * pcmCopyHandl
 
 		if (r <= 0) {
 			pthread_mutex_unlock(&pcmCopyHandle->mutex);
-			// Wakeup the reader, in case it would be sleeping,
-			// that lets it an opportunity to pop.
+			// Wake up the reader, in case it is sleeping,
+			// that lets it an opportunity to pop something.
 			sem_post(&pcmCopyHandle->sem);
 			break;
 		}
@@ -386,6 +385,7 @@ STATIC int AlsaPcmReadCB( struct pollfd * pfd, AlsaPcmCopyHandleT * pcmCopyHandl
 		pthread_mutex_unlock(&pcmCopyHandle->mutex);
 
 		r = snd_pcm_readi(pcmIn, buf, r);
+
 		if (r == 0) {
 			break;
 		}
@@ -469,7 +469,7 @@ static void readResume(AlsaPcmCopyHandleT * pcmCopyHandle) {
 
 
 static void *readThreadEntry(void *handle) {
-#define LOOP_TIMEOUT_MSEC	10*1000
+#define LOOP_TIMEOUT_MSEC	10*1000 /* 10 seconds */
 
     AlsaPcmCopyHandleT *pcmCopyHandle = (AlsaPcmCopyHandleT*) handle;
     pcmCopyHandle->tid = (int) syscall(SYS_gettid);
@@ -478,8 +478,11 @@ static void *readThreadEntry(void *handle) {
                   "%s :%s/%d Started, muted=%d",
                   __func__, pcmCopyHandle->info, pcmCopyHandle->tid, pcmCopyHandle->pcmIn->mute);
 
-   	struct pollfd * mutePfd = &pcmCopyHandle->pollFds[1];
-   	mutePfd->events = POLLIN | POLLHUP;
+   	struct pollfd * mutePfd =  &pcmCopyHandle->pollFds[0];
+   	struct pollfd * framePfd = &pcmCopyHandle->pollFds[1];
+
+   	mutePfd->events  = POLLIN | POLLHUP;
+   	framePfd->events = POLLIN | POLLHUP;
 
    	bool muted = pcmCopyHandle->pcmIn->mute;
 
@@ -489,7 +492,7 @@ static void *readThreadEntry(void *handle) {
     /* loop until end */
     for (;;) {
 
-    	int err = poll(pcmCopyHandle->pollFds, 2, LOOP_TIMEOUT_MSEC);
+  	   	int err = poll(pcmCopyHandle->pollFds, pcmCopyHandle->nbPcmFds, LOOP_TIMEOUT_MSEC);
     	if (err < 0) {
     		AFB_ApiError(pcmCopyHandle->api, "%s: poll err %s", __func__, strerror(errno));
     		continue;
@@ -522,7 +525,21 @@ static void *readThreadEntry(void *handle) {
     		continue;
     	}
 
-   		AlsaPcmReadCB(&pcmCopyHandle->pollFds[0], pcmCopyHandle);
+    	unsigned short revents;
+
+    	int ret = snd_pcm_poll_descriptors_revents(pcmCopyHandle->pcmIn->handle, &pcmCopyHandle->pollFds[1], 1, &revents);
+
+    	if (ret == -ENODEV) {
+    		sleep(1);
+    		continue;
+    	}
+
+    	if (framePfd->revents & POLLHUP) {
+    		AFB_ApiNotice(pcmCopyHandle->api, "Frame POLLHUP");
+    		continue;
+    	}
+
+   		AlsaPcmReadCB(&pcmCopyHandle->pollFds[1], pcmCopyHandle);
     }
 
 	pthread_exit(0);
@@ -631,6 +648,8 @@ PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT 
     pcmIn->mixer = mixer;
     pcmOut->mixer = mixer;
 
+    AFB_ApiInfo(mixer->api, "%s: Configure CAPTURE PCM", __func__);
+
     // prepare PCM for capture and replay
     error = AlsaPcmConf(mixer, pcmIn, SND_PCM_STREAM_CAPTURE);
     if (error) {
@@ -703,13 +722,13 @@ PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT 
 
     if (pcmInCount > 1) {
     	AFB_ApiError(mixer->api,
-    	             "%s: Fail, pcmIn=%s; having more than one FD on capture PCM is not supported",
-    	             __func__, ALSA_PCM_UID(pcmOut->handle, string) );
+    	             "%s: Fail, pcmIn=%s; having more than one FD on capture PCM is not supported (here, %d)",
+    	             __func__, ALSA_PCM_UID(pcmOut->handle, string) , pcmInCount);
     	goto OnErrorExit;
     }
 
-    struct pollfd pcmInFds[1];
-    if ((error = snd_pcm_poll_descriptors(pcmIn->handle, pcmInFds, 1)) < 0) {
+    struct pollfd pcmInFd;
+    if ((error = snd_pcm_poll_descriptors(pcmIn->handle, &pcmInFd, 1)) < 0) {
         AFB_ApiError(mixer->api,
                      "%s: Fail pcmIn=%s get pollfds error=%s",
                      __func__, ALSA_PCM_UID(pcmOut->handle, string), snd_strerror(error));
@@ -717,23 +736,27 @@ PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT 
     };
 
     // create the mute pipe
-    int pFd[2];
-    error = pipe(pFd);
+    int pMuteFd[2];
+    error = pipe(pMuteFd);
     if (error < 0) {
     	AFB_ApiError(mixer->api,
     	             "Unable to create the mute signaling pipe\n");
     	goto OnErrorExit;
     }
 
-    struct pollfd pipePoll;
-    pipePoll.fd = pFd[0];
-    pipePoll.events = POLLIN;
-    pipePoll.revents = 0;
+    struct pollfd mutePFd;
+    // read end
+    mutePFd.fd = pMuteFd[0];
+    mutePFd.events = POLLIN;
+    mutePFd.revents = 0;
 
-    pcmIn->muteFd = pFd[1];
+    // write end
+    pcmIn->muteFd = pMuteFd[1];
 
-    cHandle->pollFds[0] = pcmInFds[0];
-    cHandle->pollFds[1] = pipePoll;
+    cHandle->pollFds[0] = mutePFd;
+   	cHandle->pollFds[1] = pcmInFd;
+
+    cHandle->nbPcmFds = pcmInCount+1;
 
     error = sem_init(&cHandle->sem, 0 , 0);
     if (error < 0) {
@@ -753,6 +776,7 @@ PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT 
     	                     "%s Fail initialize loop mutex pcmIn=%s err=%d",
     	                     __func__, ALSA_PCM_UID(pcmIn->handle, string), error);
     }
+
 
     /// start a thread for writing
     if ((error = pthread_create(&cHandle->wthread, NULL, &readThreadEntry, cHandle)) < 0) {

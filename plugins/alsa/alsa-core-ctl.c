@@ -25,6 +25,8 @@ for the specific language governing permissions and
 #define _GNU_SOURCE  // needed for vasprintf
 
 #include "alsa-softmixer.h"
+#include "alsa-bluez.h"
+
 #include <pthread.h>
 #include <sys/syscall.h>
 
@@ -279,11 +281,21 @@ OnErrorExit:
 
 // Clone of AlsaLib snd_card_load2 static function
 
-PUBLIC snd_ctl_card_info_t *AlsaCtlGetInfo(SoftMixerT *mixer, const char *cardid) {
+PUBLIC snd_ctl_card_info_t *AlsaCtlGetCardInfo(SoftMixerT *mixer, const char *cardid) {
     int error;
     snd_ctl_t *ctl;
 
     AFB_ApiNotice(mixer->api, "Looking for card '%s'", cardid);
+
+    /* "bluealsa" is the name of the control external plugin
+     * (https://www.alsa-project.org/alsa-doc/alsa-lib/ctl_external_plugins.html)
+     */
+    if (strstr(cardid, "bluealsa")) {
+    	cardid="bluealsa";
+    	alsa_bluez_init();
+    }
+
+    AFB_ApiNotice(mixer->api, "Opening card control '%s'", cardid);
 
     if ((error = snd_ctl_open(&ctl, cardid, SND_CTL_READONLY)) < 0) {
         cardid = "Not Defined";
@@ -626,6 +638,8 @@ OnErrorExit:
 
 PUBLIC int AlsaCtlRegister(SoftMixerT *mixer, AlsaSndCtlT *sndcard, AlsaPcmCtlT *pcmdev, RegistryNumidT type, int numid) {
     int index;
+
+    AFB_ApiInfo(mixer->api,"%s: %d!\n", __func__, numid);
 
     for (index = 0; index < sndcard->rcount; index++) {
         if (!sndcard->registry[index]) break;

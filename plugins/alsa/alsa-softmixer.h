@@ -86,6 +86,7 @@ typedef struct {
     const char *cardid;
     const char *name;
     const char *longname;
+    const char *pcmplug_params;
     int device;
     int subdev;
 } AlsaDevInfoT;
@@ -135,6 +136,8 @@ typedef struct {
 
     int tid;
     char* info;
+
+    int nbPcmFds;
     struct pollfd pollFds[2];
 
     sem_t sem;
@@ -279,7 +282,7 @@ PUBLIC snd_ctl_elem_id_t *AlsaCtlGetNameElemId(SoftMixerT *mixer, AlsaSndCtlT *s
 PUBLIC snd_ctl_t *AlsaCtlOpenCtl(SoftMixerT *mixer, const char *cardid) ;
 PUBLIC int CtlElemIdGetLong(SoftMixerT *mixer, AlsaSndCtlT *sndcard, snd_ctl_elem_id_t *elemId, long *value) ;
 PUBLIC int CtlElemIdSetLong(SoftMixerT *mixer, AlsaSndCtlT *sndcard, snd_ctl_elem_id_t *elemId, long value) ;
-PUBLIC snd_ctl_card_info_t *AlsaCtlGetInfo(SoftMixerT *mixer, const char *cardid) ;
+PUBLIC snd_ctl_card_info_t *AlsaCtlGetCardInfo(SoftMixerT *mixer, const char *cardid) ;
 PUBLIC int AlsaCtlNumidSetLong(SoftMixerT *mixer, AlsaSndCtlT *sndcard, int numid, long value) ;
 PUBLIC int AlsaCtlNumidGetLong(SoftMixerT *mixer, AlsaSndCtlT *sndcard, int numid, long* value) ;
 PUBLIC int AlsaCtlNameSetLong(SoftMixerT *mixer, AlsaSndCtlT *sndcard, const char *ctlName, long value) ;
