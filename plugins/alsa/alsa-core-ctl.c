@@ -639,7 +639,7 @@ OnErrorExit:
 PUBLIC int AlsaCtlRegister(SoftMixerT *mixer, AlsaSndCtlT *sndcard, AlsaPcmCtlT *pcmdev, RegistryNumidT type, int numid) {
     int index;
 
-    AFB_ApiInfo(mixer->api,"%s: %d!\n", __func__, numid);
+    AFB_ApiInfo(mixer->api,"%s: registered ID %d.", __func__, numid);
 
     for (index = 0; index < sndcard->rcount; index++) {
         if (!sndcard->registry[index]) break;

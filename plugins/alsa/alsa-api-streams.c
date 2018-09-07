@@ -212,6 +212,7 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
         captureDev->cardidx = loop->sndcard->cid.cardidx;
         captureDev->device = loop->capture;
         captureDev->subdev = loopDev->index;
+        captureDev->pcmplug_params = NULL;
         captureCard = loop->sndcard;
 
         AFB_ApiInfo(mixer->api,
@@ -246,7 +247,7 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
 
     capturePcm->mute = stream->mute;
 
-    AFB_ApiInfo(mixer->api,"%s: PCM opened !\n", __func__);
+    AFB_ApiInfo(mixer->api,"%s: PCM opened !", __func__);
 
     // Registry capturePcm PCM for active/pause event
     if (loopDev && loopDev->numid) {
@@ -296,7 +297,7 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     if (asprintf(&runName, "pause-%s", stream->uid) == -1)
         goto OnErrorExit;
 
-    AFB_ApiInfo(mixer->api,"%s: create mute control !\n", __func__);
+    AFB_ApiInfo(mixer->api,"%s: create mute control...", __func__);
 
     pauseNumid = AlsaCtlCreateControl(mixer, captureCard, runName, 1, 0, 1, 1, stream->mute);
     if (pauseNumid <= 0) {
@@ -304,7 +305,7 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
         goto OnErrorExit;
     }
 
-    AFB_ApiInfo(mixer->api,"%s: register mute control !", __func__);
+    AFB_ApiInfo(mixer->api,"%s: register mute control...", __func__);
 
     // Registry stop/play as a pause/resume control
     error = AlsaCtlRegister(mixer, captureCard, capturePcm, FONTEND_NUMID_PAUSE, pauseNumid);
@@ -373,7 +374,7 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     error = snd_pcm_open(&streamPcm->handle, playbackName, SND_PCM_STREAM_PLAYBACK, 0 /* will block*/ );
     if (error) {
         AFB_ApiError(mixer->api,
-                     "%s: mixer=%s stream=%s fail to open capturePcm=%s error=%s",
+                     "%s: mixer=%s stream=%s fail to open playback PCM=%s; error=%s",
                      __func__, mixer->uid, stream->uid, streamPcm->cid.cardid, snd_strerror(error));
         goto OnErrorExit;
     }

@@ -781,15 +781,15 @@ PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT 
     /// start a thread for writing
     if ((error = pthread_create(&cHandle->wthread, NULL, &readThreadEntry, cHandle)) < 0) {
         AFB_ApiError(mixer->api,
-                     "%s Fail create waiting thread pcmIn=%s err=%d",
-                     __func__, ALSA_PCM_UID(pcmIn->handle, string), error);
+                     "%s Fail create write thread pcmOut=%s err=%d",
+                     __func__, ALSA_PCM_UID(pcmOut->handle, string), error);
         goto OnErrorExit;
     }
 
     // start a thread for reading
     if ((error = pthread_create(&cHandle->rthread, NULL, &writeThreadEntry, cHandle)) < 0) {
         AFB_ApiError(mixer->api,
-                     "%s Fail create waiting thread pcmIn=%s err=%d",
+                     "%s Fail create read thread pcmIn=%s err=%d",
                      __func__, ALSA_PCM_UID(pcmIn->handle, string), error);
         goto OnErrorExit;
     }
@@ -809,7 +809,7 @@ PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT 
     if (error) {
         AFB_ApiWarning(mixer->api,
                        "%s: Failed to increase stream write thread priority pcmIn=%s err=%s",
-                       __func__, ALSA_PCM_UID(pcmIn->handle, string), strerror(error));
+                       __func__, ALSA_PCM_UID(pcmOut->handle, string), strerror(error));
     }
 
     return 0;

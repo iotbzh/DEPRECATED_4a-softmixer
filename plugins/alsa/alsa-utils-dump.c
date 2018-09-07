@@ -182,6 +182,11 @@ PUBLIC void AlsaDumpElemConfig(SoftMixerT *mixer, const char* info, const char* 
 PUBLIC void AlsaDumpCtlConfig(SoftMixerT *mixer, const char* info, snd_config_t *config, int indent) {
     snd_config_iterator_t it, next;
 
+    if (!config) {
+    	AFB_ApiNotice(mixer->api,"%s (%s): no config", __func__, info);
+    	return;
+    }
+
     // hugly hack to get minimalist indentation
     char *pretty = alloca(indent + 1);
 

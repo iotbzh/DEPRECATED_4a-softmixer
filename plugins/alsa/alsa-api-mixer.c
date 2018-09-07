@@ -641,13 +641,15 @@ OnErrorExit:
 
 static void MixerBluezAlsaDevVerb(AFB_ReqT request) {
     SoftMixerT *mixer = (SoftMixerT*) afb_req_get_vcbdata(request);
-
-    json_object *argsJ = afb_req_json(request);
-    json_object *responseJ = json_object_new_object();
-
     char * interface = NULL, *device = NULL, *profile = NULL;
-
+    json_object *argsJ = afb_req_json(request);
     int error;
+
+    if (!json_object_is_type(argsJ,json_type_null)) {
+    	goto parsed;
+    }
+
+    json_object *responseJ = json_object_new_object();
 
     error = wrap_json_unpack(argsJ, "{ss,ss,ss !}"
             , "interface", &interface
@@ -663,8 +665,8 @@ static void MixerBluezAlsaDevVerb(AFB_ReqT request) {
         goto OnErrorExit;
     }
 
-    printf("%s: interface %s, device %s, profile %s\n", __func__, interface, device, profile);
-
+parsed:
+	printf("%s: interface %s, device %s, profile %s\n", __func__, interface, device, profile);
     error = alsa_bluez_set_device(interface, device, profile);
     if (error) {
     	AFB_ReqFailF(request,

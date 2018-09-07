@@ -94,7 +94,7 @@ PUBLIC AlsaPcmCtlT *AlsaByPathOpenPcm(SoftMixerT *mixer, AlsaDevInfoT *pcmDev, s
 
     AFB_ApiInfo(mixer->api,
                 "%s OPEN PCM '%s', direction %s",
-                __func__, pcmCtl->cid.cardid, direction==SND_PCM_STREAM_PLAYBACK?"playback":"capture");
+                __func__, pcmDev->cardid, direction==SND_PCM_STREAM_PLAYBACK?"playback":"capture");
 
     error = snd_pcm_open(&pcmCtl->handle, pcmCtl->cid.cardid, direction, SND_PCM_NONBLOCK);
     if (error < 0) {
