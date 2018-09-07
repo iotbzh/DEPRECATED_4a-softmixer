@@ -27,19 +27,37 @@ ALSA_PLUG_PROTO(dmix);
 
 PUBLIC AlsaPcmCtlT* AlsaCreateDmix(SoftMixerT *mixer, const char* pcmName, AlsaSndPcmT *pcmSlave, int open) {
    
-    snd_config_t *dmixConfig, *slaveConfig, *elemConfig, *pcmConfig;
+    snd_config_t *dmixConfig = NULL, *slaveConfig = NULL, *elemConfig = NULL, *pcmConfig=NULL;
     AlsaPcmCtlT *pcmPlug= calloc(1,sizeof(AlsaPcmCtlT));
     AlsaSndCtlT *sndSlave=pcmSlave->sndcard;
     pcmPlug->cid.cardid=pcmName;
 
+    char * fullPcmName = NULL;
     int error=0;
 
-    AFB_ApiInfo(mixer->api, "%s:  %s, slave %s, cardid %s\n", __func__, pcmName, pcmSlave->uid, pcmSlave->sndcard->cid.cardid);
+    AFB_ApiInfo(mixer->api, "%s:  %s, slave %s, cardid %s (dev %d, subdev %d)\n",
+    		    __func__,
+				pcmName,
+				pcmSlave->uid,
+				sndSlave->cid.cardid,
+				sndSlave->cid.device,
+				sndSlave->cid.subdev
+				);
 
-    error += snd_config_top(&dmixConfig);
+    error = asprintf(&fullPcmName,"%s,%d,%d", sndSlave->cid.cardid, sndSlave->cid.device, sndSlave->cid.subdev);
+    if (error == -1) {
+    	AFB_ApiError(mixer->api,
+    	                     "%s: Insufficient memory",
+							 __func__);
+    	goto OnErrorExit;
+    }
+
+    error = snd_config_top(&dmixConfig);
     if (error) goto OnErrorExit;
-    error += snd_config_set_id (dmixConfig, pcmPlug->cid.cardid);
+
+    error += snd_config_set_id (dmixConfig, pcmName);
     if (error) goto OnErrorExit;
+
     error += snd_config_imake_string(&elemConfig, "type", "dmix");
     if (error) goto OnErrorExit;
     error += snd_config_add(dmixConfig, elemConfig);
@@ -51,7 +69,7 @@ PUBLIC AlsaPcmCtlT* AlsaCreateDmix(SoftMixerT *mixer, const char* pcmName, AlsaS
 
     error += snd_config_make_compound(&slaveConfig, "slave", 0);
     if (error) goto OnErrorExit;
-    error += snd_config_imake_string(&elemConfig, "pcm", sndSlave->cid.cardid);
+    error += snd_config_imake_string(&elemConfig, "pcm", fullPcmName);
     if (error) goto OnErrorExit;
     error += snd_config_add(slaveConfig, elemConfig);
     if (error) goto OnErrorExit;
@@ -105,8 +123,12 @@ PUBLIC AlsaPcmCtlT* AlsaCreateDmix(SoftMixerT *mixer, const char* pcmName, AlsaS
     return pcmPlug;
 
 OnErrorExit:
+
+	free(fullPcmName);
+
     AlsaDumpCtlConfig(mixer, "plug-pcm", pcmConfig, 1);
     AlsaDumpCtlConfig(mixer, "plug-dmix", dmixConfig, 1);
+
     AFB_ApiNotice(mixer->api, "%s: FAIL", __func__);
     return NULL;
 }
