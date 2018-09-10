@@ -645,7 +645,7 @@ static void MixerBluezAlsaDevVerb(AFB_ReqT request) {
     json_object *argsJ = afb_req_json(request);
     int error;
 
-    if (!json_object_is_type(argsJ,json_type_null)) {
+    if (json_object_is_type(argsJ,json_type_null)) {
     	goto parsed;
     }
 
@@ -674,7 +674,6 @@ parsed:
 					 "Unable to set device , err %d", error);
     	goto OnErrorExit;
     }
-
 
     AFB_ReqSuccess(request, responseJ, NULL);
 
