@@ -649,8 +649,6 @@ static void MixerBluezAlsaDevVerb(AFB_ReqT request) {
     	goto parsed;
     }
 
-    json_object *responseJ = json_object_new_object();
-
     error = wrap_json_unpack(argsJ, "{ss,ss,ss !}"
             , "interface", &interface
             , "device", &device
@@ -675,7 +673,7 @@ parsed:
     	goto OnErrorExit;
     }
 
-    AFB_ReqSuccess(request, responseJ, NULL);
+    AFB_ReqSuccess(request, NULL, NULL);
 
 OnErrorExit:
     return;
