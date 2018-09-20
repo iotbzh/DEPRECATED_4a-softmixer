@@ -1,0 +1,1 @@
+list(APPEND PKG_REQUIRED_LIST alsa>=1.1.6)

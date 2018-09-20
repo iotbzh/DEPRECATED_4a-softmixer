@@ -1,0 +1,2 @@
+list(APPEND PKG_REQUIRED_LIST lua>=5.3 alsa>=1.1.4)
+set(CMAKE_INSTALL_PREFIX $ENV{HOME}/opt)

@@ -37,8 +37,12 @@ void alsa_bluez_init() {
 	if (initialized)
 		goto failed;
 
+#if SND_LIB_VERSION >= (1<<16|1<<8|6)
 	char errbuf[256];
 	void * dl = snd_dlopen(ALSA_BLUEZ_PROXY_LIB, RTLD_NOW, errbuf, 256);
+#else
+	void * dl = snd_dlopen(ALSA_BLUEZ_PROXY_LIB, RTLD_NOW);
+#endif
 	if (!dl) {
 		printf("Failed to open bluealsa proxy plugin\n");
 		goto failed;

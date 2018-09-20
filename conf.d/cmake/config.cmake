@@ -74,7 +74,6 @@ set (PKG_REQUIRED_LIST
 	afb-daemon>=4.0
 	libmicrohttpd>=0.9.55
 	uuid
-	alsa>=1.1.6
 	lua
 )
 
