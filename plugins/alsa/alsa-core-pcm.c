@@ -96,7 +96,7 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
         goto OnErrorExit;
     }
 
-    AFB_ApiNotice(mixer->api, "PARAMS before:\n");
+    AFB_ApiDebug(mixer->api, "PARAMS before:\n");
     AlsaDumpPcmParams(mixer, pxmHwParams);
 
     if (!opts->access)
@@ -216,7 +216,7 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
         goto OnErrorExit;
     }
 
-    AFB_ApiNotice(mixer->api, "PARAMS after:\n");
+    AFB_ApiDebug(mixer->api, "PARAMS after:\n");
     AlsaDumpPcmParams(mixer, pxmHwParams);
 
     // check we effective hw params after optional format change

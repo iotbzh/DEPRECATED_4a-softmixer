@@ -80,13 +80,13 @@ PUBLIC void AlsaDumpFormats(SoftMixerT *mixer, snd_pcm_t *pcm) {
     snd_pcm_hw_params_alloca(&pxmHwParams);
     ret = snd_pcm_hw_params_any(pcm, pxmHwParams);
     if (ret < 0) {
-        AFB_ApiError(mixer->api, "FAILED to read params of PCM %s", snd_pcm_name(pcm));
+		AFB_ApiError(mixer->api, "FAILED to read params of PCM %s", snd_pcm_name(pcm));
     }
 
-    AFB_ApiNotice(mixer->api, "Available formats: PCM=%s", ALSA_PCM_UID(pcm, string));
+    AFB_ApiDebug(mixer->api, "Available formats: PCM=%s", ALSA_PCM_UID(pcm, string));
     for (format = 0; format <= SND_PCM_FORMAT_LAST; format++) {
         if (snd_pcm_hw_params_test_format(pcm, pxmHwParams, format) == 0) {
-            AFB_ApiNotice(mixer->api, "- %s", snd_pcm_format_name(format));
+			AFB_ApiDebug(mixer->api, "- %s", snd_pcm_format_name(format));
         }
     }
 }
@@ -123,7 +123,7 @@ PUBLIC void AlsaDumpCtlSubdev(SoftMixerT *mixer, snd_ctl_t *handle) {
             continue;
         }
 
-        AFB_ApiNotice(mixer->api, "AlsaDumpCard card %d: %s [%s], device %d: %s [%s]",
+        AFB_ApiDebug(mixer->api, "AlsaDumpCard card %d: %s [%s], device %d: %s [%s]",
                 cardIndex, cardId, cardName, dev, snd_pcm_info_get_id(pcminfo), snd_pcm_info_get_name(pcminfo));
 
         // loop on subdevices
@@ -135,10 +135,10 @@ PUBLIC void AlsaDumpCtlSubdev(SoftMixerT *mixer, snd_ctl_t *handle) {
             if ((err = snd_ctl_pcm_info(handle, pcminfo)) < 0) {
                 AFB_ApiError(mixer->api, "AlsaDumpCard: control digital audio playback info %i: %s", cardIndex, snd_strerror(err));
             } else {
-                AFB_ApiNotice(mixer->api, "AlsaDumpCard: -- Subdevice #%d: %s", idx, snd_pcm_info_get_subdevice_name(pcminfo));
+				AFB_ApiDebug(mixer->api, "AlsaDumpCard: -- Subdevice #%d: %s", idx, snd_pcm_info_get_subdevice_name(pcminfo));
             }
         }
-        AFB_ApiNotice(mixer->api, "AlsaDumpCard  => subdevice count=%d avaliable=%d", subdevCount, subdevAvail);
+        AFB_ApiDebug(mixer->api, "AlsaDumpCard  => subdevice count=%d avaliable=%d", subdevCount, subdevAvail);
     }
     return;
 
@@ -153,7 +153,7 @@ PUBLIC void AlsaDumpPcmParams(SoftMixerT *mixer, snd_pcm_hw_params_t *pcmHwParam
     snd_output_buffer_open(&output);
     snd_pcm_hw_params_dump(pcmHwParams, output);
     snd_output_buffer_string(output, &buffer);
-    AFB_ApiNotice(mixer->api, "%s:\n%s",__func__, buffer);
+    AFB_ApiDebug(mixer->api, "%s:\n%s",__func__, buffer);
     snd_output_close(output);
 }
 
@@ -168,7 +168,7 @@ PUBLIC void AlsaDumpPcmInfo(SoftMixerT *mixer, const char* info, snd_pcm_t *pcm)
     snd_pcm_dump(pcm, out);
 
     snd_output_buffer_string(out, &buffer);
-    AFB_ApiNotice(mixer->api, "%s:\n%s", __func__, buffer);
+    AFB_ApiDebug(mixer->api, "%s:\n%s", __func__, buffer);
     snd_output_close(out);
 }
 
@@ -183,7 +183,7 @@ PUBLIC void AlsaDumpCtlConfig(SoftMixerT *mixer, const char* info, snd_config_t 
     snd_config_iterator_t it, next;
 
     if (!config) {
-    	AFB_ApiNotice(mixer->api,"%s (%s): no config", __func__, info);
+		AFB_ApiDebug(mixer->api,"%s (%s): no config", __func__, info);
     	return;
     }
 
@@ -207,28 +207,28 @@ PUBLIC void AlsaDumpCtlConfig(SoftMixerT *mixer, const char* info, snd_config_t 
 
             case SND_CONFIG_TYPE_INTEGER:
                 snd_config_get_integer(node, &valueI);
-                AFB_ApiNotice(mixer->api, "%s: %s %s: %d (int)", info, pretty, key, (int) valueI);
+                AFB_ApiDebug(mixer->api, "%s: %s %s: %d (int)", info, pretty, key, (int) valueI);
                 break;
 
             case SND_CONFIG_TYPE_REAL:
                 snd_config_get_real(node, &valueD);
-                AFB_ApiNotice(mixer->api, "%s: %s %s: %.2f (float)", info, pretty, key, valueD);
+                AFB_ApiDebug(mixer->api, "%s: %s %s: %.2f (float)", info, pretty, key, valueD);
                 break;
 
             case SND_CONFIG_TYPE_STRING:
                 snd_config_get_string(node, &valueS);
-                AFB_ApiNotice(mixer->api, "%s: %s %s: %s (str)", info, pretty, key, valueS);
+                AFB_ApiDebug(mixer->api, "%s: %s %s: %s (str)", info, pretty, key, valueS);
                 break;
 
             case SND_CONFIG_TYPE_COMPOUND:
-                AFB_ApiNotice(mixer->api, "%s: %s %s { ", info, pretty, key);
+				AFB_ApiDebug(mixer->api, "%s: %s %s { ", info, pretty, key);
                 AlsaDumpCtlConfig(mixer, info, node, indent + 2);
-                AFB_ApiNotice(mixer->api, "%s: %s } ", info, pretty);
+				AFB_ApiDebug(mixer->api, "%s: %s } ", info, pretty);
                 break;
 
             default:
                 snd_config_get_string(node, &valueS);
-                AFB_ApiNotice(mixer->api, "%s: %s: key=%s unknown=%s", info, pretty, key, valueS);
+                AFB_ApiDebug(mixer->api, "%s: %s: key=%s unknown=%s", info, pretty, key, valueS);
                 break;
         }
     }
