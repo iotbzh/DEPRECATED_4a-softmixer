@@ -454,8 +454,8 @@ static int suspend( snd_pcm_t * pcm, int error)
 static void readSuspend(AlsaPcmCopyHandleT * pcmCopyHandle) {
 
 	// will be deaf
-	pcmCopyHandle->saveFd = pcmCopyHandle->pollFds[0].fd;
-	pcmCopyHandle->pollFds[0].fd = -1;
+	pcmCopyHandle->saveFd = pcmCopyHandle->pollFds[1].fd;
+	pcmCopyHandle->pollFds[1].fd = -1;
 
 	AFB_ApiNotice(pcmCopyHandle->api, "capture muted");
 }
@@ -463,7 +463,9 @@ static void readSuspend(AlsaPcmCopyHandleT * pcmCopyHandle) {
 static void readResume(AlsaPcmCopyHandleT * pcmCopyHandle) {
 
 	// undeaf it
-	pcmCopyHandle->pollFds[0].fd = pcmCopyHandle->saveFd;
+	pcmCopyHandle->pollFds[1].fd = pcmCopyHandle->saveFd;
+	snd_pcm_prepare(pcmCopyHandle->pcmIn->handle);
+	snd_pcm_start(pcmCopyHandle->pcmIn->handle);
 	AFB_ApiNotice(pcmCopyHandle->api, "capture unmuted");
 }
 
@@ -500,7 +502,7 @@ static void *readThreadEntry(void *handle) {
 
     	if (err == 0) {
     		/* timeout */
-    		AFB_ApiDebug(pcmCopyHandle->api, "%s(%s) alive", __func__, pcmCopyHandle->pcmIn->cid.cardid );
+    		AFB_ApiDebug(pcmCopyHandle->api, "%s(%s) alive, mute %d", __func__, pcmCopyHandle->pcmIn->cid.cardid, muted );
     		continue;
     	}
 
