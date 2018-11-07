@@ -394,7 +394,7 @@ PUBLIC AlsaPcmHwInfoT * ApiPcmSetParams(SoftMixerT *mixer, const char *uid, json
     FORMAT_CHECK(FLOAT_LE);
     FORMAT_CHECK(FLOAT_BE);
 
-    AFB_ApiNotice(mixer->api, "ApiPcmSetParams:%s(params) unsupported format 'S16_LE|S32_L|...' format=%s", uid, format);
+    AFB_ApiError(mixer->api, "ApiPcmSetParams:%s(params) unsupported format 'S16_LE|S32_L|...' format=%s", uid, format);
     goto OnErrorExit;
 
 check_access:

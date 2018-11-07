@@ -345,7 +345,7 @@ STATIC int AlsaPcmReadCB( struct pollfd * pfd, AlsaPcmCopyHandleT * pcmCopyHandl
 	if (availIn <= 0) {
 		if (availIn == -EPIPE) {
 			int ret = xrun(pcmIn, (int)availIn);
-			printf("XXX read EPIPE (recov=%d) !\n", ret);
+			AFB_ApiDebug(pcmCopyHandle->api, "XXX read EPIPE (recov=%d) {%s}!", ret, ALSA_PCM_UID(pcmIn, string));
 
 			// For some (undocumented...) reason, a start is mandatory.
 			snd_pcm_start(pcmIn);
@@ -392,10 +392,10 @@ STATIC int AlsaPcmReadCB( struct pollfd * pfd, AlsaPcmCopyHandleT * pcmCopyHandl
 		if (r < 0) {
 			if (r == -EPIPE) {
 				err = xrun(pcmIn, (int)r);
-				printf("read EPIPE (%d), recov %d\n", ++pcmCopyHandle->read_err_count, err);
+				AFB_ApiDebug(pcmCopyHandle->api, "read EPIPE (%d), recov %d", ++pcmCopyHandle->read_err_count, err);
 				goto ExitOnSuccess;
 			} else if (r == -ESTRPIPE) {
-				printf("read ESTRPIPE\n");
+				AFB_ApiDebug(pcmCopyHandle->api, "read ESTRPIPE");
 				if ((err = suspend(pcmIn, (int)r)) < 0)
 					goto ExitOnSuccess;
 				r = 0;
@@ -567,12 +567,12 @@ static void *writeThreadEntry(void *handle) {
 
 			if (availOut < 0) {
 				if (availOut == -EPIPE) {
-					printf("write update EPIPE\n");
+					AFB_ApiDebug(pcmCopyHandle->api, "write update EPIPE");
 					xrun(pcmOut, (int)availOut);
 					continue;
 				}
 				if (availOut == -ESTRPIPE) {
-					printf("write update ESTRPIPE\n");
+					AFB_ApiDebug(pcmCopyHandle->api, "write update ESTRPIPE");
 					suspend(pcmOut, (int)availOut);
 					continue;
 				}
@@ -602,14 +602,14 @@ static void *writeThreadEntry(void *handle) {
 			if (r <= 0) {
 				if (r == -EPIPE) {
 					int err = xrun(pcmOut, (int)r);
-					printf("XXX write EPIPE (%d), recov %d\n", ++pcmCopyHandle->write_err_count , err);
+					AFB_ApiDebug(pcmCopyHandle->api, "XXX write EPIPE (%d), recov %d", ++pcmCopyHandle->write_err_count , err);
 
 					continue;
 				} else if (r == -ESTRPIPE) {
-					printf("XXX write ESTRPIPE\n");
+					AFB_ApiDebug(pcmCopyHandle->api, "XXX write ESTRPIPE");
 					break;
 				}
-				printf("Unhandled error %s\n", strerror(errno));
+				AFB_ApiDebug(pcmCopyHandle->api, "Unhandled error %s", strerror(errno));
 				break;
 			}
 
@@ -741,9 +741,9 @@ PUBLIC int AlsaPcmCopy(SoftMixerT *mixer, AlsaStreamAudioT *stream, AlsaPcmCtlT 
     int pMuteFd[2];
     error = pipe(pMuteFd);
     if (error < 0) {
-    	AFB_ApiError(mixer->api,
-    	             "Unable to create the mute signaling pipe\n");
-    	goto OnErrorExit;
+        AFB_ApiError(mixer->api,
+                     "Unable to create the mute signaling pipe");
+        goto OnErrorExit;
     }
 
     struct pollfd mutePFd;

@@ -45,7 +45,7 @@ PUBLIC char *AlsaDumpPcmUid(snd_pcm_t *pcmHandle, char *buffer, size_t len) {
 
     int pcmCard = snd_pcm_info_get_card(pcmInfo);
     const char *pcmName = snd_pcm_info_get_name(pcmInfo);
-    snprintf(buffer, len, "hw:%i [%s]", pcmCard, pcmName);
+    snprintf(buffer, len, "hw:%i [%s](%i,%i)", pcmCard, pcmName, snd_pcm_info_get_device(pcmInfo), snd_pcm_info_get_subdevice(pcmInfo));
     return buffer;
 
 OnErrorExit:
