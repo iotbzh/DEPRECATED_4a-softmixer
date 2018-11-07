@@ -27,7 +27,7 @@ set(PROJECT_AUTHOR "Ar Foll, Fulup")
 set(PROJECT_AUTHOR_MAIL "fulup@iot.bzh")
 set(PROJECT_LICENSE "APL2.0")
 set(PROJECT_LANGUAGES "C")
-set(API_NAME "smixer"))
+set(API_NAME "smixer")
 
 # Where are stored the project configuration files
 # relative to the root project directory
