@@ -27,11 +27,11 @@ set(PROJECT_AUTHOR "Ar Foll, Fulup")
 set(PROJECT_AUTHOR_MAIL "fulup@iot.bzh")
 set(PROJECT_LICENSE "APL2.0")
 set(PROJECT_LANGUAGES "C")
+set(API_NAME "smixer"))
 
-
-# Where are stored default templates files from submodule or subtree app-templates in your project tree
+# Where are stored the project configuration files
 # relative to the root project directory
-set(PROJECT_APP_TEMPLATES_DIR "conf.d/app-templates")
+set(PROJECT_CMAKE_CONF_DIR "conf.d")
 
 # Where are stored your external libraries for your project. This is 3rd party library that you don't maintain
 # but used and must be built and linked.
@@ -45,7 +45,7 @@ set(PROJECT_APP_TEMPLATES_DIR "conf.d/app-templates")
 
 # Compilation Mode (DEBUG, RELEASE)
 # ----------------------------------
-set(CMAKE_BUILD_TYPE "DEBUG")
+set(BUILD_TYPE "RELEASE")
 set(USE_EFENCE 0)
 
 # Kernel selection if needed. You can choose between a
@@ -116,14 +116,14 @@ list(APPEND link_libraries afb-helpers)
 # CACHE STRING "Compilation flags for PROFILING build type.")
 #set(DEBUG_COMPILE_OPTIONS
 # -g
+# -O0
 # -ggdb
-# -Wp,-U_FORTIFY_SOURCE
 # CACHE STRING "Compilation flags for DEBUG build type.")
-#set(CCOV_COMPILE_OPTIONS
+#set(COVERAGE_COMPILE_OPTIONS
 # -g
-# -O2
+# -O0
 # --coverage
-# CACHE STRING "Compilation flags for CCOV build type.")
+# CACHE STRING "Compilation flags for COVERAGE build type.")
 #set(RELEASE_COMPILE_OPTIONS
 # -g
 # -O2
@@ -211,5 +211,8 @@ set(PACKAGE_MESSAGE "Install widget file using in the target : afm-util install 
 
 # This include is mandatory and MUST happens at the end
 # of this file, else you expose you to unexpected behavior
+#
+# This CMake module could be found at the following url:
+# https://gerrit.automotivelinux.org/gerrit/#/admin/projects/src/cmake-apps-module
 # -----------------------------------------------------------
-include(${PROJECT_APP_TEMPLATES_DIR}/cmake/common.cmake)
+include(CMakeAfbTemplates)
