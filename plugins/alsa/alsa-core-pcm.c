@@ -555,7 +555,21 @@ static void *writeThreadEntry(void *handle) {
 
 	alsa_ringbuf_t * rbuf = pcmCopyHandle->rbuf;
 
-	const snd_pcm_sframes_t threshold = 1000;
+	snd_pcm_status_t *pcmOutStatus;
+	snd_pcm_uframes_t pcmOutSize;
+
+	snd_pcm_sframes_t threshold;
+
+	snd_pcm_status_alloca(&pcmOutStatus);
+	snd_pcm_status(pcmOut, pcmOutStatus);
+	pcmOutSize = snd_pcm_status_get_avail_max(pcmOutStatus);
+
+	/* This threshold is the expected space available in the hw output buffer
+	 * The aim is to wait to have a significant amount of space, in order to
+	 * avoid to write to the device too often, or take a very small amount of
+	 * frames from the ring buffer. So basically, this saves some CPU load */
+
+	threshold = pcmOutSize / 3;
 
 	for (;;) {
 
