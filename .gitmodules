@@ -7,3 +7,6 @@
 [submodule "app-controller-submodule"]
 	path = app-controller-submodule
 	url = https://gerrit.automotivelinux.org/gerrit/apps/app-controller-submodule
+[submodule "libavirt"]
+	path = libavirt
+	url = https://git.automotivelinux.org/src/libavirt

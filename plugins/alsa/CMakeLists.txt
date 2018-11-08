@@ -34,8 +34,11 @@ PROJECT_TARGET_ADD(alsa-softmixer)
 
 	# Library dependencies (include updates automatically)
 	TARGET_LINK_LIBRARIES(${TARGET_NAME}
+		avirt
 		${link_libraries}
 	)
+
+	add_definitions(-DCONFIG_AVIRT)
 
 	target_include_directories(${TARGET_NAME}
 	PRIVATE "${CMAKE_SOURCE_DIR}/app-controller-submodule/ctl-lib"

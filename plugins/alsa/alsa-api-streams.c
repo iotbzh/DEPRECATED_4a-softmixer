@@ -21,6 +21,8 @@
 #include "alsa-softmixer.h"
 #include "alsa-bluez.h"
 
+#include <avirt/avirt.h>
+
 #include <string.h>
 #include <stdbool.h>
 #include <dlfcn.h>
