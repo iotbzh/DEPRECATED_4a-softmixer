@@ -24,6 +24,6 @@
 #include <alsa/asoundlib.h>
 
 extern void alsa_bluez_init();
-extern int alsa_bluez_set_device(const char * interface, const char * device, const char * profile);
+extern int alsa_bluez_set_remote_device(const char * interface, const char * device, const char * profile);
 
 #endif /* __INC_ALSA_BLUEZ_H */

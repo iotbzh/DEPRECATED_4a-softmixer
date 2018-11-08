@@ -16,7 +16,7 @@ extern snd_pcm_uframes_t alsa_ringbuf_buffer_size(const alsa_ringbuf_t *rb);
 extern void alsa_ringbuf_free(alsa_ringbuf_t *rb);
 extern void alsa_ringbuf_reset(alsa_ringbuf_t *rb);
 extern snd_pcm_uframes_t alsa_ringbuf_capacity(const alsa_ringbuf_t *rb);
-extern snd_pcm_uframes_t alsa_ringbuf_frames_free(const alsa_ringbuf_t *rb);
+extern snd_pcm_uframes_t alsa_ringbuf_frames_remain_capacity(const alsa_ringbuf_t *rb);
 extern snd_pcm_uframes_t alsa_ringbuf_frames_used(const alsa_ringbuf_t *rb);
 extern bool alsa_ringbuf_is_full(const alsa_ringbuf_t *rb);
 extern bool alsa_ringbuf_is_empty(const alsa_ringbuf_t *rb);
