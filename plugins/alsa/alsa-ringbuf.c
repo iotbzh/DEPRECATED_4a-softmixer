@@ -25,7 +25,7 @@ snd_pcm_uframes_t alsa_ringbuf_capacity(const alsa_ringbuf_t *rb) {
 	return ringbuf_capacity(rb->rbuf)/rb->frameSize;
 }
 
-snd_pcm_uframes_t alsa_ringbuf_frames_free(const alsa_ringbuf_t *rb) {
+snd_pcm_uframes_t alsa_ringbuf_frames_remain_capacity(const alsa_ringbuf_t *rb) {
 	return ringbuf_bytes_free(rb->rbuf)/rb->frameSize;
 }
 

@@ -61,7 +61,7 @@ failed:
 	return;
 }
 
-int alsa_bluez_set_device(const char * interface, const char * device, const char * profile) {
+int alsa_bluez_set_remote_device(const char * interface, const char * device, const char * profile) {
 	if (!bluealsa_proxy_set_remote_device)
 		return -1;
 
