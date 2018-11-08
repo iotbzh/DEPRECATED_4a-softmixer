@@ -81,7 +81,7 @@ PUBLIC int ApiRampAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
         case json_type_object:
             mixer->ramps[index] = AttachOneRamp(mixer, uid, argsJ);
             if (!mixer->ramps[index]) {
-                AFB_ReqFailF(request, "invalid-syntax", "mixer=%s hal=%s invalid ramp= %s", mixer->uid, uid, json_object_get_string(argsJ));
+                AFB_ReqFailF(request, "bad-ramp", "mixer=%s hal=%s invalid ramp= %s", mixer->uid, uid, json_object_get_string(argsJ));
                 goto OnErrorExit;
             }
             break;
@@ -98,7 +98,7 @@ PUBLIC int ApiRampAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
                 json_object *streamAudioJ = json_object_array_get_idx(argsJ, idx);
                 mixer->ramps[index + idx] = AttachOneRamp(mixer, uid, streamAudioJ);
                 if (!mixer->ramps[index + idx]) {
-                    AFB_ReqFailF(request, "invalid-syntax", "mixer=%s hal=%s invalid ramp= %s", mixer->uid, uid, json_object_get_string(streamAudioJ));
+                    AFB_ReqFailF(request, "bad-ramp", "mixer=%s hal=%s invalid ramp= %s", mixer->uid, uid, json_object_get_string(streamAudioJ));
                     goto OnErrorExit;
                 }
             }

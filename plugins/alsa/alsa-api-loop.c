@@ -100,14 +100,16 @@ STATIC AlsaSndLoopT *AttachOneLoop(SoftMixerT *mixer, const char *uid, json_obje
             , "subdevs", &subdevsJ
             );
     if (error || !loop->uid || !subdevsJ || (!loop->sndcard->cid.devpath && !loop->sndcard->cid.cardid)) {
-        AFB_ApiNotice(mixer->api, "AttachOneLoop mixer=%s hal=%s missing 'uid|path|cardid|devices|subdevs' error=%s args=%s", mixer->uid, uid, wrap_json_get_error_string(error),json_object_get_string(argsJ));
+        AFB_ApiNotice(mixer->api, "%s mixer=%s hal=%s missing 'uid|path|cardid|devices|subdevs' error=%s args=%s",
+        		__func__, mixer->uid, uid, wrap_json_get_error_string(error),json_object_get_string(argsJ));
         goto OnErrorExit;
     }
 
     // try to open sound card control interface
     loop->sndcard->ctl = AlsaByPathOpenCtl(mixer, loop->uid, loop->sndcard);
     if (!loop->sndcard->ctl) {
-        AFB_ApiError(mixer->api, "AttachOneLoop mixer=%s hal=%s Fail open sndcard loop=%s devpath=%s cardid=%s (please check 'modprobe snd_aloop')", mixer->uid, uid, loop->uid, loop->sndcard->cid.devpath, loop->sndcard->cid.cardid);
+        AFB_ApiError(mixer->api, "%s mixer=%s hal=%s Fail open sndcard loop=%s devpath=%s cardid=%s (please check 'modprobe snd_aloop')",
+        		__func__, mixer->uid, uid, loop->uid, loop->sndcard->cid.devpath, loop->sndcard->cid.cardid);
         goto OnErrorExit;
     }
 
@@ -118,7 +120,8 @@ STATIC AlsaSndLoopT *AttachOneLoop(SoftMixerT *mixer, const char *uid, json_obje
     } else {
         error = wrap_json_unpack(devicesJ, "{si,si !}", "capture", &loop->capture, "playback", &loop->playback);
         if (error) {
-            AFB_ApiNotice(mixer->api, "AttachOneLoop mixer=%s hal=%s Loop=%s missing 'capture|playback' error=%s devices=%s", mixer->uid, uid, loop->uid, wrap_json_get_error_string(error),json_object_get_string(devicesJ));
+            AFB_ApiNotice(mixer->api, "%s mixer=%s hal=%s Loop=%s missing 'capture|playback' error=%s devices=%s",
+            		__func__, mixer->uid, uid, loop->uid, wrap_json_get_error_string(error),json_object_get_string(devicesJ));
             goto OnErrorExit;
         }
     }
@@ -140,7 +143,8 @@ STATIC AlsaSndLoopT *AttachOneLoop(SoftMixerT *mixer, const char *uid, json_obje
             }
             break;
         default:
-            AFB_ApiError(mixer->api, "AttachOneLoop mixer=%s hal=%s Loop=%s invalid subdevs= %s", mixer->uid, uid, loop->uid, json_object_get_string(subdevsJ));
+            AFB_ApiError(mixer->api, "%s mixer=%s hal=%s Loop=%s invalid subdevs= %s",
+            		__func__, mixer->uid, uid, loop->uid, json_object_get_string(subdevsJ));
             goto OnErrorExit;
     }
 
@@ -193,7 +197,7 @@ PUBLIC int ApiLoopAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
             }
             break;
         default:
-            AFB_IfReqFailF(mixer, request, "invalid-syntax", "mixer=%s hal=%s loops invalid argsJ= %s", mixer->uid, uid, json_object_get_string(argsJ));
+            AFB_IfReqFailF(mixer, request, "bad-loop", "mixer=%s hal=%s loops invalid argsJ= %s", mixer->uid, uid, json_object_get_string(argsJ));
             goto OnErrorExit;
     }
 
