@@ -165,7 +165,7 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
 
 	error = snd_pcm_hw_params_get_buffer_time_max(pxmHwParams, &buffer_time, 0);
 
-	printf("HW_BUFFER_TIME MAX is %d\n", buffer_time);
+	AFB_ApiInfo(mixer->api, "HW_BUFFER_TIME MAX is %d\n", buffer_time);
 
 	if (buffer_time > 500000)
 		buffer_time = 500000;
@@ -178,11 +178,11 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
 	}
 
 	if (period_time > 0) {
-		printf("SET PERIOD TIME to %d\n", period_time);
+		AFB_ApiInfo(mixer->api, "SET PERIOD TIME to %d", period_time);
 		error = snd_pcm_hw_params_set_period_time_near(pcm->handle, pxmHwParams, &period_time, 0);
 	}
 	else {
-		printf("SET PERIOD SIZE\n");
+		AFB_ApiInfo(mixer->api, "SET PERIOD SIZE...");
 		error = snd_pcm_hw_params_set_period_size_near(pcm->handle, pxmHwParams, &period_frames, 0);
 	}
 
@@ -194,10 +194,10 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
 	}
 
 	if (buffer_time > 0) {
-		printf("SET BUFFER TIME to %d\n", buffer_time);
+		AFB_ApiInfo(mixer->api, "SET BUFFER TIME to %d", buffer_time);
 		error = snd_pcm_hw_params_set_buffer_time_near(pcm->handle, pxmHwParams, &buffer_time, 0);
 	} else {
-		printf("SET BUFFER SIZE\n");
+		AFB_ApiInfo(mixer->api, "SET BUFFER SIZE...");
 		error = snd_pcm_hw_params_set_buffer_size_near(pcm->handle, pxmHwParams, &buffer_frames);
 	}
 
@@ -285,7 +285,7 @@ PUBLIC int AlsaPcmConf(SoftMixerT *mixer, AlsaPcmCtlT *pcm, int mode) {
     if (start_threshold > n/2)
     	start_threshold = n/2;
 
-    printf("CALCULATED START THRESHOLD: %ld\n", start_threshold);
+    AFB_ApiInfo(mixer->api, "CALCULATED START THRESHOLD: %ld", start_threshold);
 
 	if (mode == SND_PCM_STREAM_PLAYBACK) {
 		start_threshold = 1;
@@ -353,24 +353,14 @@ STATIC int AlsaPcmReadCB( struct pollfd * pfd, AlsaPcmCopyHandleT * pcmCopyHandl
 		goto ExitOnSuccess;
 	}
 
-	pthread_mutex_lock(&pcmCopyHandle->mutex);
-	snd_pcm_sframes_t availInBuf = alsa_ringbuf_frames_free(rbuf);
-	pthread_mutex_unlock(&pcmCopyHandle->mutex);
-
-	/* we get too much data, take what we can now,
-	 * hopefully we will have more luck next time */
-
-	if (availIn > availInBuf) {
-//		printf("INCOMING BUFFER TOO SMALL !\n");
-		availIn = availInBuf;
-	}
-
 	while (true) {
 
-		pthread_mutex_lock(&pcmCopyHandle->mutex);
-		snd_pcm_sframes_t r = alsa_ringbuf_frames_free(rbuf);
+		snd_pcm_sframes_t nbRead;
 
-		if (r <= 0) {
+		pthread_mutex_lock(&pcmCopyHandle->mutex);
+		snd_pcm_sframes_t remain = alsa_ringbuf_frames_remain_capacity(rbuf);
+
+		if (remain <= 0) {
 			pthread_mutex_unlock(&pcmCopyHandle->mutex);
 			// Wake up the reader, in case it is sleeping,
 			// that lets it an opportunity to pop something.
@@ -378,33 +368,33 @@ STATIC int AlsaPcmReadCB( struct pollfd * pfd, AlsaPcmCopyHandleT * pcmCopyHandl
 			break;
 		}
 
-		if (r < availIn)
-			r = availIn;
+		if (remain < availIn)
+			remain = availIn;
 
-		char buf[r*pcmCopyHandle->frame_size];
+		char buf[remain*pcmCopyHandle->frame_size];
 		pthread_mutex_unlock(&pcmCopyHandle->mutex);
 
-		r = snd_pcm_readi(pcmIn, buf, r);
+		nbRead = snd_pcm_readi(pcmIn, buf, remain);
 
-		if (r == 0) {
+		if (nbRead == 0) {
 			break;
 		}
-		if (r < 0) {
-			if (r == -EPIPE) {
-				err = xrun(pcmIn, (int)r);
+		if (nbRead < 0) {
+			if (nbRead== -EPIPE) {
+				err = xrun(pcmIn, (int)nbRead);
 				AFB_ApiDebug(pcmCopyHandle->api, "read EPIPE (%d), recov %d", ++pcmCopyHandle->read_err_count, err);
 				goto ExitOnSuccess;
-			} else if (r == -ESTRPIPE) {
+			} else if (nbRead== -ESTRPIPE) {
 				AFB_ApiDebug(pcmCopyHandle->api, "read ESTRPIPE");
-				if ((err = suspend(pcmIn, (int)r)) < 0)
+				if ((err = suspend(pcmIn, (int)nbRead)) < 0)
 					goto ExitOnSuccess;
-				r = 0;
+				nbRead = 0;
 			} else {
 				goto ExitOnSuccess;
 			}
 		}
 		pthread_mutex_lock(&pcmCopyHandle->mutex);
-		alsa_ringbuf_frames_push(rbuf, buf, r);
+		alsa_ringbuf_frames_push(rbuf, buf, nbRead);
 		snd_pcm_uframes_t used = alsa_ringbuf_frames_used(rbuf);
 		pthread_mutex_unlock(&pcmCopyHandle->mutex);
 
@@ -414,7 +404,7 @@ STATIC int AlsaPcmReadCB( struct pollfd * pfd, AlsaPcmCopyHandleT * pcmCopyHandl
 			sem_post(&pcmCopyHandle->sem);
 		}
 
-		availIn -= r;
+		availIn -= nbRead;
 
 		// completed, we have read everything
 		if (availIn <= 0) {
@@ -576,7 +566,7 @@ static void *writeThreadEntry(void *handle) {
 		sem_wait(&pcmCopyHandle->sem);
 
 		while (true) {
-			snd_pcm_sframes_t r;
+			snd_pcm_sframes_t used, nbWritten;
 			snd_pcm_sframes_t availOut = snd_pcm_avail(pcmOut);
 
 			if (availOut < 0) {
@@ -599,27 +589,27 @@ static void *writeThreadEntry(void *handle) {
 			}
 
 			pthread_mutex_lock(&pcmCopyHandle->mutex);
-			r = alsa_ringbuf_frames_used(rbuf);
-			if (r <= 0) {
+			used = alsa_ringbuf_frames_used(rbuf);
+			if (used <= 0) {
 				pthread_mutex_unlock(&pcmCopyHandle->mutex);
 				break; // will wait again
 			}
 
-			if (r > availOut)
-				r = availOut;
+			if (used > availOut)
+				used = availOut;
 
-			char buf[r*pcmCopyHandle->frame_size];
-			alsa_ringbuf_frames_pop(rbuf, buf, r);
+			char buf[used*pcmCopyHandle->frame_size];
+			alsa_ringbuf_frames_pop(rbuf, buf, used);
 			pthread_mutex_unlock(&pcmCopyHandle->mutex);
 
-			r = snd_pcm_writei( pcmOut, buf, r);
-			if (r <= 0) {
-				if (r == -EPIPE) {
-					int err = xrun(pcmOut, (int)r);
+			nbWritten = snd_pcm_writei( pcmOut, buf, used);
+			if (nbWritten <= 0) {
+				if (nbWritten == -EPIPE) {
+					int err = xrun(pcmOut, (int)nbWritten);
 					AFB_ApiDebug(pcmCopyHandle->api, "XXX write EPIPE (%d), recov %d", ++pcmCopyHandle->write_err_count , err);
 
 					continue;
-				} else if (r == -ESTRPIPE) {
+				} else if (nbWritten == -ESTRPIPE) {
 					AFB_ApiDebug(pcmCopyHandle->api, "XXX write ESTRPIPE");
 					break;
 				}

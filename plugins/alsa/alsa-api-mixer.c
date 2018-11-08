@@ -664,8 +664,8 @@ static void MixerBluezAlsaDevVerb(AFB_ReqT request) {
     }
 
 parsed:
-	printf("%s: interface %s, device %s, profile %s\n", __func__, interface, device, profile);
-    error = alsa_bluez_set_device(interface, device, profile);
+	AFB_ApiNotice(mixer->api, "%s: interface %s, device %s, profile %s\n", __func__, interface, device, profile);
+    error = alsa_bluez_set_remote_device(0, interface, device, profile);
     if (error) {
     	AFB_ReqFailF(request,
     	             "runtime error",
