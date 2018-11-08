@@ -546,7 +546,7 @@ PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid,
         case json_type_object:
             mixer->streams[index] = AttachOneStream(mixer, uid, prefix, argsJ);
             if (!mixer->streams[index]) {
-                AFB_ReqFailF(request, "invalid-syntax", "mixer=%s invalid stream= %s", mixer->uid, json_object_get_string(argsJ));
+                AFB_ReqFailF(request, "bad-stream", "mixer=%s invalid stream= %s", mixer->uid, json_object_get_string(argsJ));
                 goto OnErrorExit;
             }
             break;
@@ -566,7 +566,7 @@ PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid,
                 mixer->streams[index + idx] = AttachOneStream(mixer, uid, prefix, streamJ);
                 if (!mixer->streams[index + idx]) {
                     AFB_ReqFailF(request,
-                                 "invalid-syntax",
+                                 "bad-stream",
                                  "%s: mixer=%s invalid stream= %s",
                                  __func__, mixer->uid, json_object_get_string(streamJ));
                     goto OnErrorExit;
@@ -583,6 +583,6 @@ PUBLIC int ApiStreamAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid,
     return 0;
 
 OnErrorExit:
-	printf("%s FAILED\n", __func__);
+	AFB_ApiError(mixer->api, "%s FAILED\n", __func__);
     return -1;
 }

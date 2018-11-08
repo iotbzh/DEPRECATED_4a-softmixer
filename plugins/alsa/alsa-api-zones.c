@@ -146,7 +146,7 @@ PUBLIC int ApiZoneAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
         case json_type_object: {
             AlsaSndZoneT * zone = AttacheOneZone(mixer, uid, argsJ);
             if (!zone) {
-                AFB_ReqFailF(request, "invalid-syntax", "mixer=%s invalid zone= %s", mixer->uid, json_object_get_string(argsJ));
+                AFB_ReqFailF(request, "bad-zone", "mixer=%s invalid zone= %s", mixer->uid, json_object_get_string(argsJ));
                 goto OnErrorExit;
             }
 
@@ -172,7 +172,7 @@ PUBLIC int ApiZoneAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
                 json_object *zoneJ = json_object_array_get_idx(argsJ, idx);
                 AlsaSndZoneT * zone = AttacheOneZone(mixer, uid, zoneJ);
                 if (!zone) {
-                    AFB_ReqFailF(request, "invalid-syntax", "mixer=%s invalid zone= %s", mixer->uid, json_object_get_string(zoneJ));
+                    AFB_ReqFailF(request, "bad-zone", "mixer=%s invalid zone= %s", mixer->uid, json_object_get_string(zoneJ));
                     goto OnErrorExit;
                 }
                 

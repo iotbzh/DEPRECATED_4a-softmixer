@@ -74,7 +74,7 @@ PUBLIC int ApiSinkAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
         case json_type_object:
             mixer->sinks[index] = ApiPcmAttachOne(mixer, uid, SND_PCM_STREAM_PLAYBACK, argsJ);
             if (!mixer->sinks[index]) {
-                AFB_ReqFailF(request, "invalid-syntax", "mixer=%s invalid sink= %s", mixer->uid, json_object_get_string(argsJ));
+                AFB_ReqFailF(request, "bad-pcm", "mixer=%s invalid sink= %s", mixer->uid, json_object_get_string(argsJ));
                 goto OnErrorExit;
             }
 
@@ -101,7 +101,7 @@ PUBLIC int ApiSinkAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, j
                 json_object *sinkJ = json_object_array_get_idx(argsJ, idx);
                 AlsaSndPcmT * pcm = ApiPcmAttachOne(mixer, uid, SND_PCM_STREAM_PLAYBACK, sinkJ);
                 if (!pcm) {
-                    AFB_ReqFailF(request, "invalid-syntax", "mixer=%s invalid sink= %s", mixer->uid, json_object_get_string(sinkJ));
+                    AFB_ReqFailF(request, "bad-pcm", "mixer=%s invalid sink= %s", mixer->uid, json_object_get_string(sinkJ));
                     goto OnErrorExit;
                 }
                 // move from hardware to DMIX attach to sndcard

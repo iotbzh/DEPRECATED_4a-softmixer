@@ -50,7 +50,7 @@ PUBLIC int ApiSourceAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid,
         case json_type_object:
             mixer->sources[index] = ApiPcmAttachOne(mixer, uid, SND_PCM_STREAM_CAPTURE, argsJ);
             if (!mixer->sources[index]) {
-                AFB_ReqFailF(request, "invalid-syntax", "mixer=%s invalid source= %s", mixer->uid, json_object_get_string(argsJ));
+                AFB_ReqFailF(request, "bad-pcm", "mixer=%s invalid source= %s", mixer->uid, json_object_get_string(argsJ));
                 goto OnErrorExit;
             }
             break;
@@ -67,7 +67,7 @@ PUBLIC int ApiSourceAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid,
                 json_object *sourceJ = json_object_array_get_idx(argsJ, idx);
                 mixer->sources[index + idx] = ApiPcmAttachOne(mixer, uid, SND_PCM_STREAM_CAPTURE, sourceJ);
                 if (!mixer->sources[index + idx]) {
-                    AFB_ReqFailF(request, "invalid-syntax", "mixer=%s invalid source= %s", mixer->uid, json_object_get_string(sourceJ));
+                    AFB_ReqFailF(request, "bad-pcm", "mixer=%s invalid source= %s", mixer->uid, json_object_get_string(sourceJ));
                     goto OnErrorExit;
                 }
             }
