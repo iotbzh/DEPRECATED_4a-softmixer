@@ -1,0 +1,60 @@
+{
+    "$schema": "http://iot.bzh/download/public/schema/json/ctl-schema.json",
+    "metadata": {
+        "uid": "Soft Mixer",
+        "version": "1.0",
+        "api": "smixer",
+        "info": "Soft Mixer emulating hardware mixer"
+    },
+    "resources": [
+        {
+            "uid": "softmixer",
+            "info": "Map alsa-loop subdevices to 4A HAL streams",
+            "spath": "./package/lib/plugins:./package/var:./lib/plugins:./var",
+            "libs": ["alsa-softmixer.ctlso", "smixer-test-usb_8ch.lua"]
+        }
+    ],
+    "onload": [
+        {
+            "uid": "mixer-create-api",
+            "info": "Create Audio Router",
+            "action": "plugin://softmixer#MixerCreate",
+            "args": {
+                "uid":"Alsa-Mixer",
+                "max_loop": 1,
+                "max_sink": 8,
+                "max_source": 8,
+                "max_zone": 8,
+                "max_stream": 8,
+                "max_ramp": 4
+            }
+        },
+        {
+            "uid": "mixer-attach-loop",
+            "info": "Create Audio Router",
+            "action": "plugin://softmixer#MixerAttach",
+            "args": {
+                "loops" : {
+                    "uid":"Alsa-Loopback",
+                    "path": "/dev/snd/by-path/platform-snd_aloop.0",
+                    "devices" : {"playback":0, "capture":1},
+                    "subdevs" : [
+                        {"subdev": 0, "numid": 51, "uid": "loop-legacy"},
+                        {"subdev": 1, "numid": 57, "uid": "loop-multimedia"},
+                        {"subdev": 2, "numid": 63},
+                        {"subdev": 3, "numid": 69},
+                        {"subdev": 4, "numid": 75},
+                        {"subdev": 5, "numid": 81},
+                        {"subdev": 6, "numid": 87},
+                        {"subdev": 7, "numid": 93}
+                    ]
+                }
+            }
+        },
+        {
+            "uid": "lua-test-attach",
+            "info": "For testing purpose attach stream & zone directly from LUA script to simulate HAL",
+            "action": "lua://softmixer#_mixer_simple_test_"
+        }
+    ]
+}

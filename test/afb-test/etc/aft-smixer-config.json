@@ -1,0 +1,22 @@
+{
+    "id": "http://iot.bzh/download/public/schema/json/ctl-schema.json#",
+    "$schema": "http://iot.bzh/download/public/schema/json/ctl-schema.json#",
+    "metadata": {
+        "uid": "Test",
+        "version": "1.0",
+        "api": "aft-4a-smixer",
+        "info": "AFB-test binding configuration file to test ahl api.",
+        "require": [
+            "smixer"
+        ]
+    },
+    "testVerb": {
+        "uid": "launch_all_tests",
+        "info": "Launch all the tests",
+        "action": "lua://AFT#_launch_test",
+        "args": {
+            "trace": "smixer",
+            "files": ["4a-softmixer_BasicAPITest.lua"]
+        }
+    }
+}
