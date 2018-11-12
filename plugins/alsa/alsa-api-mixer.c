@@ -27,6 +27,8 @@
 
 extern Lua2cWrapperT Lua2cWrap;
 
+static json_object *LoopsJ = NULL; // AVIRT: temporary loops JSON
+
 static void MixerRemoveVerb(AFB_ReqT request) {
     SoftMixerT *mixer = (SoftMixerT*) afb_req_get_vcbdata(request);
     int error;
@@ -567,13 +569,6 @@ STATIC void MixerAttachVerb(AFB_ReqT request) {
         goto OnErrorExit;
     }
 
-    AFB_ApiInfo(mixer->api, "%s set LOOPS", __func__);
-
-    if (loopsJ) {
-        error = ApiLoopAttach(mixer, request, uid, loopsJ);
-        if (error) goto OnErrorExit;
-    }
-    
     AFB_ApiInfo(mixer->api, "%s set PLAYBACK", __func__);
 
     if (playbacksJ) {
@@ -605,6 +600,16 @@ STATIC void MixerAttachVerb(AFB_ReqT request) {
         
         json_object *resultJ = MixerInfoZones(mixer, zonesJ, 0);
         json_object_object_add(responseJ, "zone", resultJ);
+    }
+
+    // In AVIRT mode, we require both the loops and streams JSON objects to
+    // construct the loopbacks, so when the loops are set, but the streams
+    // are not, we need to save the loops until the streams are given to us
+    if (streamsJ && (loopsJ || LoopsJ)) {
+        AFB_ApiInfo(mixer->api, "%s set LOOPS/AVIRT", __func__);
+        error = ApiLoopAttach(mixer, request, uid,
+                              ((loopsJ) ? loopsJ : LoopsJ), streamsJ);
+        if (error) goto OnErrorExit;
     }
 
     AFB_ApiInfo(mixer->api, "%s set RAMPS", __func__);
@@ -730,9 +735,14 @@ CTLP_CAPI(MixerAttach, source, argsJ, responseJ) {
         if (error) goto OnErrorExit;
     }
 
-    if (loopsJ) {
-        error = ApiLoopAttach(mixer, NULL, uid, loopsJ);
+    // In AVIRT mode, we require both the loops and streams JSON objects to
+    // construct the loopbacks, so when the loops are set, but the streams
+    // are not, we need to save the loops until the streams are given to us
+    if (loopsJ && streamsJ) {
+        error = ApiLoopAttach(mixer, NULL, uid, loopsJ, streamsJ);
         if (error) goto OnErrorExit;
+    } else {
+      LoopsJ = loopsJ;
     }
 
     if (zonesJ) {

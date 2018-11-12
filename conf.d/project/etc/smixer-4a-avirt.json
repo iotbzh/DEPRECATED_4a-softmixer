@@ -1,0 +1,44 @@
+{
+    "$schema": "http://iot.bzh/download/public/schema/json/ctl-schema.json",
+    "metadata": {
+        "uid": "Soft Mixer",
+        "version": "1.0",
+        "api": "smixer",
+        "info": "Soft Mixer emulating hardware mixer"
+    },
+    "resources": [
+        {
+            "uid": "softmixer-avirt",
+            "info": "Map avirt-loop to 4A HAL streams",
+            "spath": "./package/lib/plugins:./package/var:./lib/plugins:./var:/usr/libexec/agl/smixer",
+            "libs": ["alsa-softmixer.ctlso"]
+        }
+    ],
+    "onload": [
+        {
+            "uid": "mixer-create-api",
+            "info": "Create Audio Router",
+            "action": "plugin://softmixer-avirt#MixerCreate",
+            "args": {
+                "uid":"Alsa-Mixer",
+                "max_loop": 1,
+                "max_sink": 16,
+                "max_source": 16,
+                "max_zone": 16,
+                "max_stream": 16,
+                "max_ramp": 6
+            }
+        },
+        {
+          "uid": "mixer-attach-loop",
+          "info": "Create Audio Router",
+          "action": "plugin://softmixer-avirt#MixerAttach",
+          "args": {
+              "loops" : {
+                  "uid":"AVIRT-Loopback",
+                  "path": "/dev/snd/by-path/platform-snd_avirt.0"
+              }
+          }
+        }
+    ]
+}

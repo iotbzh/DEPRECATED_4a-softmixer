@@ -210,17 +210,18 @@ typedef struct {
 
 typedef struct {
     const char*uid;
-    int index;
+    int index; // AVIRT: parent PCM index (Since subdev idx is always 0)
     int numid;
 } AlsaLoopSubdevT;
 
 typedef struct {
+    bool avirt; // AVIRT: Is this loop AVIRT?
     const char *uid;
-    int playback;
-    int capture;
-    long scount;
+    int playback; // AVIRT: UNUSED
+    int capture; // AVIRT: UNUSED
+    long scount; // AVIRT: PCM count
     AlsaSndCtlT *sndcard;
-    AlsaLoopSubdevT **subdevs;
+    AlsaLoopSubdevT **subdevs; // AVIRT: each subdev is on a different PCM
 } AlsaSndLoopT;
 
 typedef struct {
@@ -306,7 +307,7 @@ PUBLIC AlsaPcmCtlT* AlsaCreateDmix(SoftMixerT *mixer, const char* pcmName, AlsaS
 
 // alsa-api-*
 PUBLIC AlsaLoopSubdevT *ApiLoopFindSubdev(SoftMixerT *mixer, const char *streamUid, const char *targetUid, AlsaSndLoopT **loop);
-PUBLIC int ApiLoopAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, json_object * argsJ);
+PUBLIC int ApiLoopAttach(SoftMixerT *mixer, AFB_ReqT request, const char *uid, json_object * argsJ, json_object *streamsJ);
 PUBLIC AlsaPcmHwInfoT *ApiPcmSetParams(SoftMixerT *mixer, const char *uid, json_object *paramsJ);
 PUBLIC AlsaSndPcmT *ApiPcmAttachOne(SoftMixerT *mixer, const char *uid, snd_pcm_stream_t direction, json_object *argsJ);
 PUBLIC AlsaVolRampT *ApiRampGetByUid(SoftMixerT *mixer, const char *uid);
