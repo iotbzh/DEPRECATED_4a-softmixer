@@ -201,6 +201,7 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     char *volName = NULL;
     int pauseNumid = 0;
     int volNumid = 0;
+    int device, subdev;
 
     AFB_ApiInfo(mixer->api,
                 "%s, stream %s %s, source %s, sink %s, mute %d",
@@ -208,12 +209,20 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
 
     loopDev = ApiLoopFindSubdev(mixer, stream->uid, stream->source, &loop);
     if (loopDev) {
+        if (loop->avirt) {
+            device = loopDev->index;
+            subdev = 0;
+        } else { // loop->avirt == false
+            device = loop->capture;
+            subdev = loopDev->index;
+        }
+
         // create a valid PCM reference and try to open it.
         captureDev->devpath = NULL;
         captureDev->cardid = NULL;
         captureDev->cardidx = loop->sndcard->cid.cardidx;
-        captureDev->device = loop->capture;
-        captureDev->subdev = loopDev->index;
+        captureDev->device = device;
+        captureDev->subdev = subdev;
         captureDev->pcmplug_params = NULL;
         captureCard = loop->sndcard;
 
