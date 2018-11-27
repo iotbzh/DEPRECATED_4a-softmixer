@@ -21,6 +21,8 @@
 #include "alsa-softmixer.h"
 #include "alsa-bluez.h"
 
+#include <avirt/avirt.h>
+
 #include <string.h>
 #include <stdbool.h>
 #include <dlfcn.h>
@@ -199,6 +201,7 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     char *volName = NULL;
     int pauseNumid = 0;
     int volNumid = 0;
+    int device, subdev;
 
     AFB_ApiInfo(mixer->api,
                 "%s, stream %s %s, source %s, sink %s, mute %d",
@@ -206,12 +209,20 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
 
     loopDev = ApiLoopFindSubdev(mixer, stream->uid, stream->source, &loop);
     if (loopDev) {
+        if (loop->avirt) {
+            device = loopDev->index;
+            subdev = 0;
+        } else { // loop->avirt == false
+            device = loop->capture;
+            subdev = loopDev->index;
+        }
+
         // create a valid PCM reference and try to open it.
         captureDev->devpath = NULL;
         captureDev->cardid = NULL;
         captureDev->cardidx = loop->sndcard->cid.cardidx;
-        captureDev->device = loop->capture;
-        captureDev->subdev = loopDev->index;
+        captureDev->device = device;
+        captureDev->subdev = subdev;
         captureDev->pcmplug_params = NULL;
         captureCard = loop->sndcard;
 
@@ -405,7 +416,9 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     }
 
     if (loop) {
-        if (asprintf((char**) &stream->source, "hw:%d,%d,%d", captureDev->cardidx, loop->playback, capturePcm->cid.subdev) == -1)
+        int device = (loop->avirt) ? captureDev->device
+                                   : loop->playback;
+        if (asprintf((char**) &stream->source, "hw:%d,%d,%d", captureDev->cardidx, device, capturePcm->cid.subdev) == -1)
             goto OnErrorExit;
     } else {
         if (asprintf((char**) &stream->source, "hw:%d,%d,%d", captureDev->cardidx, captureDev->device, captureDev->subdev) == -1)
