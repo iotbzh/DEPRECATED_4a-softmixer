@@ -416,7 +416,9 @@ STATIC int CreateOneStream(SoftMixerT *mixer, const char * uid, AlsaStreamAudioT
     }
 
     if (loop) {
-        if (asprintf((char**) &stream->source, "hw:%d,%d,%d", captureDev->cardidx, loop->playback, capturePcm->cid.subdev) == -1)
+        int device = (loop->avirt) ? captureDev->device
+                                   : loop->playback;
+        if (asprintf((char**) &stream->source, "hw:%d,%d,%d", captureDev->cardidx, device, capturePcm->cid.subdev) == -1)
             goto OnErrorExit;
     } else {
         if (asprintf((char**) &stream->source, "hw:%d,%d,%d", captureDev->cardidx, captureDev->device, captureDev->subdev) == -1)
